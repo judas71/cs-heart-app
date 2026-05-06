@@ -1,4 +1,3 @@
-(function () {
   const h = React.createElement;
   const { AthletesView, AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
@@ -11,12 +10,19 @@
       saveState(state);
     }, [state]);
 
-    function addAthlete(athlete) {
-      setState((current) => ({
-        ...current,
-        athletes: [{ ...athlete, id: createId("ath") }, ...current.athletes]
-      }));
-    }
+    async function addAthlete(athlete) {
+  try {
+    const docRef = { id: Date.now().toString() };
+
+    setState((current) => ({
+      ...current,
+      athletes: [{ ...athlete, id: docRef.id }, ...current.athletes]
+    }));
+  } catch (error) {
+    console.error("Eroare la salvarea sportivului:", error);
+    alert("Nu s-a salvat sportivul în Firebase.");
+  }
+}
 
     function updateAthlete(id, athlete) {
       setState((current) => ({
@@ -116,4 +122,5 @@
   }
 
   ReactDOM.createRoot(document.getElementById("root")).render(h(App));
-})();
+
+
