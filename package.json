@@ -1,0 +1,28 @@
+{
+  "name": "cs-heart-app",
+  "version": "1.0.0",
+  "description": "Aplicație web simplă pentru administrarea clubului de baschet CS HEART.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "deploy": "gh-pages -d dist",
+    "build": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/judas71/cs-heart-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/judas71/cs-heart-app/issues"
+  },
+  "homepage": "https://github.com/judas71/cs-heart-app#readme",
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "vite": "^8.0.11"
+  }
+}
