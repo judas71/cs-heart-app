@@ -113,12 +113,15 @@
                     h("td", { "data-label": "Telefon părinte" }, athlete.parentPhone || "-"),
                     h("td", { "data-label": "Status" }, h(StatusPill, { tone: athlete.active ? "ok" : "muted" }, athlete.active ? "Activ" : "Inactiv")),
                     h("td", { "data-label": "Observații" }, athlete.notes || "-"),
-                    h("td", { className: "row-actions" }, [
-                    h("button", { onClick: () => setEditingId(athlete.id) }, "Editează"),
-                    h("button", { onClick: () => setProfileId(profileId === athlete.id ? null : athlete.id) }, "Fișă")
-                    ])  
-                    ,
-profileId === athlete.id && h("tr", { key: "profile-" + athlete.id }, h("td", { colSpan: 6 }, h("div", { className: "profile-card" }, [
+                     h(
+  "td",
+  { className: "row-actions" },
+  h("button", { onClick: () => setEditingId(athlete.id) }, "Editează"),
+  h("button", { onClick: () => setProfileId(profileId === athlete.id ? null : athlete.id) }, "Fișă"),
+  h("button", { onClick: () => onDelete(athlete.id) }, "Șterge")
+),
+                    
+  profileId === athlete.id && h("tr", { key: "profile-" + athlete.id }, h("td", { colSpan: 6 }, h("div", { className: "profile-card" }, [
   h("h3", null, "Fișă sportiv: " + athleteName(athlete)),
   h("div", { className: "profile-fields" }, [
   h("input", { placeholder: "Poziție / rol" }),
