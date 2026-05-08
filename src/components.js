@@ -37,7 +37,8 @@
         group: "",
         parentPhone: "",
         active: true,
-        notes: ""
+        notes: "",
+        joinMonth: new Date().toISOString().slice(0, 7)
       }
     );
 
@@ -63,6 +64,7 @@
       h(Field, { label: "Prenume" }, h("input", { value: form.firstName, onChange: (e) => update("firstName", e.target.value), required: true })),
       h(Field, { label: "Grupa" }, h("input", { value: form.group, onChange: (e) => update("group", e.target.value), placeholder: "U10", required: true })),
       h(Field, { label: "Telefon părinte" }, h("input", { value: form.parentPhone, onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
+      h(Field, { label: "Luna înscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
       h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
       h(Field, { label: "Observații" }, h("textarea", { value: form.notes, onChange: (e) => update("notes", e.target.value), rows: 2 })),
       h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salvează"), h("button", { type: "button", onClick: onCancel }, "Anulează"))
@@ -221,7 +223,7 @@ h("textarea", { placeholder: "Obiective și observații" })
         athleteId,
         month,
         status: "neplătită",
-        amountDue: 250,
+        amountDue: 200,
         amountPaid: 0,
         paymentDate: "",
         method: "cash",
