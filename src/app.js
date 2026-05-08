@@ -1,4 +1,6 @@
   const h = React.createElement;
+  import { doc, getDoc, setDoc } from "firebase/firestore";
+  import { db } from "./firebase.js";
   const { AthletesView, AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
 
@@ -6,9 +8,45 @@
     const [state, setState] = React.useState(loadState);
     const [activeView, setActiveView] = React.useState("sportivi");
 
-    React.useEffect(() => {
-      saveState(state);
-    }, [state]);
+   const loadedRef = React.useRef(false);
+
+  React.useEffect(() => {
+  async function loadFromFirestore() {
+    try {
+      const appRef = doc(db, "app", "state");
+      const snapshot = await getDoc(appRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setState({
+          athletes: Array.isArray(data.athletes) ? data.athletes : [],
+          trainings: Array.isArray(data.trainings) ? data.trainings : [],
+          fees: Array.isArray(data.fees) ? data.fees : []
+        });
+      } else {
+        await setDoc(appRef, state);
+      }
+
+      loadedRef.current = true;
+    } catch (error) {
+      console.error("Eroare la citirea din Firebase:", error);
+      loadedRef.current = true;
+    }
+  }
+
+  loadFromFirestore();
+}, []);
+
+React.useEffect(() => {
+  if (!loadedRef.current) return;
+
+  saveState(state);
+
+  const appRef = doc(db, "app", "state");
+  setDoc(appRef, state).catch((error) => {
+    console.error("Eroare la salvarea în Firebase:", error);
+  });
+}, [state]);
 
     async function addAthlete(athlete) {
   try {
