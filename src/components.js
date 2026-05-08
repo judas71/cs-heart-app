@@ -212,7 +212,11 @@ h("textarea", { placeholder: "Obiective și observații" })
     const [month, setMonth] = React.useState(monthNow);
     const [group, setGroup] = React.useState("toate");
     const groups = getGroups(athletes);
-    const listedAthletes = athletes.filter((athlete) => athlete.active && (group === "toate" || athlete.group === group));
+    const listedAthletes = athletes.filter((athlete) =>
+  athlete.active &&
+  (group === "toate" || athlete.group === group) &&
+  (!athlete.joinMonth || athlete.joinMonth <= month)
+);
     const listedAthleteIds = listedAthletes.map((athlete) => athlete.id);
     const monthlyCollected = fees
       .filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId))
