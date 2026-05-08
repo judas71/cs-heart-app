@@ -212,11 +212,16 @@ h("textarea", { placeholder: "Obiective și observații" })
     const [month, setMonth] = React.useState(monthNow);
     const [group, setGroup] = React.useState("toate");
     const groups = getGroups(athletes);
-    const listedAthletes = athletes.filter((athlete) =>
-  athlete.active &&
-  (group === "toate" || athlete.group === group) &&
-  (!athlete.joinMonth || athlete.joinMonth <= month)
-);
+    const listedAthletes = athletes.filter((athlete) => {
+  if (!athlete.active) return false;
+  if (group !== "toate" && athlete.group !== group) return false;
+  if (!athlete.joinMonth) return false;
+
+  const athleteDate = new Date(athlete.joinMonth + "-01");
+  const selectedDate = new Date(month + "-01");
+
+  return athleteDate <= selectedDate;
+});
     const listedAthleteIds = listedAthletes.map((athlete) => athlete.id);
     const monthlyCollected = fees
       .filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId))
@@ -266,7 +271,12 @@ h("textarea", { placeholder: "Obiective și observații" })
               return h(
                 "tr",
                 { key: athlete.id, className: fee.status === "neplătită" ? "row-unpaid" : "" },
-                h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(athlete)), h("small", null, athlete.group)),
+                h(
+  "td",
+  { "data-label": "Sportiv" },
+  h("strong", null, athleteName(athlete)),
+  h("small", null, athlete.group + " / înscris: " + (athlete.joinMonth || "FĂRĂ LUNĂ"))
+),
                 h("td", { "data-label": "Status" }, h("select", { value: fee.status, onChange: (e) => updateFee(athlete.id, "status", e.target.value) }, feeStatuses.map((status) => h("option", { key: status, value: status }, status)))),
                 h("td", { "data-label": "Datorat" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (e) => updateFee(athlete.id, "amountDue", Number(e.target.value)) })),
                 h("td", { "data-label": "Plătit" }, h("input", { type: "number", min: "0", value: fee.amountPaid, onChange: (e) => updateFee(athlete.id, "amountPaid", Number(e.target.value)) })),
@@ -286,7 +296,10 @@ h("textarea", { placeholder: "Obiective și observații" })
     const groups = getGroups(athletes);
     const [group, setGroup] = React.useState("toate");
     const [month, setMonth] = React.useState(currentMonth);
-    const athletesInFilter = athletes.filter((athlete) => group === "toate" || athlete.group === group);
+    const athletesInFilter = athletes.filter((athlete) =>
+  (group === "toate" || athlete.group === group) &&
+  (!athlete.joinMonth || athlete.joinMonth <= month)
+);
     const debtorRows = athletesInFilter
       .map((athlete) => ({ athlete, fee: fees.find((fee) => fee.athleteId === athlete.id && fee.month === month) }))
       .filter((row) => !row.fee || row.fee.status !== "plătită");
