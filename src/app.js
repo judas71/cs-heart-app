@@ -1,9 +1,7 @@
   const h = React.createElement;
-  import { doc, getDoc, setDoc } from "firebase/firestore";
-  import { db } from "./firebase.js";
   const { AthletesView, AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
-
+  import { db, doc, getDoc, setDoc } from "./firebase.js";
   function App() {
     const [state, setState] = React.useState(loadState);
     const [activeView, setActiveView] = React.useState("sportivi");
