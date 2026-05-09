@@ -303,7 +303,10 @@ h("textarea", { placeholder: "Obiective și observații" })
     const debtorRows = athletesInFilter
       .map((athlete) => ({ athlete, fee: fees.find((fee) => fee.athleteId === athlete.id && fee.month === month) }))
       .filter((row) => {
-  const due = Number(row.fee?.amountDue ?? row.athlete.feeDue ?? 0);
+  const due = row.fee
+    ? Number(row.fee.amountDue ?? 0)
+    : Number(row.athlete.feeDue ?? 200);
+
   return due > 0 && (!row.fee || row.fee.status !== "plătită");
 });
     const collectedFees = fees.filter((fee) => fee.month === month && Number(fee.amountPaid || 0) > 0 && athletesInFilter.some((athlete) => athlete.id === fee.athleteId));
@@ -350,11 +353,7 @@ const totalTransfer = collectedFees
     )
   )
 ),
-      h("div", { className: "report-grid" },h("div", null,
-      h("div", null,
-  
-),
-),
+        h("div", { className: "report-grid" },    
         h("div", { className: "report-block" }, h("h2", null, "Sportivi restanțieri"), debtorRows.length ? h("ul", { className: "clean-list" }, debtorRows.map(({ athlete, fee }) => h("li", { key: athlete.id, className: !fee || fee.status === "neplătită" ? "row-unpaid" : "" }, h("span", null, athleteName(athlete), " · ", athlete.group), h(StatusPill, { tone: "warn" }, fee?.status || "neplătită")))) : h(EmptyState, { title: "Nu sunt restanțe.", text: "Toate taxele din filtrul curent sunt marcate ca plătite." })),
         h("div", { className: "report-block" }, h("h2", null, "Prezențe pe sportiv"), h("ul", { className: "clean-list" }, attendanceRows.map(({ athlete, total, present }) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, `${present}/${total}`))))),
         h("div", { className: "report-block" }, h("h2", null, "Încasări pe lună"), collectedFees.length ? h("ul", { className: "clean-list" }, collectedFees.map((fee) => { const athlete = athletes.find((item) => item.id === fee.athleteId); return h("li", { key: fee.id }, h("span", null, athlete ? athleteName(athlete) : "Sportiv șters"), h("strong", null, formatMoney(fee.amountPaid))); })) : h(EmptyState, { title: "Nu sunt încasări.", text: "Schimbă luna sau marchează plăți în secțiunea Taxe." }))
