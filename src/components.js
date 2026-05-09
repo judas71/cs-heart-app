@@ -302,9 +302,19 @@ h("textarea", { placeholder: "Obiective și observații" })
 );
     const debtorRows = athletesInFilter
       .map((athlete) => ({ athlete, fee: fees.find((fee) => fee.athleteId === athlete.id && fee.month === month) }))
-      .filter((row) => !row.fee || row.fee.status !== "plătită");
+      .filter((row) => {
+  const due = Number(row.fee?.amountDue ?? row.athlete.feeDue ?? 0);
+  return due > 0 && (!row.fee || row.fee.status !== "plătită");
+});
     const collectedFees = fees.filter((fee) => fee.month === month && Number(fee.amountPaid || 0) > 0 && athletesInFilter.some((athlete) => athlete.id === fee.athleteId));
     const totalCollected = collectedFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const totalCash = collectedFees
+    .filter((fee) => fee.method === "cash")
+    .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+
+const totalTransfer = collectedFees
+  .filter((fee) => fee.method === "transfer")
+  .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const attendanceRows = athletesInFilter.map((athlete) => {
       const entries = trainings.filter((training) => training.attendance?.[athlete.id] && training.date.startsWith(month));
       const present = entries.filter((training) => training.attendance[athlete.id] === "prezent").length;
@@ -315,8 +325,36 @@ h("textarea", { placeholder: "Obiective și observații" })
       "section",
       { className: "stack" },
       h("div", { className: "panel compact-grid" }, h(Field, { label: "Grupa" }, h("select", { value: group, onChange: (e) => setGroup(e.target.value) }, h("option", { value: "toate" }, "Toate grupele"), groups.map((item) => h("option", { key: item, value: item }, item)))), h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (e) => setMonth(e.target.value) }))),
-      h("div", { className: "metrics" }, h("div", null, h("span", null, "Restanțieri"), h("strong", null, debtorRows.length)), h("div", null, h("span", null, "Încasări lună"), h("strong", null, formatMoney(totalCollected))), h("div", null, h("span", null, "Antrenamente"), h("strong", null, trainings.filter((training) => training.date.startsWith(month) && (group === "toate" || training.group === group)).length))),
-      h("div", { className: "report-grid" },
+      h("div", { className: "metrics" },
+
+  h("div", null,
+    h("span", null, "Restanțieri"),
+    h("strong", null, debtorRows.length)
+  ),
+
+  h("div", null,
+    h("span", null, "Încasări lună"),
+    h("strong", null, formatMoney(totalCollected)),
+   h("div", { style: { fontSize: "14px", marginTop: "6px", color: "#111" } },
+  "Cash: " + formatMoney(totalCash) + " / Transfer: " + formatMoney(totalTransfer)
+) 
+  ),
+
+  h("div", null,
+    h("span", null, "Antrenamente"),
+    h("strong", null,
+      trainings.filter((training) =>
+        training.date.startsWith(month) &&
+        (group === "toate" || training.group === group)
+      ).length
+    )
+  )
+),
+      h("div", { className: "report-grid" },h("div", null,
+      h("div", null,
+  
+),
+),
         h("div", { className: "report-block" }, h("h2", null, "Sportivi restanțieri"), debtorRows.length ? h("ul", { className: "clean-list" }, debtorRows.map(({ athlete, fee }) => h("li", { key: athlete.id, className: !fee || fee.status === "neplătită" ? "row-unpaid" : "" }, h("span", null, athleteName(athlete), " · ", athlete.group), h(StatusPill, { tone: "warn" }, fee?.status || "neplătită")))) : h(EmptyState, { title: "Nu sunt restanțe.", text: "Toate taxele din filtrul curent sunt marcate ca plătite." })),
         h("div", { className: "report-block" }, h("h2", null, "Prezențe pe sportiv"), h("ul", { className: "clean-list" }, attendanceRows.map(({ athlete, total, present }) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, `${present}/${total}`))))),
         h("div", { className: "report-block" }, h("h2", null, "Încasări pe lună"), collectedFees.length ? h("ul", { className: "clean-list" }, collectedFees.map((fee) => { const athlete = athletes.find((item) => item.id === fee.athleteId); return h("li", { key: fee.id }, h("span", null, athlete ? athleteName(athlete) : "Sportiv șters"), h("strong", null, formatMoney(fee.amountPaid))); })) : h(EmptyState, { title: "Nu sunt încasări.", text: "Schimbă luna sau marchează plăți în secțiunea Taxe." }))
