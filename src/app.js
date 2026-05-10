@@ -1,5 +1,5 @@
   const h = React.createElement;
-  const { AthletesView, AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
+  const { AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   import { db, doc, getDoc, setDoc } from "./firebase.js";
   function App() {
