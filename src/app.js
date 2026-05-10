@@ -143,7 +143,7 @@ React.useEffect(() => {
         "header",
         { className: "topbar" },
         h("div", null, h("p", { className: "eyebrow" }, "Administrare club"), h("h1", null, "CS HEART")),
-        h("button", { onClick: restoreDemo }, "Date demo")
+        
       ),
       h(
         "nav",
