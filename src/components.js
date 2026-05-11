@@ -279,7 +279,7 @@ h("textarea", { placeholder: "Obiective și observații" })
 ),
                 h("td", { "data-label": "Status" }, h("select", { value: fee.status, onChange: (e) => updateFee(athlete.id, "status", e.target.value) }, feeStatuses.map((status) => h("option", { key: status, value: status }, status)))),
                 h("td", { "data-label": "Datorat" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (e) => updateFee(athlete.id, "amountDue", Number(e.target.value)) })),
-                h("td", { "data-label": "Plătit" }, h("input", { type: "number", min: "0", value: Number(fee.amountPaid || 0) === 0 ? "" : fee.amountPaid, onChange: (e) => updateFee(athlete.id, "amountPaid", e.target.value === "" ? 0 : Number(e.target.value))
+                h("td", { "data-label": "Plătit" }, h("input", { type: "number", min: "0", value: Number(fee.amountPaid || 0) === 0 ? "" : fee.amountPaid, onChange: (e) => updateFee(athlete.id, "amountPaid", e.target.value === "" ? 0 : Number(e.target.value)) })),
                 h("td", { "data-label": "Data plății" }, h("input", { type: "date", value: fee.paymentDate, onChange: (e) => updateFee(athlete.id, "paymentDate", e.target.value) })),
                 h("td", { "data-label": "Metodă" }, h("select", { value: fee.method, onChange: (e) => updateFee(athlete.id, "method", e.target.value) }, paymentMethods.map((method) => h("option", { key: method, value: method }, method)))),
                 h("td", { "data-label": "Observații" }, h("input", { value: fee.notes, onChange: (e) => updateFee(athlete.id, "notes", e.target.value), placeholder: "Opțional" }))
