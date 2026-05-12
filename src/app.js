@@ -1,7 +1,42 @@
   const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
-  import { db, doc, getDoc, setDoc } from "./firebase.js";
+  import { db, doc, getDoc, setDoc, auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
+  function LoginView() {
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [error, setError] = React.useState("");
+    const [busy, setBusy] = React.useState(false);
+
+    async function submit(event) {
+      event.preventDefault();
+      setError("");
+      setBusy(true);
+
+      try {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      } catch (error) {
+        setError("Email sau parola gresita, ori contul nu este activat in Firebase.");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return h(
+      "main",
+      { className: "auth-shell" },
+      h(
+        "form",
+        { className: "auth-card", onSubmit: submit },
+        h("p", { className: "eyebrow" }, "CS HEART"),
+        h("h1", null, "Autentificare"),
+        h(Field, { label: "Email" }, h("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), autoComplete: "username", required: true })),
+        h(Field, { label: "Parola" }, h("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), autoComplete: "current-password", required: true })),
+        error && h("p", { className: "auth-error" }, error),
+        h("button", { className: "primary", type: "submit", disabled: busy }, busy ? "Se verifica..." : "Intra in aplicatie")
+      )
+    );
+  }
   function App() {
     const [state, setState] = React.useState(loadState);
     const [activeView, setActiveView] = React.useState("sportivi");
@@ -9,6 +44,20 @@
    const loadedRef = React.useRef(false);
 
   React.useEffect(() => {
+    return onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthReady(true);
+
+      if (!currentUser) {
+        loadedRef.current = false;
+      }
+    });
+  }, []);
+
+  React.useEffect(() => {
+  if (!authReady || !user) return;
+  loadedRef.current = false;
+
   async function loadFromFirestore() {
     try {
       const appRef = doc(db, "app", "state");
@@ -33,10 +82,10 @@
   }
 
   loadFromFirestore();
-}, []);
+}, [authReady, user?.uid]);
 
 React.useEffect(() => {
-  if (!loadedRef.current) return;
+  if (!authReady || !user || !loadedRef.current) return;
 
   saveState(state);
 
@@ -44,7 +93,7 @@ React.useEffect(() => {
   setDoc(appRef, state).catch((error) => {
     console.error("Eroare la salvarea în Firebase:", error);
   });
-}, [state]);
+}, [state, authReady, user?.uid]);
 
     async function addAthlete(athlete) {
   try {
@@ -129,6 +178,23 @@ React.useEffect(() => {
       if (ok) setState(resetState());
     }
 
+    function logout() {
+      signOut(auth).catch((error) => {
+        console.error("Eroare la iesire:", error);
+      });
+    }
+
+    if (!authReady) {
+      return h(
+        "main",
+        { className: "auth-shell" },
+        h("div", { className: "auth-card" }, h("p", { className: "eyebrow" }, "CS HEART"), h("h1", null, "Se verifica accesul..."))
+      );
+    }
+
+    if (!user) {
+      return h(LoginView);
+    }
     const views = [
       ["sportivi", "Sportivi"],
       ["prezenta", "Prezență"],
@@ -143,7 +209,7 @@ React.useEffect(() => {
         "header",
         { className: "topbar" },
         h("div", null, h("p", { className: "eyebrow" }, "Administrare club"), h("h1", null, "CS HEART")),
-        
+        h("button", { onClick: logout }, "Iesire")
       ),
       h(
         "nav",
