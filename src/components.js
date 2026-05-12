@@ -17,6 +17,46 @@
     return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort();
   }
 
+  function getMonthRange(startMonth, endMonth) {
+    if (!startMonth || !endMonth || startMonth >= endMonth) return [];
+
+    const months = [];
+    const date = new Date(startMonth + "-01");
+    const endDate = new Date(endMonth + "-01");
+
+    while (date < endDate) {
+      months.push(date.toISOString().slice(0, 7));
+      date.setMonth(date.getMonth() + 1);
+    }
+
+    return months;
+  }
+
+  function getFeeForMonth(fees, athleteId, month) {
+    return fees.find((fee) => fee.athleteId === athleteId && fee.month === month);
+  }
+
+  function getMonthlyDue(athlete, fee) {
+    return Number(fee?.amountDue ?? athlete.feeDue ?? 200);
+  }
+
+  function getPreviousBalance(fees, athlete, month) {
+    return getMonthRange(athlete.joinMonth, month).reduce((sum, itemMonth) => {
+      const fee = getFeeForMonth(fees, athlete.id, itemMonth);
+      const due = getMonthlyDue(athlete, fee);
+      const paid = Number(fee?.amountPaid || 0);
+
+      return sum + Math.max(due - paid, 0);
+    }, 0);
+  }
+
+  function getOutstandingAmount(fee, previousBalance, fallbackDue) {
+    const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+    const amountPaid = Number(fee?.amountPaid || 0);
+
+    return Math.max(amountDue + previousBalance - amountPaid, 0);
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -228,11 +268,13 @@ h("textarea", { placeholder: "Obiective și observații" })
       .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
 
     function getFee(athleteId) {
-      return fees.find((fee) => fee.athleteId === athleteId && fee.month === month) || {
+      const athlete = athletes.find((item) => item.id === athleteId);
+
+      return getFeeForMonth(fees, athleteId, month) || {
         athleteId,
         month,
         status: "neplătită",
-        amountDue: 200,
+        amountDue: Number(athlete?.feeDue ?? 200),
         amountPaid: 0,
         paymentDate: "",
         method: "cash",
@@ -245,6 +287,13 @@ h("textarea", { placeholder: "Obiective și observații" })
       onSaveFee({ ...fee, athleteId, month, [field]: value });
     }
 
+    const monthlyOutstanding = listedAthletes.reduce((sum, athlete) => {
+      const fee = getFee(athlete.id);
+      const previousBalance = getPreviousBalance(fees, athlete, month);
+
+      return sum + getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
+    }, 0);
+
     return h(
       "section",
       { className: "stack" },
@@ -255,14 +304,19 @@ h("textarea", { placeholder: "Obiective și observații" })
         h(Field, { label: "Grupa" }, h("select", { value: group, onChange: (e) => setGroup(e.target.value) }, h("option", { value: "toate" }, "Toate grupele"), groups.map((item) => h("option", { key: item, value: item }, item)))),
         h("button", { className: "danger align-end", onClick: () => onResetMonth(month, listedAthleteIds), disabled: !listedAthletes.length }, "Reset lună")
       ),
-      h("div", { className: "metrics single-metric" }, h("div", null, h("span", null, "Total încasări lună"), h("strong", null, formatMoney(monthlyCollected)))),
+      h(
+        "div",
+        { className: "metrics" },
+        h("div", null, h("span", null, "Total încasări lună"), h("strong", null, formatMoney(monthlyCollected))),
+        h("div", null, h("span", null, "De încasat total"), h("strong", null, formatMoney(monthlyOutstanding)))
+      ),
       h(
         "div",
         { className: "table-wrap wide" },
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Sportiv", "Status", "Datorat", "Plătit", "Data plății", "Metodă", "Observații"].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Sportiv", "Status", "Datorat", "Restanță", "Total", "Plătit", "Data plății", "Metodă", "Observații"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -270,7 +324,7 @@ h("textarea", { placeholder: "Obiective și observații" })
               const fee = getFee(athlete.id);
               return h(
                 "tr",
-                { key: athlete.id, className: fee.status === "neplătită" ? "row-unpaid" : "" },
+                { key: athlete.id, className: outstanding > 0 ? "row-unpaid" : "" },
                 h(
   "td",
   { "data-label": "Sportiv" },
@@ -279,6 +333,8 @@ h("textarea", { placeholder: "Obiective și observații" })
 ),
                 h("td", { "data-label": "Status" }, h("select", { value: fee.status, onChange: (e) => updateFee(athlete.id, "status", e.target.value) }, feeStatuses.map((status) => h("option", { key: status, value: status }, status)))),
                 h("td", { "data-label": "Datorat" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (e) => updateFee(athlete.id, "amountDue", Number(e.target.value)) })),
+                h("td", { "data-label": "Restanță" }, previousBalance > 0 ? h("strong", { className: "arrears" }, formatMoney(previousBalance)) : "-"),
+                h("td", { "data-label": "Total" }, h("strong", null, formatMoney(totalDue))),
                 h("td", { "data-label": "Plătit" }, h("input", { type: "number", min: "0", value: Number(fee.amountPaid || 0) === 0 ? "" : fee.amountPaid, onChange: (e) => updateFee(athlete.id, "amountPaid", e.target.value === "" ? 0 : Number(e.target.value)) })),
                 h("td", { "data-label": "Data plății" }, h("input", { type: "date", value: fee.paymentDate, onChange: (e) => updateFee(athlete.id, "paymentDate", e.target.value) })),
                 h("td", { "data-label": "Metodă" }, h("select", { value: fee.method, onChange: (e) => updateFee(athlete.id, "method", e.target.value) }, paymentMethods.map((method) => h("option", { key: method, value: method }, method)))),
@@ -305,14 +361,14 @@ h("textarea", { placeholder: "Obiective și observații" })
   );
 
   const debtorRows = athletesInFilter
-    .map((athlete) => ({
-      athlete,
-      fee: fees.find((fee) => fee.athleteId === athlete.id && fee.month === month)
-    }))
-    .filter((row) => {
-      const due = row.fee ? Number(row.fee.amountDue ?? 0) : Number(row.athlete.feeDue ?? 200);
-      return due > 0 && (!row.fee || row.fee.status !== "plătită");
-    });
+    .map((athlete) => {
+      const fee = getFeeForMonth(fees, athlete.id, month);
+      const previousBalance = getPreviousBalance(fees, athlete, month);
+      const outstanding = getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
+
+      return { athlete, fee, previousBalance, outstanding };
+    })
+    .filter((row) => row.outstanding > 0);
 
   const collectedFees = fees.filter(
     (fee) =>
@@ -419,7 +475,7 @@ function feeAthleteName(fee) {
                       { key: row.athlete.id },
                       h("td", null, athleteName(row.athlete)),
                       h("td", null, row.athlete.group),
-                      h("td", null, formatMoney(Number(row.athlete.feeDue ?? 200) - Number(row.fee?.amountPaid ?? 0)))
+                      h("td", null, formatMoney(row.outstanding))
                     )
                   )
                 )
