@@ -2,6 +2,9 @@
   const { AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   import { db, doc, getDoc, setDoc, auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
+  function Field({ label, children }) {
+    return h("label", { className: "field" }, h("span", null, label), children);
+  }
   function LoginView() {
     const [email, setEmail] = React.useState("");
     const [password, setPassword] = React.useState("");
