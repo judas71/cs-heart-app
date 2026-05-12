@@ -322,6 +322,10 @@ h("textarea", { placeholder: "Obiective și observații" })
             null,
             listedAthletes.map((athlete) => {
               const fee = getFee(athlete.id);
+              const previousBalance = getPreviousBalance(fees, athlete, month);
+              const totalDue = Number(fee.amountDue || 0) + previousBalance;
+              const outstanding = getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
+
               return h(
                 "tr",
                 { key: athlete.id, className: outstanding > 0 ? "row-unpaid" : "" },
