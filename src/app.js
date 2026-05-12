@@ -40,6 +40,8 @@
   function App() {
     const [state, setState] = React.useState(loadState);
     const [activeView, setActiveView] = React.useState("sportivi");
+    const [user, setUser] = React.useState(null);
+    const [authReady, setAuthReady] = React.useState(false);
 
    const loadedRef = React.useRef(false);
 
