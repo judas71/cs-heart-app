@@ -116,6 +116,10 @@ td small {
   color: var(--muted);
 }
 
+.arrears {
+  color: var(--danger);
+}
+
 tr.row-unpaid td,
 .clean-list li.row-unpaid {
   background: #fff1f2;
