@@ -10,6 +10,7 @@
     const [password, setPassword] = React.useState("");
     const [error, setError] = React.useState("");
     const [busy, setBusy] = React.useState(false);
+    const [showPassword, setShowPassword] = React.useState(false);
 
     async function submit(event) {
       event.preventDefault();
@@ -34,7 +35,7 @@
         h("p", { className: "eyebrow" }, "CS HEART"),
         h("h1", null, "Autentificare"),
         h(Field, { label: "Email" }, h("input", { type: "email", value: email, onChange: (e) => setEmail(e.target.value), autoComplete: "username", required: true })),
-        h(Field, { label: "Parola" }, h("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), autoComplete: "current-password", required: true })),
+        h(Field, { label: "Parola" }, h("div", { className: "password-row" }, h("input", { type: showPassword ? "text" : "password", value: password, onChange: (e) => setPassword(e.target.value), autoComplete: "current-password", required: true }), h("button", { type: "button", onClick: () => setShowPassword((current) => !current) }, showPassword ? "Ascunde" : "Arata"))),
         error && h("p", { className: "auth-error" }, error),
         h("button", { className: "primary", type: "submit", disabled: busy }, busy ? "Se verifica..." : "Intra in aplicatie")
       )

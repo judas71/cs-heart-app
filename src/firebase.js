@@ -3,7 +3,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
+  apiKey: "AIzaSyBLq6iGFCG-gPY7ZFocsaKm4fWIKVOzOlA",
   authDomain: "cs-heart.firebaseapp.com",
   projectId: "cs-heart",
   storageBucket: "cs-heart.firebasestorage.app",
