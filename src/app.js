@@ -19,7 +19,7 @@
       try {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       } catch (error) {
-        setError("Email sau parola gresita, ori contul nu este activat in Firebase.");
+        setError("Eroare Firebase: " + (error.code || error.message || "necunoscuta"));
       } finally {
         setBusy(false);
       }
