@@ -80,7 +80,7 @@
         const previousBalance = getPreviousBalance(fees, athlete, month);
         const outstanding = getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
 
-        return { athlete, fee, previousBalance, outstanding };
+        return { athlete, outstanding };
       })
       .filter((row) => row.outstanding > 0);
 
@@ -141,7 +141,7 @@
                     h(
                       "small",
                       { style: { display: "block", marginTop: "3px", color: "#66727a", fontSize: "0.78rem" } },
-                      fee.paymentDate ? `Data plÄƒÈ›ii: ${fee.paymentDate}` : "FÄƒrÄƒ datÄƒ de platÄƒ"
+                      fee.paymentDate ? `Data platii: ${fee.paymentDate}` : "Fara data de plata"
                     )
                   ),
                   h("strong", null, formatMoney(fee.amountPaid))
@@ -159,11 +159,11 @@
         h(
           "div",
           { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", borderBottom: "1px solid #d9e0e5", paddingBottom: "10px" } },
-          h("span", { style: { color: "#66727a", fontWeight: 800, textTransform: "uppercase", fontSize: "0.86rem" } }, "Total lunÄƒ"),
+          h("span", { style: { color: "#66727a", fontWeight: 800, textTransform: "uppercase", fontSize: "0.86rem" } }, "Total luna"),
           h("strong", null, formatMoney(totalCollected))
         ),
-        h(PaymentRows, { title: "Cash", rows: cashRows, emptyText: "Nu existÄƒ Ã®ncasÄƒri cash." }),
-        h(PaymentRows, { title: "Transfer", rows: transferRows, emptyText: "Nu existÄƒ Ã®ncasÄƒri prin transfer." })
+        h(PaymentRows, { title: "Cash", rows: cashRows, emptyText: "Nu exista incasari cash." }),
+        h(PaymentRows, { title: "Transfer", rows: transferRows, emptyText: "Nu exista incasari prin transfer." })
       );
     }
 
@@ -192,9 +192,9 @@
           "select",
           { value: reportType, onChange: (e) => setReportType(e.target.value) },
           h("option", { value: "toate" }, "Toate"),
-          h("option", { value: "restantieri" }, "RestanÈ›ieri"),
-          h("option", { value: "prezentaSlaba" }, "PrezenÈ›Äƒ sub 50%"),
-          h("option", { value: "observatii" }, "Cu observaÈ›ii"),
+          h("option", { value: "restantieri" }, "Restantieri"),
+          h("option", { value: "prezentaSlaba" }, "Prezenta sub 50%"),
+          h("option", { value: "observatii" }, "Cu observatii"),
           h("option", { value: "cash" }, "Doar cash"),
           h("option", { value: "transfer" }, "Doar transfer")
         )
@@ -202,11 +202,11 @@
       h(
         "div",
         { className: "metrics" },
-        h("div", null, h("span", null, "RestanÈ›ieri"), h("strong", null, debtorRows.length)),
+        h("div", null, h("span", null, "Restantieri"), h("strong", null, debtorRows.length)),
         h(
           "div",
           null,
-          h("span", null, "ÃŽncasÄƒri lunÄƒ"),
+          h("span", null, "Incasari luna"),
           h("strong", null, formatMoney(totalCollected)),
           h("div", { style: { fontSize: "14px", marginTop: "6px", color: "#111" } }, "Cash: " + formatMoney(totalCash) + " / Transfer: " + formatMoney(totalTransfer))
         ),
@@ -228,13 +228,13 @@
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "RestanÈ›ieri"),
+            h("h2", null, "Restantieri"),
             debtorRows.length === 0
-              ? h("p", null, "Nu existÄƒ restanÈ›ieri.")
+              ? h("p", null, "Nu exista restantieri.")
               : h(
                   "table",
                   { className: "table" },
-                  h("thead", null, h("tr", null, h("th", null, "Sportiv"), h("th", null, "Grupa"), h("th", null, "RestanÈ›Äƒ"))),
+                  h("thead", null, h("tr", null, h("th", null, "Sportiv"), h("th", null, "Grupa"), h("th", null, "Restanta"))),
                   h(
                     "tbody",
                     null,
@@ -254,7 +254,7 @@
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "Sportivi cu prezenÈ›Äƒ sub 50%"),
+            h("h2", null, "Sportivi cu prezenta sub 50%"),
             lowAttendanceRows.length
               ? h(
                   "ul",
@@ -264,15 +264,15 @@
                   )
                 )
               : h(EmptyState, {
-                  title: "Nu existÄƒ sportivi sub 50%.",
-                  text: "ToÈ›i sportivii au prezenÈ›Äƒ bunÄƒ."
+                  title: "Nu exista sportivi sub 50%.",
+                  text: "Toti sportivii au prezenta buna."
                 })
           ),
         reportType === "toate" &&
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "Sportivi restanÈ›ieri"),
+            h("h2", null, "Sportivi restantieri"),
             debtorRows.length
               ? h(
                   "ul",
@@ -281,13 +281,13 @@
                     h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, formatMoney(outstanding)))
                   )
                 )
-              : h("p", null, "Nu existÄƒ restanÈ›ieri.")
+              : h("p", null, "Nu exista restantieri.")
           ),
         reportType === "observatii" &&
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "Sportivi cu observaÈ›ii"),
+            h("h2", null, "Sportivi cu observatii"),
             observationRows.length
               ? h(
                   "ul",
@@ -296,27 +296,27 @@
                     h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, athlete.notes))
                   )
                 )
-              : h("p", null, "Nu existÄƒ observaÈ›ii.")
+              : h("p", null, "Nu exista observatii.")
           ),
         reportType === "cash" &&
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "ÃŽncasÄƒri cash"),
-            h(PaymentRows, { title: "Cash", rows: cashRows, emptyText: "Nu existÄƒ Ã®ncasÄƒri cash." })
+            h("h2", null, "Incasari cash"),
+            h(PaymentRows, { title: "Cash", rows: cashRows, emptyText: "Nu exista incasari cash." })
           ),
         reportType === "transfer" &&
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "ÃŽncasÄƒri transfer"),
-            h(PaymentRows, { title: "Transfer", rows: transferRows, emptyText: "Nu existÄƒ Ã®ncasÄƒri prin transfer." })
+            h("h2", null, "Incasari transfer"),
+            h(PaymentRows, { title: "Transfer", rows: transferRows, emptyText: "Nu exista incasari prin transfer." })
           ),
         reportType === "toate" &&
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "PrezenÈ›e pe sportiv"),
+            h("h2", null, "Prezente pe sportiv"),
             h(
               "ul",
               { className: "clean-list" },
@@ -329,8 +329,8 @@
           h(
             "div",
             { className: "report-block" },
-            h("h2", null, "ÃŽncasÄƒri pe lunÄƒ"),
-            collectedFees.length ? h(PaymentsSummary) : h("p", null, "Nu existÄƒ Ã®ncasÄƒri.")
+            h("h2", null, "Incasari pe luna"),
+            collectedFees.length ? h(PaymentsSummary) : h("p", null, "Nu exista incasari.")
           )
       )
     );
