@@ -150,7 +150,14 @@
         "div",
         { className: "metrics" },
         h("div", null, h("span", null, "Total incasari luna"), h("strong", null, formatMoney(monthlyCollected))),
-        h("div", null, h("span", null, "De incasat total"), h("strong", null, formatMoney(monthlyOutstanding)))
+        h("div", null, h("span", null, "De incasat total"), h("strong", null, formatMoney(monthlyOutstanding))),
+        h(
+          "div",
+          null,
+          h("span", null, "Impartire incasari"),
+          h("strong", null, "60% = " + formatMoney(monthlyCollected * 0.6)),
+          h("strong", null, "40% = " + formatMoney(monthlyCollected * 0.4))
+        )
       ),
       h(
         "div",
