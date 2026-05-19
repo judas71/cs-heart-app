@@ -1,4 +1,4 @@
-  const h = React.createElement;
+﻿  const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   import { db, doc, getDoc, setDoc, auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
@@ -97,7 +97,7 @@ React.useEffect(() => {
 
   const appRef = doc(db, "app", "state");
   setDoc(appRef, state).catch((error) => {
-    console.error("Eroare la salvarea în Firebase:", error);
+    console.error("Eroare la salvarea Ã®n Firebase:", error);
   });
 }, [state, authReady, user?.uid]);
 
@@ -111,7 +111,7 @@ React.useEffect(() => {
     }));
   } catch (error) {
     console.error("Eroare la salvarea sportivului:", error);
-    alert("Nu s-a salvat sportivul în Firebase.");
+    alert("Nu s-a salvat sportivul Ã®n Firebase.");
   }
 }
 
@@ -123,7 +123,7 @@ React.useEffect(() => {
     }
 
     function deleteAthlete(id) {
-      const ok = confirm("Ștergi sportivul și datele lui asociate?");
+      const ok = confirm("È˜tergi sportivul È™i datele lui asociate?");
       if (!ok) return;
       setState((current) => ({
         athletes: current.athletes.filter((athlete) => athlete.id !== id),
@@ -151,7 +151,13 @@ React.useEffect(() => {
     function saveFee(fee) {
       setState((current) => {
         const existing = current.fees.find((item) => item.athleteId === fee.athleteId && item.month === fee.month);
-        const normalized = { ...fee, id: existing?.id || createId("fee") };
+        const normalized = {
+          ...fee,
+          id: existing?.id || createId("fee"),
+          updatedAt: new Date().toISOString(),
+          updatedByEmail: user?.email || "necunoscut",
+          updatedById: user?.uid || ""
+        };
         return {
           ...current,
           fees: existing ? current.fees.map((item) => (item.id === existing.id ? normalized : item)) : [normalized, ...current.fees]
@@ -169,7 +175,7 @@ React.useEffect(() => {
           fee.month === month && athleteIds.includes(fee.athleteId)
             ? {
                 ...fee,
-                status: "neplătită",
+                status: "neplÄƒtitÄƒ",
                 amountPaid: 0,
                 paymentDate: "",
                 notes: ""
@@ -180,7 +186,7 @@ React.useEffect(() => {
     }
 
     function restoreDemo() {
-      const ok = confirm("Resetezi aplicația la datele demo?");
+      const ok = confirm("Resetezi aplicaÈ›ia la datele demo?");
       if (ok) setState(resetState());
     }
 
@@ -203,7 +209,7 @@ React.useEffect(() => {
     }
     const views = [
       ["sportivi", "Sportivi"],
-      ["prezenta", "Prezență"],
+      ["prezenta", "PrezenÈ›Äƒ"],
       ["taxe", "Taxe"],
       ["rapoarte", "Rapoarte"]
     ];
@@ -219,10 +225,10 @@ React.useEffect(() => {
       ),
       h(
         "nav",
-        { className: "tabs", "aria-label": "Secțiuni aplicație" },
+        { className: "tabs", "aria-label": "SecÈ›iuni aplicaÈ›ie" },
         views.map(([id, label]) => h("button", { key: id, className: activeView === id ? "active" : "", onClick: () => setActiveView(id) }, label))
       ),
-      activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
+      activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, onSaveFee: saveFee, onResetMonth: resetMonthFees }),
       activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees })
@@ -230,5 +236,6 @@ React.useEffect(() => {
   }
 
   ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+
 
 
