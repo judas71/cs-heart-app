@@ -12,6 +12,11 @@
     return `${Number(value || 0).toLocaleString("ro-RO")} lei`;
   }
 
+  function formatAttendanceDay(value) {
+    const parts = String(value || "").split("-");
+    return parts.length === 3 ? `${parts[2]}.${parts[1]}` : value || "-";
+  }
+
   function getGroups(athletes) {
     return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort();
   }
@@ -250,9 +255,11 @@
     const totalTransfer = transferRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
 
     const attendanceRows = athletesInFilter.map((athlete) => {
-      const entries = trainings.filter((training) => training.attendance?.[athlete.id] && training.date.startsWith(month));
+      const entries = trainings
+        .filter((training) => training.attendance?.[athlete.id] && training.date.startsWith(month))
+        .sort((first, second) => first.date.localeCompare(second.date));
       const present = entries.filter((training) => training.attendance[athlete.id] === "prezent").length;
-      return { athlete, total: entries.length, present };
+      return { athlete, total: entries.length, present, entries };
     });
 
     const lowAttendanceRows = attendanceRows.filter((row) => row.total > 0 && row.present / row.total < 0.5);
@@ -453,8 +460,25 @@
             h(
               "ul",
               { className: "clean-list" },
-              attendanceRows.map(({ athlete, present, total }) =>
-                h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, `${present}/${total}`))
+              attendanceRows.map(({ athlete, present, total, entries }) =>
+                h(
+                  "li",
+                  { key: athlete.id, style: { display: "block" } },
+                  h(
+                    "div",
+                    { style: { display: "flex", justifyContent: "space-between", gap: "12px" } },
+                    h("span", null, athleteName(athlete)),
+                    h("strong", null, `${present}/${total}`)
+                  ),
+                  entries.length > 0 &&
+                    h(
+                      "small",
+                      { style: { display: "block", marginTop: "6px", color: "#66727a", lineHeight: "1.5" } },
+                      entries
+                        .map((training) => `${formatAttendanceDay(training.date)} - ${training.attendance[athlete.id]}`)
+                        .join(" / ")
+                    )
+                )
               )
             )
           ),
