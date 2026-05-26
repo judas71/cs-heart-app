@@ -17,6 +17,13 @@
     return parts.length === 3 ? `${parts[2]}.${parts[1]}` : value || "-";
   }
 
+  function attendanceColor(status) {
+    if (status === "absent") return "#b91c1c";
+    if (status === "\u00eenvoit") return "#1d4ed8";
+    if (status === "accidentat") return "#7e22ce";
+    return "#172026";
+  }
+
   function getGroups(athletes) {
     return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort();
   }
@@ -458,11 +465,16 @@
             { className: "report-block" },
             h("h2", null, "Prezente pe sportiv"),
             h(
-              "ul",
-              { className: "clean-list" },
-              attendanceRows.map(({ athlete, present, total, entries }) =>
-                h(
-                  "li",
+            "ul",
+            { className: "clean-list" },
+            h(
+              "li",
+              { style: { display: "block", borderBottom: "0", paddingTop: "0" } },
+              h("small", { style: { color: "#66727a" } }, "Negru: prezent   |   Ro\u0219u: absent   |   Albastru: \u00eenvoit   |   Mov: accidentat")
+            ),
+            attendanceRows.map(({ athlete, present, total, entries }) =>
+              h(
+                "li",
                   { key: athlete.id, style: { display: "block" } },
                   h(
                     "div",
@@ -472,11 +484,18 @@
                   ),
                   entries.length > 0 &&
                     h(
-                      "small",
-                      { style: { display: "block", marginTop: "6px", color: "#66727a", lineHeight: "1.5" } },
-                      entries
-                        .map((training) => `${formatAttendanceDay(training.date)} - ${training.attendance[athlete.id]}`)
-                        .join(" / ")
+                      "div",
+                      { style: { display: "flex", flexWrap: "wrap", gap: "4px 10px", marginTop: "6px", lineHeight: "1.5" } },
+                      entries.map((training) =>
+                        h(
+                          "span",
+                          {
+                            key: training.id || training.date,
+                            style: { color: attendanceColor(training.attendance[athlete.id]), fontSize: "0.84rem", fontWeight: 700 }
+                          },
+                          formatAttendanceDay(training.date)
+                        )
+                      )
                     )
                 )
               )
