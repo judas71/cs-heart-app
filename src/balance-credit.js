@@ -147,6 +147,27 @@
 
       return sum + getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
     }, 0);
+    const displayedAthletes = React.useMemo(() => {
+      const originalOrder = new Map(listedAthletes.map((athlete, index) => [athlete.id, index]));
+
+      // Payments do not reorder rows while a receipt is being filled in.
+      return [...listedAthletes].sort((first, second) => {
+        const firstOutstanding = getOutstandingAmount(
+          getFee(first.id),
+          getPreviousBalance(fees, first, month),
+          first.feeDue ?? 200
+        );
+        const secondOutstanding = getOutstandingAmount(
+          getFee(second.id),
+          getPreviousBalance(fees, second, month),
+          second.feeDue ?? 200
+        );
+        const firstIsUnpaid = firstOutstanding > 0 ? 1 : 0;
+        const secondIsUnpaid = secondOutstanding > 0 ? 1 : 0;
+
+        return secondIsUnpaid - firstIsUnpaid || originalOrder.get(first.id) - originalOrder.get(second.id);
+      });
+    }, [athletes, month, group]);
 
     return h(
       "section",
@@ -181,7 +202,7 @@
           h(
             "tbody",
             null,
-            listedAthletes.map((athlete) => {
+            displayedAthletes.map((athlete) => {
               const fee = getFee(athlete.id);
               const previousBalance = getPreviousBalance(fees, athlete, month);
               const totalToPay = getTotalToPay(fee, previousBalance, athlete.feeDue ?? 200);
