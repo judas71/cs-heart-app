@@ -1,5 +1,5 @@
-﻿  const h = React.createElement;
-  const { AttendanceView, FeesView, ReportsView } = window.CSHeartComponents;
+  const h = React.createElement;
+  const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   import { db, doc, getDoc, setDoc, auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
   function Field({ label, children }) {
@@ -74,7 +74,8 @@
         setState({
           athletes: Array.isArray(data.athletes) ? data.athletes : [],
           trainings: Array.isArray(data.trainings) ? data.trainings : [],
-          fees: Array.isArray(data.fees) ? data.fees : []
+          fees: Array.isArray(data.fees) ? data.fees : [],
+          otherPayments: Array.isArray(data.otherPayments) ? data.otherPayments : []
         });
       } else {
         await setDoc(appRef, state);
@@ -165,6 +166,35 @@ React.useEffect(() => {
       });
     }
 
+    function saveOtherPayment(payment) {
+      setState((current) => {
+        const existing = (current.otherPayments || []).find((item) => item.id === payment.id);
+        const normalized = {
+          ...payment,
+          id: payment.id || createId("other"),
+          updatedAt: new Date().toISOString(),
+          updatedByEmail: user?.email || "necunoscut",
+          updatedById: user?.uid || ""
+        };
+
+        return {
+          ...current,
+          otherPayments: existing
+            ? (current.otherPayments || []).map((item) => (item.id === existing.id ? normalized : item))
+            : [normalized, ...(current.otherPayments || [])]
+        };
+      });
+    }
+
+    function deleteOtherPayment(id) {
+      const ok = confirm("Stergi aceasta incasare?");
+      if (!ok) return;
+
+      setState((current) => ({
+        ...current,
+        otherPayments: (current.otherPayments || []).filter((payment) => payment.id !== id)
+      }));
+    }
     function resetMonthFees(month, athleteIds) {
       const ok = confirm(`Resetezi taxele pentru luna ${month}?`);
       if (!ok) return;
@@ -211,6 +241,7 @@ React.useEffect(() => {
       ["sportivi", "Sportivi"],
       ["prezenta", "PrezenÈ›Äƒ"],
       ["taxe", "Taxe"],
+      ["alteIncasari", "Alte incasari"],
       ["rapoarte", "Rapoarte"]
     ];
 
@@ -231,7 +262,8 @@ React.useEffect(() => {
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, onSaveFee: saveFee, onResetMonth: resetMonthFees }),
-      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees })
+      activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment }),
+      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [] })
     );
   }
 

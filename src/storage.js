@@ -14,7 +14,8 @@
       return {
         athletes: Array.isArray(parsed.athletes) ? parsed.athletes : [],
         trainings: Array.isArray(parsed.trainings) ? parsed.trainings : [],
-        fees: Array.isArray(parsed.fees) ? parsed.fees : []
+        fees: Array.isArray(parsed.fees) ? parsed.fees : [],
+        otherPayments: Array.isArray(parsed.otherPayments) ? parsed.otherPayments : []
       };
     } catch (error) {
       return clone(window.CSHeartDemoData);
