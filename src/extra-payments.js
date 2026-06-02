@@ -196,11 +196,11 @@
   injectReportStyles();
 
   function athleteName(athlete) {
-    return `${athlete.lastName} ${athlete.firstName}`;
+    return `${athlete.lastName || ""} ${athlete.firstName || ""}`.replace(/\s+/g, " ").trim();
   }
 
   function compareText(first, second) {
-    return String(first || "").localeCompare(String(second || ""), "ro-RO", { sensitivity: "base" });
+    return String(first || "").trim().localeCompare(String(second || "").trim(), "ro-RO", { sensitivity: "base", numeric: true });
   }
 
   function compareAthletesByName(first, second) {
@@ -623,11 +623,17 @@
     const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const [query, setQuery] = React.useState("");
     const [form, setForm] = React.useState(emptyForm);
+    const formRef = React.useRef(null);
 
     const groups = getGroups(athletes);
     const activeAthletes = [...athletes]
-      .filter((athlete) => athlete.active)
+      .filter(isActiveAthlete)
       .sort(compareAthletesByName);
+    const selectedAthlete = findAthlete(athletes, form.athleteId);
+    const selectableAthletes = [
+      ...activeAthletes,
+      ...(selectedAthlete && !activeAthletes.some((athlete) => athlete.id === selectedAthlete.id) ? [selectedAthlete] : [])
+    ].sort(compareAthletesByName);
 
     const filteredPayments = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
@@ -693,6 +699,7 @@
         currency: paymentCurrency(payment),
         notes: payment.notes || ""
       });
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     }
 
     return h(
@@ -700,7 +707,7 @@
       { className: "stack" },
       h(
         "form",
-        { className: "panel form-grid", onSubmit: submit },
+        { className: "panel form-grid", ref: formRef, onSubmit: submit },
         h(
           Field,
           { label: "De la" },
@@ -718,7 +725,7 @@
                 "select",
                 { value: form.athleteId, onChange: (event) => update("athleteId", event.target.value), required: true },
                 h("option", { value: "" }, "Alege sportiv"),
-                activeAthletes.map((athlete) => h("option", { key: athlete.id, value: athlete.id }, athleteName(athlete) + " - " + athlete.group))
+                selectableAthletes.map((athlete) => h("option", { key: athlete.id, value: athlete.id }, athleteName(athlete) + " - " + athlete.group + (athlete.active === false ? " (inactiv)" : "")))
               )
             )
           : h(
