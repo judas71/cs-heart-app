@@ -45,6 +45,65 @@
     return String(second.date || "").localeCompare(String(first.date || ""));
   }
 
+  function formatAttendanceDay(value) {
+    const parts = String(value || "").split("-");
+    return parts.length === 3 ? `${parts[2]}.${parts[1]}` : value || "-";
+  }
+
+  function attendanceColor(status) {
+    if (status === "absent") return "#b91c1c";
+    if (status === "\u00eenvoit") return "#1d4ed8";
+    if (status === "accidentat") return "#7e22ce";
+    return "#172026";
+  }
+
+  function getMonthRange(startMonth, endMonth) {
+    if (!startMonth || !endMonth || startMonth >= endMonth) return [];
+
+    const months = [];
+    const date = new Date(startMonth + "-01");
+    const endDate = new Date(endMonth + "-01");
+
+    while (date < endDate) {
+      months.push(date.toISOString().slice(0, 7));
+      date.setMonth(date.getMonth() + 1);
+    }
+
+    return months;
+  }
+
+  function getFeeForMonth(fees, athleteId, month) {
+    return fees.find((fee) => fee.athleteId === athleteId && fee.month === month);
+  }
+
+  function getMonthlyDue(athlete, fee) {
+    return Number(fee?.amountDue ?? athlete.feeDue ?? 200);
+  }
+
+  function getPreviousBalance(fees, athlete, month) {
+    return getMonthRange(athlete.joinMonth, month).reduce((balance, itemMonth) => {
+      const fee = getFeeForMonth(fees, athlete.id, itemMonth);
+      const due = getMonthlyDue(athlete, fee);
+      const paid = Number(fee?.amountPaid || 0);
+
+      return balance + due - paid;
+    }, 0);
+  }
+
+  function getOutstandingAmount(fee, previousBalance, fallbackDue) {
+    const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+    const amountPaid = Number(fee?.amountPaid || 0);
+
+    return Math.max(Math.max(amountDue + previousBalance, 0) - amountPaid, 0);
+  }
+
+  function getBalanceAfterMonth(fee, previousBalance, fallbackDue) {
+    const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+    const amountPaid = Number(fee?.amountPaid || 0);
+
+    return previousBalance + amountDue - amountPaid;
+  }
+
   function paymentType(payment) {
     return !payment.paymentType || payment.paymentType === "plata" ? "incasare" : payment.paymentType;
   }
@@ -477,7 +536,248 @@
     );
   }
 
-  const BaseReportsView = window.CSHeartComponents?.ReportsView || window.ReportsView;
+  function FeePaymentRows({ title, rows, athletes, emptyText }) {
+    const subtotal = rows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+
+    return h(
+      "div",
+      { style: { display: "grid", gap: "8px" } },
+      h("h3", { style: { margin: "4px 0 0", color: "#66727a", fontSize: "0.86rem", textTransform: "uppercase" } }, `${title}: ${formatMoney(subtotal)}`),
+      rows.length
+        ? h(
+            "ul",
+            { className: "clean-list" },
+            rows.map((fee) => {
+              const athlete = findAthlete(athletes, fee.athleteId);
+
+              return h(
+                "li",
+                { key: fee.id || `${fee.athleteId}-${fee.month}-${fee.method}-${fee.amountPaid}` },
+                h("span", null, athlete ? athleteName(athlete) : "Sportiv necunoscut", h("small", null, fee.paymentDate ? "Data platii: " + fee.paymentDate : "Fara data de plata")),
+                h("strong", null, formatMoney(fee.amountPaid))
+              );
+            })
+          )
+        : h("p", { style: { margin: 0, color: "#66727a" } }, emptyText)
+    );
+  }
+
+  function TaxReportsView({ athletes, fees = [] }) {
+    const [month, setMonth] = React.useState(currentMonth());
+    const [group, setGroup] = React.useState("toate");
+    const [reportType, setReportType] = React.useState("toate");
+    const groups = getGroups(athletes);
+    const athletesInFilter = athletes.filter(
+      (athlete) =>
+        (group === "toate" || athlete.group === group) &&
+        (!athlete.joinMonth || athlete.joinMonth <= month)
+    );
+    const debtorRows = athletesInFilter
+      .map((athlete) => {
+        const fee = getFeeForMonth(fees, athlete.id, month);
+        const previousBalance = getPreviousBalance(fees, athlete, month);
+        const outstanding = getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
+
+        return { athlete, outstanding };
+      })
+      .filter((row) => row.outstanding > 0);
+    const creditRows = athletesInFilter
+      .map((athlete) => {
+        const fee = getFeeForMonth(fees, athlete.id, month);
+        const previousBalance = getPreviousBalance(fees, athlete, month);
+        const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, athlete.feeDue ?? 200);
+        const credit = Math.max(-balanceAfterMonth, 0);
+
+        return { athlete, credit };
+      })
+      .filter((row) => row.credit > 0);
+    const collectedFees = fees.filter(
+      (fee) =>
+        fee.month === month &&
+        Number(fee.amountPaid || 0) > 0 &&
+        athletesInFilter.some((athlete) => athlete.id === fee.athleteId)
+    );
+    const cashRows = collectedFees.filter((fee) => fee.method === "cash");
+    const transferRows = collectedFees.filter((fee) => fee.method === "transfer");
+    const totalCollected = collectedFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const totalCash = cashRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const totalTransfer = transferRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim());
+
+    return h(
+      "section",
+      { className: "stack" },
+      h("h2", null, "Taxe"),
+      h(
+        "div",
+        { className: "panel compact-grid" },
+        h(
+          Field,
+          { label: "Grupa" },
+          h(
+            "select",
+            { value: group, onChange: (event) => setGroup(event.target.value) },
+            h("option", { value: "toate" }, "Toate grupele"),
+            groups.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) })),
+        h(
+          Field,
+          { label: "Tip raport" },
+          h(
+            "select",
+            { value: reportType, onChange: (event) => setReportType(event.target.value) },
+            h("option", { value: "toate" }, "Toate taxele"),
+            h("option", { value: "restantieri" }, "Restantieri"),
+            h("option", { value: "avansuri" }, "Avansuri"),
+            h("option", { value: "observatii" }, "Cu observatii"),
+            h("option", { value: "cash" }, "Doar cash"),
+            h("option", { value: "transfer" }, "Doar transfer")
+          )
+        )
+      ),
+      h(
+        "div",
+        { className: "metrics" },
+        h("div", null, h("span", null, "Restantieri"), h("strong", null, debtorRows.length)),
+        h("div", null, h("span", null, "Avansuri"), h("strong", null, creditRows.length)),
+        h("div", null, h("span", null, "Incasari taxe"), h("strong", null, formatMoney(totalCollected)), h("div", { style: { fontSize: "14px", marginTop: "6px", color: "#111" } }, "Cash: " + formatMoney(totalCash) + " / Transfer: " + formatMoney(totalTransfer)))
+      ),
+      h(
+        "div",
+        { className: "report-grid" },
+        (reportType === "restantieri" || reportType === "toate") &&
+          h(
+            "div",
+            { className: "report-block" },
+            h("h2", null, "Restantieri"),
+            debtorRows.length
+              ? h("ul", { className: "clean-list" }, debtorRows.map(({ athlete, outstanding }) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, formatMoney(outstanding)))))
+              : h("p", null, "Nu exista restantieri.")
+          ),
+        (reportType === "avansuri" || reportType === "toate") &&
+          h(
+            "div",
+            { className: "report-block" },
+            h("h2", null, "Avansuri"),
+            creditRows.length
+              ? h("ul", { className: "clean-list" }, creditRows.map(({ athlete, credit }) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, formatMoney(credit)))))
+              : h("p", null, "Nu exista avansuri.")
+          ),
+        reportType === "observatii" &&
+          h(
+            "div",
+            { className: "report-block" },
+            h("h2", null, "Sportivi cu observatii"),
+            observationRows.length
+              ? h("ul", { className: "clean-list" }, observationRows.map((athlete) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, athlete.notes))))
+              : h("p", null, "Nu exista observatii.")
+          ),
+        reportType === "cash" && h("div", { className: "report-block" }, h("h2", null, "Incasari cash"), h(FeePaymentRows, { title: "Cash", rows: cashRows, athletes, emptyText: "Nu exista incasari cash." })),
+        reportType === "transfer" && h("div", { className: "report-block" }, h("h2", null, "Incasari transfer"), h(FeePaymentRows, { title: "Transfer", rows: transferRows, athletes, emptyText: "Nu exista incasari prin transfer." })),
+        reportType === "toate" &&
+          h(
+            "div",
+            { className: "report-block" },
+            h("h2", null, "Incasari pe luna"),
+            collectedFees.length
+              ? h("div", { style: { display: "grid", gap: "12px" } }, h(FeePaymentRows, { title: "Cash", rows: cashRows, athletes, emptyText: "Nu exista incasari cash." }), h(FeePaymentRows, { title: "Transfer", rows: transferRows, athletes, emptyText: "Nu exista incasari prin transfer." }))
+              : h("p", null, "Nu exista incasari.")
+          )
+      )
+    );
+  }
+
+  function AttendanceReportsView({ athletes, trainings = [] }) {
+    const [month, setMonth] = React.useState(currentMonth());
+    const [group, setGroup] = React.useState("toate");
+    const [mode, setMode] = React.useState("peSportiv");
+    const groups = getGroups(athletes);
+    const athletesInFilter = athletes.filter(
+      (athlete) =>
+        (group === "toate" || athlete.group === group) &&
+        (!athlete.joinMonth || athlete.joinMonth <= month)
+    );
+    const rows = athletesInFilter.map((athlete) => {
+      const entries = trainings
+        .filter((training) => training.attendance?.[athlete.id] && training.date.startsWith(month))
+        .sort((first, second) => first.date.localeCompare(second.date));
+      const present = entries.filter((training) => training.attendance[athlete.id] === "prezent").length;
+      return { athlete, total: entries.length, present, entries };
+    });
+    const visibleRows = mode === "sub50" ? rows.filter((row) => row.total > 0 && row.present / row.total < 0.5) : rows;
+    const athletesWithAttendance = rows.filter((row) => row.total > 0).length;
+    const lowAttendance = rows.filter((row) => row.total > 0 && row.present / row.total < 0.5).length;
+
+    return h(
+      "section",
+      { className: "stack" },
+      h("h2", null, "Prezenta"),
+      h(
+        "div",
+        { className: "panel compact-grid" },
+        h(
+          Field,
+          { label: "Grupa" },
+          h(
+            "select",
+            { value: group, onChange: (event) => setGroup(event.target.value) },
+            h("option", { value: "toate" }, "Toate grupele"),
+            groups.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) })),
+        h(
+          Field,
+          { label: "Tip raport" },
+          h(
+            "select",
+            { value: mode, onChange: (event) => setMode(event.target.value) },
+            h("option", { value: "peSportiv" }, "Prezente pe sportiv"),
+            h("option", { value: "sub50" }, "Prezenta sub 50%")
+          )
+        )
+      ),
+      h(
+        "div",
+        { className: "metrics" },
+        h("div", null, h("span", null, "Sportivi cu prezenta"), h("strong", null, athletesWithAttendance)),
+        h("div", null, h("span", null, "Sub 50%"), h("strong", null, lowAttendance)),
+        h("div", null, h("span", null, "Legenda"), h("strong", { style: { fontSize: "0.9rem" } }, "Negru prezent / Rosu absent / Albastru invoit / Mov accidentat"))
+      ),
+      h(
+        "div",
+        { className: "report-block" },
+        h("h2", null, mode === "sub50" ? "Sportivi cu prezenta sub 50%" : "Prezente pe sportiv"),
+        visibleRows.length
+          ? h(
+              "ul",
+              { className: "clean-list" },
+              visibleRows.map(({ athlete, present, total, entries }) =>
+                h(
+                  "li",
+                  { key: athlete.id, style: { display: "block" } },
+                  h("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px" } }, h("span", null, athleteName(athlete)), h("strong", null, `${present}/${total}`)),
+                  entries.length > 0 &&
+                    h(
+                      "div",
+                      { style: { display: "flex", flexWrap: "wrap", gap: "4px 10px", marginTop: "6px", lineHeight: "1.5" } },
+                      entries.map((training) =>
+                        h(
+                          "span",
+                          { key: training.id || training.date, style: { color: attendanceColor(training.attendance[athlete.id]), fontSize: "0.84rem", fontWeight: 700 } },
+                          formatAttendanceDay(training.date)
+                        )
+                      )
+                    )
+                )
+              )
+            )
+          : h(EmptyState, { title: "Nu exista date in filtrul ales.", text: "Schimba luna, grupa sau tipul raportului." })
+      )
+    );
+  }
 
   function ReportsView(props) {
     const [section, setSection] = React.useState("taxe");
@@ -494,13 +794,15 @@
           h(
             "select",
             { value: section, onChange: (event) => setSection(event.target.value) },
-            h("option", { value: "taxe" }, "Taxe si prezenta"),
+            h("option", { value: "taxe" }, "Taxe"),
+            h("option", { value: "prezenta" }, "Prezenta"),
             h("option", { value: "alteIncasari" }, "Alte incasari"),
             h("option", { value: "tot" }, "Tot")
           )
         )
       ),
-      (section === "taxe" || section === "tot") && BaseReportsView ? h(BaseReportsView, props) : null,
+      (section === "taxe" || section === "tot") && h(TaxReportsView, props),
+      (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
       (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props)
     );
   }
