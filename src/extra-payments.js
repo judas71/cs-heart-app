@@ -1,7 +1,8 @@
 (function () {
   const h = React.createElement;
 
-  const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "altele"];
+  const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
+  const payerTypes = ["sportiv", "partener", "altul"];
   const paymentTypes = ["plata", "avans"];
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
@@ -52,6 +53,18 @@
     return payment.currency || "lei";
   }
 
+  function payerType(payment) {
+    if (payment.payerType) return payment.payerType;
+    return payment.athleteId ? "sportiv" : "partener";
+  }
+
+  function payerLabel(athletes, payment) {
+    const athlete = findAthlete(athletes, payment.athleteId);
+    if (athlete) return athleteName(athlete);
+    if (payment.payerName) return payment.payerName;
+    return payerType(payment) === "partener" ? "Partener fara nume" : "Sursa necunoscuta";
+  }
+
   function sumPayments(rows, currency, method) {
     return rows
       .filter((payment) => paymentCurrency(payment) === currency)
@@ -74,7 +87,9 @@
   function emptyForm() {
     return {
       id: "",
+      payerType: "sportiv",
       athleteId: "",
+      payerName: "",
       date: today(),
       category: categories[0],
       paymentType: "plata",
@@ -109,9 +124,9 @@
         return group === "toate" || athlete?.group === group;
       })
       .filter((payment) => {
-        const athlete = findAthlete(athletes, payment.athleteId);
         const text = [
-          athlete ? athleteName(athlete) : "sportiv necunoscut",
+          payerLabel(athletes, payment),
+          payerType(payment),
           payment.category,
           paymentType(payment),
           payment.method,
@@ -134,10 +149,15 @@
     function submit(event) {
       event.preventDefault();
 
-      if (!form.athleteId || !form.date || !form.category || Number(form.amount || 0) <= 0) return;
+      const isSportiv = form.payerType === "sportiv";
+      const payerName = String(form.payerName || "").trim();
+
+      if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !form.date || !form.category || Number(form.amount || 0) <= 0) return;
 
       onSavePayment({
         ...form,
+        athleteId: isSportiv ? form.athleteId : "",
+        payerName: isSportiv ? "" : payerName,
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
       });
@@ -147,7 +167,9 @@
     function edit(payment) {
       setForm({
         id: payment.id || "",
+        payerType: payerType(payment),
         athleteId: payment.athleteId || "",
+        payerName: payment.payerName || "",
         date: payment.date || today(),
         category: payment.category || categories[0],
         paymentType: paymentType(payment),
@@ -166,14 +188,29 @@
         { className: "panel form-grid", onSubmit: submit },
         h(
           Field,
-          { label: "Sportiv" },
+          { label: "De la" },
           h(
             "select",
-            { value: form.athleteId, onChange: (event) => update("athleteId", event.target.value), required: true },
-            h("option", { value: "" }, "Alege sportiv"),
-            activeAthletes.map((athlete) => h("option", { key: athlete.id, value: athlete.id }, athleteName(athlete) + " - " + athlete.group))
+            { value: form.payerType, onChange: (event) => update("payerType", event.target.value) },
+            payerTypes.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
+        form.payerType === "sportiv"
+          ? h(
+              Field,
+              { label: "Sportiv" },
+              h(
+                "select",
+                { value: form.athleteId, onChange: (event) => update("athleteId", event.target.value), required: true },
+                h("option", { value: "" }, "Alege sportiv"),
+                activeAthletes.map((athlete) => h("option", { key: athlete.id, value: athlete.id }, athleteName(athlete) + " - " + athlete.group))
+              )
+            )
+          : h(
+              Field,
+              { label: form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
+              h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
+            ),
         h(Field, { label: "Data incasarii" }, h("input", { type: "date", value: form.date, onChange: (event) => update("date", event.target.value), required: true })),
         h(
           Field,
@@ -279,7 +316,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Data", "Sportiv", "Categorie", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Data", "De la", "Categorie", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -290,7 +327,7 @@
                 "tr",
                 { key: payment.id },
                 h("td", { "data-label": "Data" }, formatDate(payment.date)),
-                h("td", { "data-label": "Sportiv" }, athlete ? h("strong", null, athleteName(athlete)) : "Sportiv necunoscut", athlete && h("small", null, athlete.group)),
+                h("td", { "data-label": "De la" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
                 h("td", { "data-label": "Categorie" }, payment.category || "-"),
                 h("td", { "data-label": "Tip" }, paymentType(payment)),
                 h("td", { "data-label": "Suma" }, h("strong", null, formatMoney(payment.amount, paymentCurrency(payment)))),
@@ -416,12 +453,10 @@
                 "ul",
                 { className: "clean-list" },
                 rows.map((payment) => {
-                  const athlete = findAthlete(athletes, payment.athleteId);
-
                   return h(
                     "li",
                     { key: payment.id },
-                    h("span", null, athlete ? athleteName(athlete) : "Sportiv necunoscut", h("small", null, formatDate(payment.date) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"))),
+                    h("span", null, payerLabel(athletes, payment), h("small", null, formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"))),
                     h("strong", null, formatMoney(payment.amount, paymentCurrency(payment)))
                   );
                 })
