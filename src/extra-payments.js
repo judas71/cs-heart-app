@@ -380,6 +380,13 @@
       .reduce((sum, payment) => sum + signedAmount(payment), 0);
   }
 
+  function sumPaymentsByType(rows, currency, type) {
+    return rows
+      .filter((payment) => paymentCurrency(payment) === currency)
+      .filter((payment) => paymentType(payment) === type)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
   function formatDualAmount(rows, method) {
     return formatMoney(sumPayments(rows, "lei", method), "lei") + " / " + formatMoney(sumPayments(rows, "euro", method), "euro");
   }
@@ -660,8 +667,10 @@
       })
       .sort(comparePaymentsByPayer(athletes));
 
-    const totalLei = sumPayments(filteredPayments, "lei");
-    const totalEuro = sumPayments(filteredPayments, "euro");
+    const receivedLei = sumPaymentsByType(filteredPayments, "lei", "incasare");
+    const paidLei = sumPaymentsByType(filteredPayments, "lei", "avans");
+    const receivedEuro = sumPaymentsByType(filteredPayments, "euro", "incasare");
+    const paidEuro = sumPaymentsByType(filteredPayments, "euro", "avans");
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -828,8 +837,8 @@
       h(
         "div",
         { className: "metrics" },
-        h("div", null, h("span", null, "Total lei"), h("strong", null, formatMoney(totalLei, "lei"))),
-        h("div", null, h("span", null, "Total euro"), h("strong", null, formatMoney(totalEuro, "euro"))),
+        h("div", null, h("span", null, "Total lei"), h("strong", null, "Incasat = " + formatMoney(receivedLei, "lei")), h("strong", null, "Platit = " + formatMoney(paidLei, "lei"))),
+        h("div", null, h("span", null, "Total euro"), h("strong", null, "Incasat = " + formatMoney(receivedEuro, "euro")), h("strong", null, "Platit = " + formatMoney(paidEuro, "euro"))),
         h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatDualAmount(filteredPayments, "cash")), h("strong", null, "Transfer: " + formatDualAmount(filteredPayments, "transfer")))
       ),
       h(
@@ -889,8 +898,10 @@
         return group === "toate" || athlete?.group === group;
       })
       .sort(comparePaymentsByPayer(athletes));
-    const totalLei = sumPayments(rows, "lei");
-    const totalEuro = sumPayments(rows, "euro");
+    const receivedLei = sumPaymentsByType(rows, "lei", "incasare");
+    const paidLei = sumPaymentsByType(rows, "lei", "avans");
+    const receivedEuro = sumPaymentsByType(rows, "euro", "incasare");
+    const paidEuro = sumPaymentsByType(rows, "euro", "avans");
     const categoryTotals = categories
       .map((item) => ({
         category: item,
@@ -951,8 +962,8 @@
       h(
         "div",
         { className: "cs-report-summary" },
-        h(SummaryCard, { label: "Total lei", value: formatMoney(totalLei, "lei"), hint: `${rows.length} inregistrari`, tone: "tone-green" }),
-        h(SummaryCard, { label: "Total euro", value: formatMoney(totalEuro, "euro"), hint: "Incasari in euro", tone: "tone-blue" }),
+        h(SummaryCard, { label: "Total lei", value: "Incasat = " + formatMoney(receivedLei, "lei"), hint: "Platit = " + formatMoney(paidLei, "lei"), tone: "tone-green" }),
+        h(SummaryCard, { label: "Total euro", value: "Incasat = " + formatMoney(receivedEuro, "euro"), hint: "Platit = " + formatMoney(paidEuro, "euro"), tone: "tone-blue" }),
         h(SummaryCard, { label: "Cash", value: formatDualAmount(rows, "cash"), hint: "Doar filtrul ales", tone: "tone-amber" }),
         h(SummaryCard, { label: "Transfer", value: formatDualAmount(rows, "transfer"), hint: "Doar filtrul ales", tone: "tone-purple" })
       ),
