@@ -199,6 +199,14 @@
     return `${athlete.lastName} ${athlete.firstName}`;
   }
 
+  function compareText(first, second) {
+    return String(first || "").localeCompare(String(second || ""), "ro-RO", { sensitivity: "base" });
+  }
+
+  function compareAthletesByName(first, second) {
+    return compareText(athleteName(first), athleteName(second));
+  }
+
   function formatMoney(value, currency = "lei") {
     return `${Number(value || 0).toLocaleString("ro-RO")} ${currency === "euro" ? "euro" : "lei"}`;
   }
@@ -348,6 +356,21 @@
     if (athlete) return athleteName(athlete);
     if (payment.payerName) return payment.payerName;
     return payerType(payment) === "partener" ? "Partener fara nume" : "Sursa necunoscuta";
+  }
+
+  function comparePaymentsByPayer(athletes) {
+    return (first, second) =>
+      compareText(payerLabel(athletes, first), payerLabel(athletes, second)) ||
+      sortByDateDesc(first, second);
+  }
+
+  function compareFeesByAthlete(athletes) {
+    return (first, second) => {
+      const firstAthlete = findAthlete(athletes, first.athleteId);
+      const secondAthlete = findAthlete(athletes, second.athleteId);
+
+      return compareText(firstAthlete ? athleteName(firstAthlete) : "Sportiv necunoscut", secondAthlete ? athleteName(secondAthlete) : "Sportiv necunoscut");
+    };
   }
 
   function sumPayments(rows, currency, method) {
@@ -858,7 +881,7 @@
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
       })
-      .sort(sortByDateDesc);
+      .sort(comparePaymentsByPayer(athletes));
     const totalLei = sumPayments(rows, "lei");
     const totalEuro = sumPayments(rows, "euro");
     const categoryTotals = categories
@@ -980,7 +1003,7 @@
         ? h(
             "ul",
             { className: "cs-report-list" },
-            rows.map((fee) => {
+            [...rows].sort(compareFeesByAthlete(athletes)).map((fee) => {
               const athlete = findAthlete(athletes, fee.athleteId);
 
               return h(ReportItem, {
@@ -1005,7 +1028,7 @@
         shouldShowAthleteInReports(athlete) &&
         (group === "toate" || athlete.group === group) &&
         (!athlete.joinMonth || athlete.joinMonth <= month)
-    );
+    ).sort(compareAthletesByName);
     const debtorRows = athletesInFilter
       .map((athlete) => {
         const fee = getFeeForMonth(fees, athlete.id, month);
@@ -1036,7 +1059,7 @@
     const totalCollected = collectedFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const totalCash = cashRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const totalTransfer = transferRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
-    const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim());
+    const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim()).sort(compareAthletesByName);
     const totalOutstanding = debtorRows.reduce((sum, row) => sum + row.outstanding, 0);
     const totalCredit = creditRows.reduce((sum, row) => sum + row.credit, 0);
 
@@ -1172,7 +1195,7 @@
         shouldShowAthleteInReports(athlete) &&
         (group === "toate" || athlete.group === group) &&
         (!athlete.joinMonth || athlete.joinMonth <= month)
-    );
+    ).sort(compareAthletesByName);
     const rows = athletesInFilter.map((athlete) => {
       const entries = trainings
         .filter((training) => training.attendance?.[athlete.id] && training.date.startsWith(month))
