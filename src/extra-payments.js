@@ -225,6 +225,11 @@
     return String(value || "").slice(0, 7);
   }
 
+  function isSameOrBeforeMonth(value, month) {
+    const itemMonth = getMonth(value);
+    return Boolean(itemMonth) && itemMonth <= month;
+  }
+
   function today() {
     return new Date().toISOString().slice(0, 10);
   }
@@ -667,10 +672,39 @@
       })
       .sort(comparePaymentsByPayer(athletes));
 
+    const balancePayments = otherPayments
+      .filter((payment) => isSameOrBeforeMonth(payment.date, month))
+      .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
+      .filter((payment) => {
+        const athlete = findAthlete(athletes, payment.athleteId);
+        return group === "toate" || athlete?.group === group;
+      })
+      .filter((payment) => {
+        const text = [
+          payerLabel(athletes, payment),
+          payerType(payment),
+          payment.category,
+          paymentType(payment),
+          payment.method,
+          paymentCurrency(payment),
+          payment.notes
+        ]
+          .join(" ")
+          .toLowerCase();
+        return text.includes(query.toLowerCase());
+      });
+
     const receivedLei = sumPaymentsByType(filteredPayments, "lei", "incasare");
     const paidLei = sumPaymentsByType(filteredPayments, "lei", "avans");
     const receivedEuro = sumPaymentsByType(filteredPayments, "euro", "incasare");
     const paidEuro = sumPaymentsByType(filteredPayments, "euro", "avans");
+    const balanceReceivedLei = sumPaymentsByType(balancePayments, "lei", "incasare");
+    const balancePaidLei = sumPaymentsByType(balancePayments, "lei", "avans");
+    const balanceReceivedEuro = sumPaymentsByType(balancePayments, "euro", "incasare");
+    const balancePaidEuro = sumPaymentsByType(balancePayments, "euro", "avans");
+    const balanceLei = balanceReceivedLei - balancePaidLei;
+    const balanceEuro = balanceReceivedEuro - balancePaidEuro;
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -843,6 +877,13 @@
       ),
       h(
         "div",
+        { className: "metrics" },
+        h("div", null, h("span", null, "Sold lei pana la luna"), h("strong", null, formatMoney(balanceLei, "lei")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedLei, "lei") + " / Platit total = " + formatMoney(balancePaidLei, "lei"))),
+        h("div", null, h("span", null, "Sold euro pana la luna"), h("strong", null, formatMoney(balanceEuro, "euro")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedEuro, "euro") + " / Platit total = " + formatMoney(balancePaidEuro, "euro"))),
+        h("div", null, h("span", null, "Perioada sold"), h("strong", null, "Pana in " + month), h("small", null, "Respecta filtrele de grupa, categorie, moneda si cautare. Tipul nu limiteaza soldul."))
+      ),
+      h(
+        "div",
         { className: "table-wrap wide" },
         h(
           "table",
@@ -898,10 +939,24 @@
         return group === "toate" || athlete?.group === group;
       })
       .sort(comparePaymentsByPayer(athletes));
+    const balanceRows = otherPayments
+      .filter((payment) => isSameOrBeforeMonth(payment.date, month))
+      .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
+      .filter((payment) => {
+        const athlete = findAthlete(athletes, payment.athleteId);
+        return group === "toate" || athlete?.group === group;
+      });
     const receivedLei = sumPaymentsByType(rows, "lei", "incasare");
     const paidLei = sumPaymentsByType(rows, "lei", "avans");
     const receivedEuro = sumPaymentsByType(rows, "euro", "incasare");
     const paidEuro = sumPaymentsByType(rows, "euro", "avans");
+    const balanceReceivedLei = sumPaymentsByType(balanceRows, "lei", "incasare");
+    const balancePaidLei = sumPaymentsByType(balanceRows, "lei", "avans");
+    const balanceReceivedEuro = sumPaymentsByType(balanceRows, "euro", "incasare");
+    const balancePaidEuro = sumPaymentsByType(balanceRows, "euro", "avans");
+    const balanceLei = balanceReceivedLei - balancePaidLei;
+    const balanceEuro = balanceReceivedEuro - balancePaidEuro;
     const categoryTotals = categories
       .map((item) => ({
         category: item,
@@ -964,6 +1019,8 @@
         { className: "cs-report-summary" },
         h(SummaryCard, { label: "Total lei", value: "Incasat = " + formatMoney(receivedLei, "lei"), hint: "Platit = " + formatMoney(paidLei, "lei"), tone: "tone-green" }),
         h(SummaryCard, { label: "Total euro", value: "Incasat = " + formatMoney(receivedEuro, "euro"), hint: "Platit = " + formatMoney(paidEuro, "euro"), tone: "tone-blue" }),
+        h(SummaryCard, { label: "Sold lei", value: formatMoney(balanceLei, "lei"), hint: "Total pana la luna: incasat " + formatMoney(balanceReceivedLei, "lei") + " / platit " + formatMoney(balancePaidLei, "lei"), tone: "tone-red" }),
+        h(SummaryCard, { label: "Sold euro", value: formatMoney(balanceEuro, "euro"), hint: "Total pana la luna: incasat " + formatMoney(balanceReceivedEuro, "euro") + " / platit " + formatMoney(balancePaidEuro, "euro"), tone: "tone-purple" }),
         h(SummaryCard, { label: "Cash", value: formatDualAmount(rows, "cash"), hint: "Doar filtrul ales", tone: "tone-amber" }),
         h(SummaryCard, { label: "Transfer", value: formatDualAmount(rows, "transfer"), hint: "Doar filtrul ales", tone: "tone-purple" })
       ),
