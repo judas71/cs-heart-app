@@ -2,14 +2,16 @@
   const h = React.createElement;
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "altele"];
+  const paymentTypes = ["plata", "avans"];
   const paymentMethods = ["cash", "transfer"];
+  const currencies = ["lei", "euro"];
 
   function athleteName(athlete) {
     return `${athlete.lastName} ${athlete.firstName}`;
   }
 
-  function formatMoney(value) {
-    return `${Number(value || 0).toLocaleString("ro-RO")} lei`;
+  function formatMoney(value, currency = "lei") {
+    return `${Number(value || 0).toLocaleString("ro-RO")} ${currency === "euro" ? "euro" : "lei"}`;
   }
 
   function formatDate(value) {
@@ -42,6 +44,25 @@
     return String(second.date || "").localeCompare(String(first.date || ""));
   }
 
+  function paymentType(payment) {
+    return payment.paymentType || "plata";
+  }
+
+  function paymentCurrency(payment) {
+    return payment.currency || "lei";
+  }
+
+  function sumPayments(rows, currency, method) {
+    return rows
+      .filter((payment) => paymentCurrency(payment) === currency)
+      .filter((payment) => !method || payment.method === method)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
+  function formatDualAmount(rows, method) {
+    return formatMoney(sumPayments(rows, "lei", method), "lei") + " / " + formatMoney(sumPayments(rows, "euro", method), "euro");
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -56,8 +77,10 @@
       athleteId: "",
       date: today(),
       category: categories[0],
+      paymentType: "plata",
       amount: "",
       method: "cash",
+      currency: "lei",
       notes: ""
     };
   }
@@ -66,6 +89,8 @@
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
     const [category, setCategory] = React.useState("toate");
+    const [typeFilter, setTypeFilter] = React.useState("toate");
+    const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const [query, setQuery] = React.useState("");
     const [form, setForm] = React.useState(emptyForm);
 
@@ -77,6 +102,8 @@
     const filteredPayments = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
       .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
+      .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
@@ -86,7 +113,9 @@
         const text = [
           athlete ? athleteName(athlete) : "sportiv necunoscut",
           payment.category,
+          paymentType(payment),
           payment.method,
+          paymentCurrency(payment),
           payment.notes
         ]
           .join(" ")
@@ -95,13 +124,8 @@
       })
       .sort(sortByDateDesc);
 
-    const total = filteredPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    const totalCash = filteredPayments
-      .filter((payment) => payment.method === "cash")
-      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    const totalTransfer = filteredPayments
-      .filter((payment) => payment.method === "transfer")
-      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const totalLei = sumPayments(filteredPayments, "lei");
+    const totalEuro = sumPayments(filteredPayments, "euro");
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -126,8 +150,10 @@
         athleteId: payment.athleteId || "",
         date: payment.date || today(),
         category: payment.category || categories[0],
+        paymentType: paymentType(payment),
         amount: payment.amount || "",
         method: payment.method || "cash",
+        currency: paymentCurrency(payment),
         notes: payment.notes || ""
       });
     }
@@ -158,7 +184,25 @@
             categories.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
+        h(
+          Field,
+          { label: "Tip" },
+          h(
+            "select",
+            { value: form.paymentType, onChange: (event) => update("paymentType", event.target.value) },
+            paymentTypes.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
         h(Field, { label: "Suma" }, h("input", { type: "number", min: "0", value: form.amount, onChange: (event) => update("amount", event.target.value), required: true })),
+        h(
+          Field,
+          { label: "Moneda" },
+          h(
+            "select",
+            { value: form.currency, onChange: (event) => update("currency", event.target.value) },
+            currencies.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
         h(
           Field,
           { label: "Metoda" },
@@ -200,14 +244,34 @@
             categories.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
+        h(
+          Field,
+          { label: "Tip" },
+          h(
+            "select",
+            { value: typeFilter, onChange: (event) => setTypeFilter(event.target.value) },
+            h("option", { value: "toate" }, "Plati si avansuri"),
+            paymentTypes.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h(
+          Field,
+          { label: "Moneda" },
+          h(
+            "select",
+            { value: currencyFilter, onChange: (event) => setCurrencyFilter(event.target.value) },
+            h("option", { value: "toate" }, "Lei si euro"),
+            currencies.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
         h(Field, { label: "Cauta" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, observatii" }))
       ),
       h(
         "div",
         { className: "metrics" },
-        h("div", null, h("span", null, "Total alte incasari"), h("strong", null, formatMoney(total))),
-        h("div", null, h("span", null, "Cash"), h("strong", null, formatMoney(totalCash))),
-        h("div", null, h("span", null, "Transfer"), h("strong", null, formatMoney(totalTransfer)))
+        h("div", null, h("span", null, "Total lei"), h("strong", null, formatMoney(totalLei, "lei"))),
+        h("div", null, h("span", null, "Total euro"), h("strong", null, formatMoney(totalEuro, "euro"))),
+        h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatDualAmount(filteredPayments, "cash")), h("strong", null, "Transfer: " + formatDualAmount(filteredPayments, "transfer")))
       ),
       h(
         "div",
@@ -215,7 +279,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Data", "Sportiv", "Categorie", "Suma", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Data", "Sportiv", "Categorie", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -228,7 +292,9 @@
                 h("td", { "data-label": "Data" }, formatDate(payment.date)),
                 h("td", { "data-label": "Sportiv" }, athlete ? h("strong", null, athleteName(athlete)) : "Sportiv necunoscut", athlete && h("small", null, athlete.group)),
                 h("td", { "data-label": "Categorie" }, payment.category || "-"),
-                h("td", { "data-label": "Suma" }, h("strong", null, formatMoney(payment.amount))),
+                h("td", { "data-label": "Tip" }, paymentType(payment)),
+                h("td", { "data-label": "Suma" }, h("strong", null, formatMoney(payment.amount, paymentCurrency(payment)))),
+                h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
                 h("td", { "data-label": "Metoda" }, payment.method || "-"),
                 h("td", { "data-label": "Observatii" }, payment.notes || "-"),
                 h("td", { "data-label": "Operat de" }, payment.updatedByEmail || "-"),
@@ -251,24 +317,28 @@
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
     const [category, setCategory] = React.useState("toate");
+    const [typeFilter, setTypeFilter] = React.useState("toate");
+    const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const groups = getGroups(athletes);
     const rows = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
       .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
+      .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
       })
       .sort(sortByDateDesc);
-    const total = rows.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    const totalCash = rows.filter((payment) => payment.method === "cash").reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    const totalTransfer = rows.filter((payment) => payment.method === "transfer").reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const totalLei = sumPayments(rows, "lei");
+    const totalEuro = sumPayments(rows, "euro");
     const categoryTotals = categories
       .map((item) => ({
         category: item,
-        total: rows.filter((payment) => payment.category === item).reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+        totalLei: sumPayments(rows.filter((payment) => payment.category === item), "lei"),
+        totalEuro: sumPayments(rows.filter((payment) => payment.category === item), "euro")
       }))
-      .filter((item) => item.total > 0);
+      .filter((item) => item.totalLei > 0 || item.totalEuro > 0);
 
     return h(
       "section",
@@ -297,14 +367,34 @@
             h("option", { value: "toate" }, "Toate categoriile"),
             categories.map((item) => h("option", { key: item, value: item }, item))
           )
+        ),
+        h(
+          Field,
+          { label: "Tip" },
+          h(
+            "select",
+            { value: typeFilter, onChange: (event) => setTypeFilter(event.target.value) },
+            h("option", { value: "toate" }, "Plati si avansuri"),
+            paymentTypes.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h(
+          Field,
+          { label: "Moneda" },
+          h(
+            "select",
+            { value: currencyFilter, onChange: (event) => setCurrencyFilter(event.target.value) },
+            h("option", { value: "toate" }, "Lei si euro"),
+            currencies.map((item) => h("option", { key: item, value: item }, item))
+          )
         )
       ),
       h(
         "div",
         { className: "metrics" },
-        h("div", null, h("span", null, "Total alte incasari"), h("strong", null, formatMoney(total))),
-        h("div", null, h("span", null, "Cash"), h("strong", null, formatMoney(totalCash))),
-        h("div", null, h("span", null, "Transfer"), h("strong", null, formatMoney(totalTransfer)))
+        h("div", null, h("span", null, "Total lei"), h("strong", null, formatMoney(totalLei, "lei"))),
+        h("div", null, h("span", null, "Total euro"), h("strong", null, formatMoney(totalEuro, "euro"))),
+        h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatDualAmount(rows, "cash")), h("strong", null, "Transfer: " + formatDualAmount(rows, "transfer")))
       ),
       h(
         "div",
@@ -314,7 +404,7 @@
           { className: "report-block" },
           h("h2", null, "Pe categorii"),
           categoryTotals.length
-            ? h("ul", { className: "clean-list" }, categoryTotals.map((item) => h("li", { key: item.category }, h("span", null, item.category), h("strong", null, formatMoney(item.total)))))
+            ? h("ul", { className: "clean-list" }, categoryTotals.map((item) => h("li", { key: item.category }, h("span", null, item.category), h("strong", null, formatMoney(item.totalLei, "lei") + " / " + formatMoney(item.totalEuro, "euro")))))
             : h("p", null, "Nu exista incasari in filtrul ales.")
         ),
         h(
@@ -331,8 +421,8 @@
                   return h(
                     "li",
                     { key: payment.id },
-                    h("span", null, athlete ? athleteName(athlete) : "Sportiv necunoscut", h("small", null, formatDate(payment.date) + " / " + (payment.category || "-") + " / " + (payment.method || "-"))),
-                    h("strong", null, formatMoney(payment.amount))
+                    h("span", null, athlete ? athleteName(athlete) : "Sportiv necunoscut", h("small", null, formatDate(payment.date) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"))),
+                    h("strong", null, formatMoney(payment.amount, paymentCurrency(payment)))
                   );
                 })
               )
