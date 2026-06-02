@@ -1,6 +1,7 @@
 (function () {
   const h = React.createElement;
 
+  const feeStatuses = ["nepl\u0103tit\u0103", "pl\u0103tit\u0103", "par\u021bial pl\u0103tit\u0103"];
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
   const paymentTypes = ["incasare", "avans"];
@@ -271,18 +272,38 @@
     return fees.find((fee) => fee.athleteId === athleteId && fee.month === month);
   }
 
-  function getMonthlyDue(athlete, fee) {
-    return Number(fee?.amountDue ?? athlete.feeDue ?? 200);
+  function hasAmountDue(fee) {
+    return fee && fee.amountDue !== undefined && fee.amountDue !== null && fee.amountDue !== "";
+  }
+
+  function getLastKnownFeeBeforeMonth(fees, athleteId, month) {
+    return [...fees]
+      .filter((fee) => fee.athleteId === athleteId && fee.month < month && hasAmountDue(fee))
+      .sort((first, second) => String(second.month || "").localeCompare(String(first.month || "")))[0];
+  }
+
+  function getDefaultAmountDue(fees, athlete, month) {
+    const lastKnownFee = getLastKnownFeeBeforeMonth(fees, athlete.id, month);
+    return Number(lastKnownFee?.amountDue ?? athlete.feeDue ?? 200);
+  }
+
+  function getMonthlyDue(athlete, fee, fees, month) {
+    return hasAmountDue(fee) ? Number(fee.amountDue) : getDefaultAmountDue(fees, athlete, month);
   }
 
   function getPreviousBalance(fees, athlete, month) {
     return getMonthRange(athlete.joinMonth, month).reduce((balance, itemMonth) => {
       const fee = getFeeForMonth(fees, athlete.id, itemMonth);
-      const due = getMonthlyDue(athlete, fee);
+      const due = getMonthlyDue(athlete, fee, fees, itemMonth);
       const paid = Number(fee?.amountPaid || 0);
 
       return balance + due - paid;
     }, 0);
+  }
+
+  function getTotalToPay(fee, previousBalance, fallbackDue) {
+    const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+    return Math.max(amountDue + previousBalance, 0);
   }
 
   function getOutstandingAmount(fee, previousBalance, fallbackDue) {
@@ -383,6 +404,176 @@
 
   function EmptyReportLine({ text }) {
     return h("p", { className: "cs-report-empty" }, text);
+  }
+
+  function BalanceCell({ previousBalance }) {
+    const previousDebt = Math.max(previousBalance, 0);
+    const previousCredit = Math.max(-previousBalance, 0);
+
+    if (previousDebt > 0) {
+      return h("strong", { className: "arrears" }, formatMoney(previousDebt));
+    }
+
+    if (previousCredit > 0) {
+      return h("span", { className: "pill ok" }, "Avans " + formatMoney(previousCredit));
+    }
+
+    return "-";
+  }
+
+  function FeesView({ athletes, fees, onSaveFee, onResetMonth }) {
+    const monthNow = currentMonth();
+    const [month, setMonth] = React.useState(monthNow);
+    const [group, setGroup] = React.useState("toate");
+    const groups = getGroups(athletes);
+    const listedAthletes = athletes.filter((athlete) => {
+      if (!athlete.active) return false;
+      if (group !== "toate" && athlete.group !== group) return false;
+      if (!athlete.joinMonth) return false;
+
+      return athlete.joinMonth <= month;
+    });
+    const listedAthleteIds = listedAthletes.map((athlete) => athlete.id);
+    const monthlyCollected = fees
+      .filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId))
+      .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+
+    function getFee(athleteId) {
+      const athlete = athletes.find((item) => item.id === athleteId);
+      const defaultAmountDue = athlete ? getDefaultAmountDue(fees, athlete, month) : 200;
+
+      return getFeeForMonth(fees, athleteId, month) || {
+        athleteId,
+        month,
+        status: defaultAmountDue === 0 ? "pl\u0103tit\u0103" : "nepl\u0103tit\u0103",
+        amountDue: defaultAmountDue,
+        amountPaid: 0,
+        paymentDate: "",
+        method: "cash",
+        notes: ""
+      };
+    }
+
+    function updateFee(athleteId, field, value) {
+      const fee = getFee(athleteId);
+      onSaveFee({ ...fee, athleteId, month, [field]: value });
+    }
+
+    const monthlyOutstanding = listedAthletes.reduce((sum, athlete) => {
+      const fee = getFee(athlete.id);
+      const previousBalance = getPreviousBalance(fees, athlete, month);
+      const fallbackDue = getDefaultAmountDue(fees, athlete, month);
+
+      return sum + getOutstandingAmount(fee, previousBalance, fallbackDue);
+    }, 0);
+    const originalOrder = new Map(listedAthletes.map((athlete, index) => [athlete.id, index]));
+    const displayedAthletes = [...listedAthletes].sort((first, second) => {
+      const firstOutstanding = getOutstandingAmount(
+        getFee(first.id),
+        getPreviousBalance(fees, first, month),
+        getDefaultAmountDue(fees, first, month)
+      );
+      const secondOutstanding = getOutstandingAmount(
+        getFee(second.id),
+        getPreviousBalance(fees, second, month),
+        getDefaultAmountDue(fees, second, month)
+      );
+      const firstIsUnpaid = firstOutstanding > 0 ? 1 : 0;
+      const secondIsUnpaid = secondOutstanding > 0 ? 1 : 0;
+
+      return secondIsUnpaid - firstIsUnpaid || originalOrder.get(first.id) - originalOrder.get(second.id);
+    });
+
+    return h(
+      "section",
+      { className: "stack" },
+      h(
+        "div",
+        { className: "panel compact-grid" },
+        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) })),
+        h(
+          Field,
+          { label: "Grupa" },
+          h(
+            "select",
+            { value: group, onChange: (event) => setGroup(event.target.value) },
+            h("option", { value: "toate" }, "Toate grupele"),
+            groups.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h("button", { className: "danger align-end", onClick: () => onResetMonth(month, listedAthleteIds), disabled: !listedAthletes.length }, "Reset luna")
+      ),
+      h(
+        "div",
+        { className: "metrics" },
+        h("div", null, h("span", null, "Total incasari luna"), h("strong", null, formatMoney(monthlyCollected))),
+        h("div", null, h("span", null, "De incasat total"), h("strong", null, formatMoney(monthlyOutstanding))),
+        h(
+          "div",
+          null,
+          h("span", null, "Impartire incasari"),
+          h("strong", null, "60% = " + formatMoney(monthlyCollected * 0.6)),
+          h("strong", null, "40% = " + formatMoney(monthlyCollected * 0.4))
+        )
+      ),
+      h(
+        "div",
+        { className: "table-wrap wide" },
+        h(
+          "table",
+          null,
+          h("thead", null, h("tr", null, ["Sportiv", "Status", "Datorat", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Observatii"].map((head) => h("th", { key: head }, head)))),
+          h(
+            "tbody",
+            null,
+            displayedAthletes.map((athlete) => {
+              const fee = getFee(athlete.id);
+              const previousBalance = getPreviousBalance(fees, athlete, month);
+              const fallbackDue = getDefaultAmountDue(fees, athlete, month);
+              const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
+              const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+              const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
+              const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
+
+              return h(
+                "tr",
+                { key: athlete.id, className: outstanding > 0 ? "row-unpaid" : "" },
+                h(
+                  "td",
+                  { "data-label": "Sportiv" },
+                  h("strong", null, athleteName(athlete)),
+                  h("small", null, athlete.group + " / inscris: " + (athlete.joinMonth || "FARA LUNA"))
+                ),
+                h(
+                  "td",
+                  { "data-label": "Status" },
+                  h(
+                    "select",
+                    { value: fee.status, onChange: (event) => updateFee(athlete.id, "status", event.target.value) },
+                    feeStatuses.map((status) => h("option", { key: status, value: status }, status))
+                  )
+                ),
+                h("td", { "data-label": "Datorat" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
+                h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
+                h("td", { "data-label": "Total" }, h("strong", null, formatMoney(totalToPay)), creditAfterMonth > 0 && h("small", null, "Avans ramas: " + formatMoney(creditAfterMonth))),
+                h("td", { "data-label": "Platit" }, h("input", { type: "number", min: "0", value: Number(fee.amountPaid || 0) === 0 ? "" : fee.amountPaid, onChange: (event) => updateFee(athlete.id, "amountPaid", event.target.value === "" ? 0 : Number(event.target.value)) })),
+                h("td", { "data-label": "Data platii" }, h("input", { type: "date", value: fee.paymentDate, onChange: (event) => updateFee(athlete.id, "paymentDate", event.target.value) })),
+                h(
+                  "td",
+                  { "data-label": "Metoda" },
+                  h(
+                    "select",
+                    { value: fee.method, onChange: (event) => updateFee(athlete.id, "method", event.target.value) },
+                    paymentMethods.map((method) => h("option", { key: method, value: method }, method))
+                  )
+                ),
+                h("td", { "data-label": "Observatii" }, h("input", { value: fee.notes, onChange: (event) => updateFee(athlete.id, "notes", event.target.value), placeholder: "Optional" }))
+              );
+            })
+          )
+        )
+      )
+    );
   }
 
   function emptyForm() {
@@ -819,7 +1010,7 @@
       .map((athlete) => {
         const fee = getFeeForMonth(fees, athlete.id, month);
         const previousBalance = getPreviousBalance(fees, athlete, month);
-        const outstanding = getOutstandingAmount(fee, previousBalance, athlete.feeDue ?? 200);
+        const outstanding = getOutstandingAmount(fee, previousBalance, getDefaultAmountDue(fees, athlete, month));
 
         return { athlete, outstanding };
       })
@@ -828,7 +1019,7 @@
       .map((athlete) => {
         const fee = getFeeForMonth(fees, athlete.id, month);
         const previousBalance = getPreviousBalance(fees, athlete, month);
-        const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, athlete.feeDue ?? 200);
+        const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, getDefaultAmountDue(fees, athlete, month));
         const credit = Math.max(-balanceAfterMonth, 0);
 
         return { athlete, credit };
@@ -1097,9 +1288,11 @@
   }
 
   window.OtherPaymentsView = OtherPaymentsView;
+  window.FeesView = FeesView;
   window.ReportsView = ReportsView;
   window.CSHeartComponents = {
     ...window.CSHeartComponents,
+    FeesView,
     OtherPaymentsView,
     ReportsView
   };
