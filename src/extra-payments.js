@@ -53,6 +53,16 @@
     return payment.currency || "lei";
   }
 
+  function signedAmount(payment) {
+    const amount = Number(payment.amount || 0);
+    return paymentType(payment) === "avans" ? -amount : amount;
+  }
+
+  function formatPaymentAmount(payment) {
+    const prefix = paymentType(payment) === "avans" ? "- " : "";
+    return prefix + formatMoney(payment.amount, paymentCurrency(payment));
+  }
+
   function payerType(payment) {
     if (payment.payerType) return payment.payerType;
     return payment.athleteId ? "sportiv" : "partener";
@@ -69,7 +79,7 @@
     return rows
       .filter((payment) => paymentCurrency(payment) === currency)
       .filter((payment) => !method || payment.method === method)
-      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      .reduce((sum, payment) => sum + signedAmount(payment), 0);
   }
 
   function formatDualAmount(rows, method) {
@@ -330,7 +340,7 @@
                 h("td", { "data-label": "De la" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
                 h("td", { "data-label": "Categorie" }, payment.category || "-"),
                 h("td", { "data-label": "Tip" }, paymentType(payment)),
-                h("td", { "data-label": "Suma" }, h("strong", null, formatMoney(payment.amount, paymentCurrency(payment)))),
+                h("td", { "data-label": "Suma" }, h("strong", { className: paymentType(payment) === "avans" ? "arrears" : "" }, formatPaymentAmount(payment))),
                 h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
                 h("td", { "data-label": "Metoda" }, payment.method || "-"),
                 h("td", { "data-label": "Observatii" }, payment.notes || "-"),
@@ -375,7 +385,7 @@
         totalLei: sumPayments(rows.filter((payment) => payment.category === item), "lei"),
         totalEuro: sumPayments(rows.filter((payment) => payment.category === item), "euro")
       }))
-      .filter((item) => item.totalLei > 0 || item.totalEuro > 0);
+      .filter((item) => item.totalLei !== 0 || item.totalEuro !== 0);
 
     return h(
       "section",
@@ -457,7 +467,7 @@
                     "li",
                     { key: payment.id },
                     h("span", null, payerLabel(athletes, payment), h("small", null, formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"))),
-                    h("strong", null, formatMoney(payment.amount, paymentCurrency(payment)))
+                    h("strong", { className: paymentType(payment) === "avans" ? "arrears" : "" }, formatPaymentAmount(payment))
                   );
                 })
               )
