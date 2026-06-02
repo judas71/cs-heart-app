@@ -228,6 +228,14 @@
     return athletes.find((athlete) => athlete.id === athleteId);
   }
 
+  function isActiveAthlete(athlete) {
+    return athlete.active !== false;
+  }
+
+  function shouldShowAthleteInReports(athlete) {
+    return isActiveAthlete(athlete);
+  }
+
   function sortByDateDesc(first, second) {
     return String(second.date || "").localeCompare(String(first.date || ""));
   }
@@ -803,6 +811,7 @@
     const groups = getGroups(athletes);
     const athletesInFilter = athletes.filter(
       (athlete) =>
+        shouldShowAthleteInReports(athlete) &&
         (group === "toate" || athlete.group === group) &&
         (!athlete.joinMonth || athlete.joinMonth <= month)
     );
@@ -969,6 +978,7 @@
     const groups = getGroups(athletes);
     const athletesInFilter = athletes.filter(
       (athlete) =>
+        shouldShowAthleteInReports(athlete) &&
         (group === "toate" || athlete.group === group) &&
         (!athlete.joinMonth || athlete.joinMonth <= month)
     );
