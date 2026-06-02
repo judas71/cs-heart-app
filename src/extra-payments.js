@@ -627,7 +627,7 @@
     const groups = getGroups(athletes);
     const activeAthletes = [...athletes]
       .filter((athlete) => athlete.active)
-      .sort((first, second) => athleteName(first).localeCompare(athleteName(second)));
+      .sort(compareAthletesByName);
 
     const filteredPayments = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
@@ -652,7 +652,7 @@
           .toLowerCase();
         return text.includes(query.toLowerCase());
       })
-      .sort(sortByDateDesc);
+      .sort(comparePaymentsByPayer(athletes));
 
     const totalLei = sumPayments(filteredPayments, "lei");
     const totalEuro = sumPayments(filteredPayments, "euro");
