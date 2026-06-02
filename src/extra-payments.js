@@ -480,11 +480,28 @@
   const BaseReportsView = window.CSHeartComponents?.ReportsView || window.ReportsView;
 
   function ReportsView(props) {
+    const [section, setSection] = React.useState("taxe");
+
     return h(
       "div",
       { className: "stack" },
-      BaseReportsView ? h(BaseReportsView, props) : null,
-      h(ExtraPaymentsReport, props)
+      h(
+        "div",
+        { className: "panel compact-grid" },
+        h(
+          Field,
+          { label: "Ce raport vezi" },
+          h(
+            "select",
+            { value: section, onChange: (event) => setSection(event.target.value) },
+            h("option", { value: "taxe" }, "Taxe si prezenta"),
+            h("option", { value: "alteIncasari" }, "Alte incasari"),
+            h("option", { value: "tot" }, "Tot")
+          )
+        )
+      ),
+      (section === "taxe" || section === "tot") && BaseReportsView ? h(BaseReportsView, props) : null,
+      (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props)
     );
   }
 
