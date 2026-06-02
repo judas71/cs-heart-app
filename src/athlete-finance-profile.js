@@ -53,6 +53,7 @@
         lastName: "",
         group: "",
         parentPhone: "",
+        feeDue: 200,
         active: true,
         notes: "",
         joinMonth: new Date().toISOString().slice(0, 7)
@@ -71,7 +72,8 @@
         ...form,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
-        group: form.group.trim()
+        group: form.group.trim(),
+        feeDue: Number(form.feeDue === "" || form.feeDue === undefined || form.feeDue === null ? 200 : form.feeDue)
       });
     }
 
@@ -81,6 +83,7 @@
       h(Field, { label: "Nume" }, h("input", { value: form.lastName, onChange: (e) => update("lastName", e.target.value), required: true })),
       h(Field, { label: "Prenume" }, h("input", { value: form.firstName, onChange: (e) => update("firstName", e.target.value), required: true })),
       h(Field, { label: "Grupa" }, h("input", { value: form.group, onChange: (e) => update("group", e.target.value), placeholder: "U10", required: true })),
+      h(Field, { label: "Taxa lunara" }, h("input", { type: "number", min: "0", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value === "" ? "" : Number(e.target.value)) })),
       h(Field, { label: "Telefon parinte" }, h("input", { value: form.parentPhone, onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
       h(Field, { label: "Luna inscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
       h(
@@ -202,7 +205,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Sportiv", "Grupa", "Telefon parinte", "Status", "Observatii", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Sportiv", "Grupa", "Taxa", "Telefon parinte", "Status", "Observatii", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -211,7 +214,7 @@
                 ? h(
                     "tr",
                     { key: athlete.id },
-                    h("td", { colSpan: 6 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
+                    h("td", { colSpan: 7 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
                   )
                 : h(
                     React.Fragment,
@@ -221,6 +224,7 @@
                       null,
                       h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(athlete))),
                       h("td", { "data-label": "Grupa" }, athlete.group),
+                      h("td", { "data-label": "Taxa" }, formatMoney(athlete.feeDue ?? 200)),
                       h("td", { "data-label": "Telefon parinte" }, athlete.parentPhone || "-"),
                       h("td", { "data-label": "Status" }, h(StatusPill, { tone: athlete.active ? "ok" : "muted" }, athlete.active ? "Activ" : "Inactiv")),
                       h("td", { "data-label": "Observatii" }, athlete.notes || "-"),
@@ -233,7 +237,7 @@
                       )
                     ),
                     profileId === athlete.id &&
-                      h("tr", null, h("td", { colSpan: 6 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
+                      h("tr", null, h("td", { colSpan: 7 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
                   )
             )
           )
