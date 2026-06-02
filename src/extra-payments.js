@@ -3,7 +3,7 @@
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
-  const paymentTypes = ["plata", "avans"];
+  const paymentTypes = ["incasare", "avans"];
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
 
@@ -46,7 +46,7 @@
   }
 
   function paymentType(payment) {
-    return payment.paymentType || "plata";
+    return !payment.paymentType || payment.paymentType === "plata" ? "incasare" : payment.paymentType;
   }
 
   function paymentCurrency(payment) {
@@ -92,7 +92,7 @@
       payerName: "",
       date: today(),
       category: categories[0],
-      paymentType: "plata",
+      paymentType: "incasare",
       amount: "",
       method: "cash",
       currency: "lei",
