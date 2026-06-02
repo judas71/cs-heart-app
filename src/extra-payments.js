@@ -7,6 +7,193 @@
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
 
+  function injectReportStyles() {
+    if (typeof document === "undefined" || document.getElementById("cs-heart-report-style")) return;
+
+    const style = document.createElement("style");
+    style.id = "cs-heart-report-style";
+    style.textContent = `
+      .cs-report-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+      }
+      .cs-report-card {
+        min-height: 104px;
+        border: 1px solid var(--line, #d9e0e5);
+        border-left: 4px solid #3d4a52;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
+        padding: 14px;
+        display: grid;
+        align-content: start;
+        gap: 4px;
+      }
+      .cs-report-card span {
+        color: var(--muted, #66727a);
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .cs-report-card strong {
+        color: var(--text, #172026);
+        font-size: clamp(1.24rem, 2vw, 1.64rem);
+        line-height: 1.15;
+      }
+      .cs-report-card small {
+        color: var(--muted, #66727a);
+        line-height: 1.35;
+      }
+      .cs-report-card.tone-green { border-left-color: #15803d; }
+      .cs-report-card.tone-red { border-left-color: #b91c1c; }
+      .cs-report-card.tone-blue { border-left-color: #1d4ed8; }
+      .cs-report-card.tone-amber { border-left-color: #b45309; }
+      .cs-report-card.tone-purple { border-left-color: #7e22ce; }
+      .cs-report-sections {
+        display: grid;
+        gap: 12px;
+      }
+      .cs-report-section {
+        border: 1px solid var(--line, #d9e0e5);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
+        overflow: hidden;
+      }
+      .cs-report-section summary {
+        list-style: none;
+        min-height: 56px;
+        padding: 14px 16px;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 28px;
+        align-items: center;
+        gap: 12px;
+      }
+      .cs-report-section summary::-webkit-details-marker {
+        display: none;
+      }
+      .cs-report-section summary::after {
+        content: "+";
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: #eef3f6;
+        color: #172026;
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+      }
+      .cs-report-section[open] summary::after {
+        content: "-";
+      }
+      .cs-report-section-title {
+        font-weight: 850;
+        color: var(--text, #172026);
+      }
+      .cs-report-section-meta {
+        color: var(--muted, #66727a);
+        font-size: 0.9rem;
+        white-space: nowrap;
+      }
+      .cs-report-section-body {
+        border-top: 1px solid var(--line, #d9e0e5);
+        padding: 14px 16px 16px;
+      }
+      .cs-report-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .cs-report-item {
+        border: 1px solid #edf1f4;
+        border-radius: 8px;
+        background: #fff;
+        padding: 10px 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .cs-report-item-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .cs-report-item-title {
+        color: var(--text, #172026);
+        font-weight: 800;
+      }
+      .cs-report-item small {
+        color: var(--muted, #66727a);
+        display: block;
+        margin-top: 3px;
+        line-height: 1.35;
+      }
+      .cs-report-amount {
+        color: var(--text, #172026);
+        font-size: 0.98rem;
+        white-space: nowrap;
+      }
+      .cs-report-amount.negative {
+        color: var(--danger, #b91c1c);
+      }
+      .cs-report-item-extra {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px 10px;
+        line-height: 1.5;
+      }
+      .cs-report-empty {
+        margin: 0;
+        color: var(--muted, #66727a);
+      }
+      .cs-report-sublist {
+        display: grid;
+        gap: 8px;
+      }
+      .cs-report-sublist h3 {
+        margin: 0;
+        color: var(--muted, #66727a);
+        font-size: 0.86rem;
+        text-transform: uppercase;
+      }
+      .cs-report-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .cs-report-legend span {
+        border: 1px solid #edf1f4;
+        border-radius: 999px;
+        background: #fff;
+        padding: 4px 9px;
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+      @media (width <= 640px) {
+        .cs-report-section summary {
+          grid-template-columns: minmax(0, 1fr) 28px;
+        }
+        .cs-report-section-meta {
+          grid-column: 1 / -1;
+          white-space: normal;
+        }
+        .cs-report-item-main {
+          display: grid;
+        }
+        .cs-report-amount {
+          white-space: normal;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  injectReportStyles();
+
   function athleteName(athlete) {
     return `${athlete.lastName} ${athlete.firstName}`;
   }
@@ -151,6 +338,43 @@
 
   function EmptyState({ title, text }) {
     return h("div", { className: "empty-state" }, h("strong", null, title), h("p", null, text));
+  }
+
+  function SummaryCard({ label, value, hint, tone }) {
+    return h(
+      "div",
+      { className: `cs-report-card ${tone || ""}` },
+      h("span", null, label),
+      h("strong", null, value),
+      hint && h("small", null, hint)
+    );
+  }
+
+  function DetailSection({ title, meta, children, open }) {
+    return h(
+      "details",
+      { className: "cs-report-section", open: Boolean(open) },
+      h("summary", null, h("span", { className: "cs-report-section-title" }, title), meta && h("strong", { className: "cs-report-section-meta" }, meta)),
+      h("div", { className: "cs-report-section-body" }, children)
+    );
+  }
+
+  function ReportItem({ title, subtitle, amount, negative, children }) {
+    return h(
+      "li",
+      { className: "cs-report-item" },
+      h(
+        "div",
+        { className: "cs-report-item-main" },
+        h("span", { className: "cs-report-item-title" }, title, subtitle && h("small", null, subtitle)),
+        amount && h("strong", { className: `cs-report-amount ${negative ? "negative" : ""}` }, amount)
+      ),
+      children && h("div", { className: "cs-report-item-extra" }, children)
+    );
+  }
+
+  function EmptyReportLine({ text }) {
+    return h("p", { className: "cs-report-empty" }, text);
   }
 
   function emptyForm() {
@@ -497,40 +721,50 @@
       ),
       h(
         "div",
-        { className: "metrics" },
-        h("div", null, h("span", null, "Total lei"), h("strong", null, formatMoney(totalLei, "lei"))),
-        h("div", null, h("span", null, "Total euro"), h("strong", null, formatMoney(totalEuro, "euro"))),
-        h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatDualAmount(rows, "cash")), h("strong", null, "Transfer: " + formatDualAmount(rows, "transfer")))
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Total lei", value: formatMoney(totalLei, "lei"), hint: `${rows.length} inregistrari`, tone: "tone-green" }),
+        h(SummaryCard, { label: "Total euro", value: formatMoney(totalEuro, "euro"), hint: "Incasari in euro", tone: "tone-blue" }),
+        h(SummaryCard, { label: "Cash", value: formatDualAmount(rows, "cash"), hint: "Doar filtrul ales", tone: "tone-amber" }),
+        h(SummaryCard, { label: "Transfer", value: formatDualAmount(rows, "transfer"), hint: "Doar filtrul ales", tone: "tone-purple" })
       ),
       h(
         "div",
-        { className: "report-grid" },
+        { className: "cs-report-sections" },
         h(
-          "div",
-          { className: "report-block" },
-          h("h2", null, "Pe categorii"),
+          DetailSection,
+          { title: "Pe categorii", meta: `${categoryTotals.length} categorii`, open: true },
           categoryTotals.length
-            ? h("ul", { className: "clean-list" }, categoryTotals.map((item) => h("li", { key: item.category }, h("span", null, item.category), h("strong", null, formatMoney(item.totalLei, "lei") + " / " + formatMoney(item.totalEuro, "euro")))))
-            : h("p", null, "Nu exista incasari in filtrul ales.")
+            ? h(
+                "ul",
+                { className: "cs-report-list" },
+                categoryTotals.map((item) =>
+                  h(ReportItem, {
+                    key: item.category,
+                    title: item.category,
+                    amount: formatMoney(item.totalLei, "lei") + " / " + formatMoney(item.totalEuro, "euro")
+                  })
+                )
+              )
+            : h(EmptyReportLine, { text: "Nu exista incasari in filtrul ales." })
         ),
         h(
-          "div",
-          { className: "report-block" },
-          h("h2", null, "Lista incasari"),
+          DetailSection,
+          { title: "Lista incasari", meta: `${rows.length} inregistrari`, open: false },
           rows.length
             ? h(
                 "ul",
-                { className: "clean-list" },
-                rows.map((payment) => {
-                  return h(
-                    "li",
-                    { key: payment.id },
-                    h("span", null, payerLabel(athletes, payment), h("small", null, formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"))),
-                    h("strong", { className: paymentType(payment) === "avans" ? "arrears" : "" }, formatPaymentAmount(payment))
-                  );
-                })
+                { className: "cs-report-list" },
+                rows.map((payment) =>
+                  h(ReportItem, {
+                    key: payment.id,
+                    title: payerLabel(athletes, payment),
+                    subtitle: formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"),
+                    amount: formatPaymentAmount(payment),
+                    negative: paymentType(payment) === "avans"
+                  })
+                )
               )
-            : h("p", null, "Nu exista incasari in filtrul ales.")
+            : h(EmptyReportLine, { text: "Nu exista incasari in filtrul ales." })
         )
       )
     );
@@ -541,24 +775,24 @@
 
     return h(
       "div",
-      { style: { display: "grid", gap: "8px" } },
-      h("h3", { style: { margin: "4px 0 0", color: "#66727a", fontSize: "0.86rem", textTransform: "uppercase" } }, `${title}: ${formatMoney(subtotal)}`),
+      { className: "cs-report-sublist" },
+      h("h3", null, `${title}: ${formatMoney(subtotal)}`),
       rows.length
         ? h(
             "ul",
-            { className: "clean-list" },
+            { className: "cs-report-list" },
             rows.map((fee) => {
               const athlete = findAthlete(athletes, fee.athleteId);
 
-              return h(
-                "li",
-                { key: fee.id || `${fee.athleteId}-${fee.month}-${fee.method}-${fee.amountPaid}` },
-                h("span", null, athlete ? athleteName(athlete) : "Sportiv necunoscut", h("small", null, fee.paymentDate ? "Data platii: " + fee.paymentDate : "Fara data de plata")),
-                h("strong", null, formatMoney(fee.amountPaid))
-              );
+              return h(ReportItem, {
+                key: fee.id || `${fee.athleteId}-${fee.month}-${fee.method}-${fee.amountPaid}`,
+                title: athlete ? athleteName(athlete) : "Sportiv necunoscut",
+                subtitle: fee.paymentDate ? "Data platii: " + fee.paymentDate : "Fara data de plata",
+                amount: formatMoney(fee.amountPaid)
+              });
             })
           )
-        : h("p", { style: { margin: 0, color: "#66727a" } }, emptyText)
+        : h(EmptyReportLine, { text: emptyText })
     );
   }
 
@@ -603,6 +837,8 @@
     const totalCash = cashRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const totalTransfer = transferRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim());
+    const totalOutstanding = debtorRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const totalCredit = creditRows.reduce((sum, row) => sum + row.credit, 0);
 
     return h(
       "section",
@@ -639,51 +875,88 @@
       ),
       h(
         "div",
-        { className: "metrics" },
-        h("div", null, h("span", null, "Restantieri"), h("strong", null, debtorRows.length)),
-        h("div", null, h("span", null, "Avansuri"), h("strong", null, creditRows.length)),
-        h("div", null, h("span", null, "Incasari taxe"), h("strong", null, formatMoney(totalCollected)), h("div", { style: { fontSize: "14px", marginTop: "6px", color: "#111" } }, "Cash: " + formatMoney(totalCash) + " / Transfer: " + formatMoney(totalTransfer)))
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Incasari taxe", value: formatMoney(totalCollected), hint: "Cash: " + formatMoney(totalCash) + " / Transfer: " + formatMoney(totalTransfer), tone: "tone-green" }),
+        h(SummaryCard, { label: "Restante", value: formatMoney(totalOutstanding), hint: `${debtorRows.length} sportivi`, tone: "tone-red" }),
+        h(SummaryCard, { label: "Avansuri", value: formatMoney(totalCredit), hint: `${creditRows.length} sportivi`, tone: "tone-blue" }),
+        h(SummaryCard, { label: "Observatii", value: observationRows.length, hint: "Sportivi cu observatii", tone: "tone-amber" })
       ),
       h(
         "div",
-        { className: "report-grid" },
+        { className: "cs-report-sections" },
         (reportType === "restantieri" || reportType === "toate") &&
           h(
-            "div",
-            { className: "report-block" },
-            h("h2", null, "Restantieri"),
+            DetailSection,
+            { title: "Restantieri", meta: `${debtorRows.length} sportivi / ${formatMoney(totalOutstanding)}`, open: reportType === "restantieri" },
             debtorRows.length
-              ? h("ul", { className: "clean-list" }, debtorRows.map(({ athlete, outstanding }) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, formatMoney(outstanding)))))
-              : h("p", null, "Nu exista restantieri.")
+              ? h(
+                  "ul",
+                  { className: "cs-report-list" },
+                  debtorRows.map(({ athlete, outstanding }) =>
+                    h(ReportItem, {
+                      key: athlete.id,
+                      title: athleteName(athlete),
+                      amount: formatMoney(outstanding)
+                    })
+                  )
+                )
+              : h(EmptyReportLine, { text: "Nu exista restantieri." })
           ),
         (reportType === "avansuri" || reportType === "toate") &&
           h(
-            "div",
-            { className: "report-block" },
-            h("h2", null, "Avansuri"),
+            DetailSection,
+            { title: "Avansuri", meta: `${creditRows.length} sportivi / ${formatMoney(totalCredit)}`, open: reportType === "avansuri" },
             creditRows.length
-              ? h("ul", { className: "clean-list" }, creditRows.map(({ athlete, credit }) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, formatMoney(credit)))))
-              : h("p", null, "Nu exista avansuri.")
+              ? h(
+                  "ul",
+                  { className: "cs-report-list" },
+                  creditRows.map(({ athlete, credit }) =>
+                    h(ReportItem, {
+                      key: athlete.id,
+                      title: athleteName(athlete),
+                      amount: formatMoney(credit)
+                    })
+                  )
+                )
+              : h(EmptyReportLine, { text: "Nu exista avansuri." })
           ),
         reportType === "observatii" &&
           h(
-            "div",
-            { className: "report-block" },
-            h("h2", null, "Sportivi cu observatii"),
+            DetailSection,
+            { title: "Sportivi cu observatii", meta: `${observationRows.length} sportivi`, open: true },
             observationRows.length
-              ? h("ul", { className: "clean-list" }, observationRows.map((athlete) => h("li", { key: athlete.id }, h("span", null, athleteName(athlete)), h("strong", null, athlete.notes))))
-              : h("p", null, "Nu exista observatii.")
+              ? h(
+                  "ul",
+                  { className: "cs-report-list" },
+                  observationRows.map((athlete) =>
+                    h(ReportItem, {
+                      key: athlete.id,
+                      title: athleteName(athlete),
+                      subtitle: athlete.notes
+                    })
+                  )
+                )
+              : h(EmptyReportLine, { text: "Nu exista observatii." })
           ),
-        reportType === "cash" && h("div", { className: "report-block" }, h("h2", null, "Incasari cash"), h(FeePaymentRows, { title: "Cash", rows: cashRows, athletes, emptyText: "Nu exista incasari cash." })),
-        reportType === "transfer" && h("div", { className: "report-block" }, h("h2", null, "Incasari transfer"), h(FeePaymentRows, { title: "Transfer", rows: transferRows, athletes, emptyText: "Nu exista incasari prin transfer." })),
+        reportType === "cash" &&
+          h(
+            DetailSection,
+            { title: "Incasari cash", meta: `${cashRows.length} plati / ${formatMoney(totalCash)}`, open: true },
+            h(FeePaymentRows, { title: "Cash", rows: cashRows, athletes, emptyText: "Nu exista incasari cash." })
+          ),
+        reportType === "transfer" &&
+          h(
+            DetailSection,
+            { title: "Incasari transfer", meta: `${transferRows.length} plati / ${formatMoney(totalTransfer)}`, open: true },
+            h(FeePaymentRows, { title: "Transfer", rows: transferRows, athletes, emptyText: "Nu exista incasari prin transfer." })
+          ),
         reportType === "toate" &&
           h(
-            "div",
-            { className: "report-block" },
-            h("h2", null, "Incasari pe luna"),
+            DetailSection,
+            { title: "Incasari pe luna", meta: `${collectedFees.length} plati / ${formatMoney(totalCollected)}`, open: false },
             collectedFees.length
               ? h("div", { style: { display: "grid", gap: "12px" } }, h(FeePaymentRows, { title: "Cash", rows: cashRows, athletes, emptyText: "Nu exista incasari cash." }), h(FeePaymentRows, { title: "Transfer", rows: transferRows, athletes, emptyText: "Nu exista incasari prin transfer." }))
-              : h("p", null, "Nu exista incasari.")
+              : h(EmptyReportLine, { text: "Nu exista incasari." })
           )
       )
     );
@@ -709,6 +982,8 @@
     const visibleRows = mode === "sub50" ? rows.filter((row) => row.total > 0 && row.present / row.total < 0.5) : rows;
     const athletesWithAttendance = rows.filter((row) => row.total > 0).length;
     const lowAttendance = rows.filter((row) => row.total > 0 && row.present / row.total < 0.5).length;
+    const totalEntries = rows.reduce((sum, row) => sum + row.total, 0);
+    const totalPresent = rows.reduce((sum, row) => sum + row.present, 0);
 
     return h(
       "section",
@@ -741,34 +1016,38 @@
       ),
       h(
         "div",
-        { className: "metrics" },
-        h("div", null, h("span", null, "Sportivi cu prezenta"), h("strong", null, athletesWithAttendance)),
-        h("div", null, h("span", null, "Sub 50%"), h("strong", null, lowAttendance)),
-        h("div", null, h("span", null, "Legenda"), h("strong", { style: { fontSize: "0.9rem" } }, "Negru prezent / Rosu absent / Albastru invoit / Mov accidentat"))
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Sportivi cu prezenta", value: athletesWithAttendance, hint: `${totalEntries} zile marcate`, tone: "tone-green" }),
+        h(SummaryCard, { label: "Prezente", value: totalPresent, hint: "Total prezente in filtrul ales", tone: "tone-blue" }),
+        h(SummaryCard, { label: "Sub 50%", value: lowAttendance, hint: "Sportivi de verificat", tone: "tone-red" }),
+        h(SummaryCard, { label: "Legenda", value: "Culori", hint: "Negru prezent / Rosu absent / Albastru invoit / Mov accidentat", tone: "tone-purple" })
       ),
       h(
-        "div",
-        { className: "report-block" },
-        h("h2", null, mode === "sub50" ? "Sportivi cu prezenta sub 50%" : "Prezente pe sportiv"),
+        DetailSection,
+        {
+          title: mode === "sub50" ? "Sportivi cu prezenta sub 50%" : "Prezente pe sportiv",
+          meta: `${visibleRows.length} sportivi`,
+          open: mode === "sub50"
+        },
         visibleRows.length
           ? h(
               "ul",
-              { className: "clean-list" },
+              { className: "cs-report-list" },
               visibleRows.map(({ athlete, present, total, entries }) =>
                 h(
-                  "li",
-                  { key: athlete.id, style: { display: "block" } },
-                  h("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px" } }, h("span", null, athleteName(athlete)), h("strong", null, `${present}/${total}`)),
+                  ReportItem,
+                  {
+                    key: athlete.id,
+                    title: athleteName(athlete),
+                    subtitle: total > 0 ? "Date marcate in luna aleasa" : "Fara prezenta in luna aleasa",
+                    amount: `${present}/${total}`
+                  },
                   entries.length > 0 &&
-                    h(
-                      "div",
-                      { style: { display: "flex", flexWrap: "wrap", gap: "4px 10px", marginTop: "6px", lineHeight: "1.5" } },
-                      entries.map((training) =>
-                        h(
-                          "span",
-                          { key: training.id || training.date, style: { color: attendanceColor(training.attendance[athlete.id]), fontSize: "0.84rem", fontWeight: 700 } },
-                          formatAttendanceDay(training.date)
-                        )
+                    entries.map((training) =>
+                      h(
+                        "span",
+                        { key: training.id || training.date, style: { color: attendanceColor(training.attendance[athlete.id]), fontSize: "0.84rem", fontWeight: 800 } },
+                        formatAttendanceDay(training.date)
                       )
                     )
                 )
