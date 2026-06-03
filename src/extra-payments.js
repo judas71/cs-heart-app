@@ -214,43 +214,38 @@
         border: 1px solid var(--line, #d9e0e5);
         border-radius: 8px;
         box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
-        padding: 28px;
+        padding: 18px 20px;
       }
       .cs-receipt-top {
         display: flex;
         justify-content: space-between;
-        gap: 18px;
+        gap: 12px;
         border-bottom: 2px solid #172026;
-        padding-bottom: 18px;
-        margin-bottom: 22px;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
       }
       .cs-receipt-brand {
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 900;
       }
       .cs-receipt-brand-wrap {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
       }
       .cs-receipt-logo {
-        width: 52px;
-        height: 52px;
+        width: 38px;
+        height: 38px;
         object-fit: contain;
-        border-radius: 8px;
+        border-radius: 6px;
         background: #fff;
       }
       .cs-receipt-title {
-        margin-top: 6px;
+        margin-top: 3px;
         color: var(--muted, #66727a);
-        font-size: 0.86rem;
+        font-size: 0.78rem;
         font-weight: 800;
         text-transform: uppercase;
-      }
-      .cs-receipt-date {
-        text-align: right;
-        color: var(--muted, #66727a);
-        font-size: 0.82rem;
       }
       .cs-receipt-table {
         width: 100%;
@@ -261,34 +256,34 @@
         border-bottom: 1px solid #e5eaee;
         text-align: left;
         vertical-align: top;
-        padding: 11px 8px;
+        padding: 6px 6px;
       }
       .cs-receipt-table th {
         width: 34%;
         color: var(--muted, #66727a);
-        font-size: 0.8rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
       }
       .cs-receipt-table td {
-        font-size: 1rem;
+        font-size: 0.9rem;
         font-weight: 800;
       }
       .cs-receipt-table .amount td {
         color: var(--primary, #c5162e);
-        font-size: 1.36rem;
+        font-size: 1.08rem;
       }
       .cs-receipt-note {
-        margin: 22px 0 0;
+        margin: 12px 0 0;
         color: var(--muted, #66727a);
-        font-size: 0.78rem;
-        line-height: 1.45;
+        font-size: 0.68rem;
+        line-height: 1.35;
       }
       .cs-receipt-sign {
-        margin-top: 42px;
+        margin-top: 26px;
         display: grid;
-        gap: 20px;
+        gap: 14px;
         color: var(--muted, #66727a);
-        font-size: 0.82rem;
+        font-size: 0.76rem;
       }
       .cs-receipt-received {
         color: #172026;
@@ -297,11 +292,11 @@
       .cs-receipt-sign-grid {
         display: flex;
         justify-content: space-between;
-        gap: 24px;
+        gap: 20px;
       }
       .cs-receipt-line {
         border-top: 1px solid #66727a;
-        padding-top: 8px;
+        padding-top: 6px;
         width: 42%;
       }
       @media (width <= 640px) {
@@ -314,9 +309,6 @@
         .cs-receipt-top,
         .cs-receipt-sign-grid {
           display: grid;
-        }
-        .cs-receipt-date {
-          text-align: left;
         }
         .cs-receipt-line {
           width: 100%;
@@ -536,10 +528,8 @@
       ["Categorie", payment.category || "-"],
       ["Tip", paymentType(payment)],
       ["Suma", formatPaymentAmount(payment)],
-      ["Moneda", paymentCurrency(payment)],
       ["Metoda", payment.method || "-"],
-      ["Observatii", payment.notes || "-"],
-      ["Operat de", payment.updatedByEmail || "-"]
+      ["Observatii", payment.notes || "-"]
     ];
   }
 
@@ -560,29 +550,29 @@
     <title>CS HEART - Confirmare incasare</title>
     <style>
       * { box-sizing: border-box; }
+      @page { size: A4; margin: 8mm 10mm; }
       body { margin: 0; color: #172026; font-family: Arial, sans-serif; background: #f4f6f8; }
-      .page { width: min(720px, 100%); margin: 0 auto; padding: 32px; }
-      .receipt { background: #fff; border: 1px solid #d9e0e5; border-radius: 8px; padding: 28px; }
-      .top { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #172026; padding-bottom: 18px; margin-bottom: 22px; }
-      .brand-wrap { display: flex; align-items: center; gap: 12px; }
-      .logo { width: 52px; height: 52px; object-fit: contain; border-radius: 8px; background: #fff; }
-      .brand { font-size: 22px; font-weight: 800; letter-spacing: 0; }
-      .title { margin-top: 6px; color: #66727a; font-size: 14px; font-weight: 700; text-transform: uppercase; }
-      .date { text-align: right; color: #66727a; font-size: 13px; }
+      .page { width: min(680px, 100%); margin: 0 auto; padding: 14px 24px; }
+      .receipt { background: #fff; border: 1px solid #d9e0e5; border-radius: 8px; padding: 18px 20px; }
+      .top { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #172026; padding-bottom: 10px; margin-bottom: 12px; }
+      .brand-wrap { display: flex; align-items: center; gap: 10px; }
+      .logo { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; background: #fff; }
+      .brand { font-size: 18px; font-weight: 800; letter-spacing: 0; }
+      .title { margin-top: 3px; color: #66727a; font-size: 12px; font-weight: 700; text-transform: uppercase; }
       table { width: 100%; border-collapse: collapse; }
-      th, td { text-align: left; padding: 11px 8px; border-bottom: 1px solid #e5eaee; vertical-align: top; }
-      th { width: 34%; color: #66727a; font-size: 13px; text-transform: uppercase; }
-      td { font-size: 16px; font-weight: 700; }
-      .amount td { font-size: 22px; color: #c5162e; }
-      .note { margin-top: 22px; color: #66727a; font-size: 12px; line-height: 1.45; }
-      .sign { margin-top: 42px; display: grid; gap: 20px; color: #66727a; font-size: 13px; }
+      th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid #e5eaee; vertical-align: top; }
+      th { width: 34%; color: #66727a; font-size: 11px; text-transform: uppercase; }
+      td { font-size: 14px; font-weight: 700; }
+      .amount td { font-size: 17px; color: #c5162e; }
+      .note { margin-top: 12px; color: #66727a; font-size: 10px; line-height: 1.35; }
+      .sign { margin-top: 26px; display: grid; gap: 14px; color: #66727a; font-size: 12px; }
       .received { color: #172026; font-weight: 800; }
-      .sign-grid { display: flex; justify-content: space-between; gap: 24px; }
-      .line { border-top: 1px solid #66727a; padding-top: 8px; width: 42%; }
+      .sign-grid { display: flex; justify-content: space-between; gap: 20px; }
+      .line { border-top: 1px solid #66727a; padding-top: 6px; width: 42%; }
       @media print {
         body { background: #fff; }
         .page { width: 100%; padding: 0; }
-        .receipt { border: 0; border-radius: 0; }
+        .receipt { break-inside: avoid; page-break-inside: avoid; }
       }
     </style>
   </head>
@@ -597,7 +587,6 @@
               <div class="title">Confirmare &icirc;ncasare</div>
             </div>
           </div>
-          <div class="date">Tiparit: ${escapeHtml(new Date().toLocaleString("ro-RO"))}</div>
         </div>
         <table>
           <tbody>
@@ -652,7 +641,6 @@
             "div",
             { className: "cs-print-warning" },
             "Atentie: aceasta confirmare a mai fost tiparita",
-            payment.printedAt ? " la " + formatDateTime(payment.printedAt) : "",
             printCount ? " (" + printCount + " ori)" : "",
             "."
           ),
@@ -667,8 +655,7 @@
               { className: "cs-receipt-brand-wrap" },
               h("img", { className: "cs-receipt-logo", src: "./icon.png", alt: "CS HEART", onError: (event) => { event.currentTarget.style.display = "none"; } }),
               h("div", null, h("div", { className: "cs-receipt-brand" }, "CS HEART"), h("div", { className: "cs-receipt-title" }, "Confirmare \u00eencasare"))
-            ),
-            h("div", { className: "cs-receipt-date" }, "Previzualizare: " + new Date().toLocaleString("ro-RO"))
+            )
           ),
           h(
             "table",
