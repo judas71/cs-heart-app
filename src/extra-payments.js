@@ -606,7 +606,7 @@
               .join("")}
           </tbody>
         </table>
-        <p class="note">Document generat din aplicatia CS HEART pentru evidenta interna a platilor si incasarilor.</p>
+        <p class="note">Suma achitata reprezinta avans/arvuna pentru rezervarea participarii la actiunea mentionata. In cazul renuntarii unilaterale din partea platitorului/participantului, suma nu se restituie, cu exceptia cazurilor de accident sau boala dovedite cu documente medicale.</p>
         <div class="sign">
           <div class="received">Am primit confirmarea de incasare.</div>
           <div class="sign-grid">
@@ -681,7 +681,7 @@
               )
             )
           ),
-          h("p", { className: "cs-receipt-note" }, "Document generat din aplicatia CS HEART pentru evidenta interna a platilor si incasarilor."),
+          h("p", { className: "cs-receipt-note" }, "Suma achitata reprezinta avans/arvuna pentru rezervarea participarii la actiunea mentionata. In cazul renuntarii unilaterale din partea platitorului/participantului, suma nu se restituie, cu exceptia cazurilor de accident sau boala dovedite cu documente medicale."),
           h(
             "div",
             { className: "cs-receipt-sign" },
