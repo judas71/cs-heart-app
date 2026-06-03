@@ -228,6 +228,18 @@
         font-size: 22px;
         font-weight: 900;
       }
+      .cs-receipt-brand-wrap {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .cs-receipt-logo {
+        width: 52px;
+        height: 52px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: #fff;
+      }
       .cs-receipt-title {
         margin-top: 6px;
         color: var(--muted, #66727a);
@@ -273,11 +285,19 @@
       }
       .cs-receipt-sign {
         margin-top: 42px;
+        display: grid;
+        gap: 20px;
+        color: var(--muted, #66727a);
+        font-size: 0.82rem;
+      }
+      .cs-receipt-received {
+        color: #172026;
+        font-weight: 800;
+      }
+      .cs-receipt-sign-grid {
         display: flex;
         justify-content: space-between;
         gap: 24px;
-        color: var(--muted, #66727a);
-        font-size: 0.82rem;
       }
       .cs-receipt-line {
         border-top: 1px solid #66727a;
@@ -292,7 +312,7 @@
           padding: 18px;
         }
         .cs-receipt-top,
-        .cs-receipt-sign {
+        .cs-receipt-sign-grid {
           display: grid;
         }
         .cs-receipt-date {
@@ -537,13 +557,15 @@
 <html lang="ro">
   <head>
     <meta charset="UTF-8">
-    <title>CS HEART - Confirmare plata</title>
+    <title>CS HEART - Confirmare incasare</title>
     <style>
       * { box-sizing: border-box; }
       body { margin: 0; color: #172026; font-family: Arial, sans-serif; background: #f4f6f8; }
       .page { width: min(720px, 100%); margin: 0 auto; padding: 32px; }
       .receipt { background: #fff; border: 1px solid #d9e0e5; border-radius: 8px; padding: 28px; }
       .top { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #172026; padding-bottom: 18px; margin-bottom: 22px; }
+      .brand-wrap { display: flex; align-items: center; gap: 12px; }
+      .logo { width: 52px; height: 52px; object-fit: contain; border-radius: 8px; background: #fff; }
       .brand { font-size: 22px; font-weight: 800; letter-spacing: 0; }
       .title { margin-top: 6px; color: #66727a; font-size: 14px; font-weight: 700; text-transform: uppercase; }
       .date { text-align: right; color: #66727a; font-size: 13px; }
@@ -553,7 +575,9 @@
       td { font-size: 16px; font-weight: 700; }
       .amount td { font-size: 22px; color: #c5162e; }
       .note { margin-top: 22px; color: #66727a; font-size: 12px; line-height: 1.45; }
-      .sign { margin-top: 42px; display: flex; justify-content: space-between; gap: 24px; color: #66727a; font-size: 13px; }
+      .sign { margin-top: 42px; display: grid; gap: 20px; color: #66727a; font-size: 13px; }
+      .received { color: #172026; font-weight: 800; }
+      .sign-grid { display: flex; justify-content: space-between; gap: 24px; }
       .line { border-top: 1px solid #66727a; padding-top: 8px; width: 42%; }
       @media print {
         body { background: #fff; }
@@ -566,9 +590,12 @@
     <main class="page">
       <section class="receipt">
         <div class="top">
-          <div>
-            <div class="brand">CS HEART</div>
-            <div class="title">Confirmare plata / incasare</div>
+          <div class="brand-wrap">
+            <img class="logo" src="./icon.png" alt="CS HEART" onerror="this.style.display='none'">
+            <div>
+              <div class="brand">CS HEART</div>
+              <div class="title">Confirmare &icirc;ncasare</div>
+            </div>
           </div>
           <div class="date">Tiparit: ${escapeHtml(new Date().toLocaleString("ro-RO"))}</div>
         </div>
@@ -581,8 +608,11 @@
         </table>
         <p class="note">Document generat din aplicatia CS HEART pentru evidenta interna a platilor si incasarilor.</p>
         <div class="sign">
-          <div class="line">Semnatura</div>
-          <div class="line">Observatii</div>
+          <div class="received">Am primit confirmarea de incasare.</div>
+          <div class="sign-grid">
+            <div class="line">Nume primitor</div>
+            <div class="line">Semnatura primitor</div>
+          </div>
         </div>
       </section>
     </main>
@@ -609,7 +639,7 @@
         h(
           "div",
           { className: "cs-print-actions" },
-          h("strong", null, "Previzualizare confirmare plata"),
+          h("strong", null, "Previzualizare confirmare incasare"),
           h(
             "div",
             { className: "row-actions" },
@@ -621,7 +651,7 @@
           h(
             "div",
             { className: "cs-print-warning" },
-            "Atentie: aceasta plata a mai fost tiparita",
+            "Atentie: aceasta confirmare a mai fost tiparita",
             payment.printedAt ? " la " + formatDateTime(payment.printedAt) : "",
             printCount ? " (" + printCount + " ori)" : "",
             "."
@@ -632,7 +662,12 @@
           h(
             "div",
             { className: "cs-receipt-top" },
-            h("div", null, h("div", { className: "cs-receipt-brand" }, "CS HEART"), h("div", { className: "cs-receipt-title" }, "Confirmare plata / incasare")),
+            h(
+              "div",
+              { className: "cs-receipt-brand-wrap" },
+              h("img", { className: "cs-receipt-logo", src: "./icon.png", alt: "CS HEART", onError: (event) => { event.currentTarget.style.display = "none"; } }),
+              h("div", null, h("div", { className: "cs-receipt-brand" }, "CS HEART"), h("div", { className: "cs-receipt-title" }, "Confirmare \u00eencasare"))
+            ),
             h("div", { className: "cs-receipt-date" }, "Previzualizare: " + new Date().toLocaleString("ro-RO"))
           ),
           h(
@@ -647,7 +682,17 @@
             )
           ),
           h("p", { className: "cs-receipt-note" }, "Document generat din aplicatia CS HEART pentru evidenta interna a platilor si incasarilor."),
-          h("div", { className: "cs-receipt-sign" }, h("div", { className: "cs-receipt-line" }, "Semnatura"), h("div", { className: "cs-receipt-line" }, "Observatii"))
+          h(
+            "div",
+            { className: "cs-receipt-sign" },
+            h("div", { className: "cs-receipt-received" }, "Am primit confirmarea de incasare."),
+            h(
+              "div",
+              { className: "cs-receipt-sign-grid" },
+              h("div", { className: "cs-receipt-line" }, "Nume primitor"),
+              h("div", { className: "cs-receipt-line" }, "Semnatura primitor")
+            )
+          )
         )
       )
     );
