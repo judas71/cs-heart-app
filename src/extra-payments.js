@@ -174,6 +174,134 @@
         font-size: 0.82rem;
         font-weight: 800;
       }
+      .cs-print-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(23, 32, 38, 0.42);
+        padding: 20px;
+        overflow: auto;
+      }
+      .cs-print-dialog {
+        width: min(760px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 12px;
+      }
+      .cs-print-actions {
+        border: 1px solid var(--line, #d9e0e5);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
+        padding: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .cs-print-warning {
+        border: 1px solid #f0c9c9;
+        border-left: 4px solid #b91c1c;
+        border-radius: 8px;
+        background: #fff1f2;
+        color: #7f1d1d;
+        padding: 10px 12px;
+        font-weight: 800;
+      }
+      .cs-receipt-preview {
+        background: #fff;
+        border: 1px solid var(--line, #d9e0e5);
+        border-radius: 8px;
+        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
+        padding: 28px;
+      }
+      .cs-receipt-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        border-bottom: 2px solid #172026;
+        padding-bottom: 18px;
+        margin-bottom: 22px;
+      }
+      .cs-receipt-brand {
+        font-size: 22px;
+        font-weight: 900;
+      }
+      .cs-receipt-title {
+        margin-top: 6px;
+        color: var(--muted, #66727a);
+        font-size: 0.86rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .cs-receipt-date {
+        text-align: right;
+        color: var(--muted, #66727a);
+        font-size: 0.82rem;
+      }
+      .cs-receipt-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .cs-receipt-table th,
+      .cs-receipt-table td {
+        border-bottom: 1px solid #e5eaee;
+        text-align: left;
+        vertical-align: top;
+        padding: 11px 8px;
+      }
+      .cs-receipt-table th {
+        width: 34%;
+        color: var(--muted, #66727a);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+      }
+      .cs-receipt-table td {
+        font-size: 1rem;
+        font-weight: 800;
+      }
+      .cs-receipt-table .amount td {
+        color: var(--primary, #c5162e);
+        font-size: 1.36rem;
+      }
+      .cs-receipt-note {
+        margin: 22px 0 0;
+        color: var(--muted, #66727a);
+        font-size: 0.78rem;
+        line-height: 1.45;
+      }
+      .cs-receipt-sign {
+        margin-top: 42px;
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        color: var(--muted, #66727a);
+        font-size: 0.82rem;
+      }
+      .cs-receipt-line {
+        border-top: 1px solid #66727a;
+        padding-top: 8px;
+        width: 42%;
+      }
+      @media (width <= 640px) {
+        .cs-print-overlay {
+          padding: 10px;
+        }
+        .cs-receipt-preview {
+          padding: 18px;
+        }
+        .cs-receipt-top,
+        .cs-receipt-sign {
+          display: grid;
+        }
+        .cs-receipt-date {
+          text-align: left;
+        }
+        .cs-receipt-line {
+          width: 100%;
+        }
+      }
       @media (width <= 640px) {
         .cs-report-section summary {
           grid-template-columns: minmax(0, 1fr) 28px;
@@ -215,6 +343,12 @@
     if (!value) return "-";
     const parts = String(value).split("-");
     return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("ro-RO");
   }
 
   function getGroups(athletes) {
@@ -361,6 +495,162 @@
     if (athlete) return athleteName(athlete);
     if (payment.payerName) return payment.payerName;
     return payerType(payment) === "partener" ? "Partener fara nume" : "Sursa necunoscuta";
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function getPaymentReceiptRows(athletes, payment) {
+    const athlete = findAthlete(athletes, payment.athleteId);
+
+    return [
+      ["Data", formatDate(payment.date)],
+      ["De la", payerLabel(athletes, payment)],
+      ["Tip platitor", athlete ? "sportiv / " + athlete.group : payerType(payment)],
+      ["Categorie", payment.category || "-"],
+      ["Tip", paymentType(payment)],
+      ["Suma", formatPaymentAmount(payment)],
+      ["Moneda", paymentCurrency(payment)],
+      ["Metoda", payment.method || "-"],
+      ["Observatii", payment.notes || "-"],
+      ["Operat de", payment.updatedByEmail || "-"]
+    ];
+  }
+
+  function printPaymentReceipt(athletes, payment) {
+    const receiptWindow = window.open("", "_blank", "width=720,height=900");
+
+    if (!receiptWindow) {
+      alert("Browserul a blocat fereastra de imprimare.");
+      return;
+    }
+
+    const rows = getPaymentReceiptRows(athletes, payment);
+
+    receiptWindow.document.write(`<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8">
+    <title>CS HEART - Confirmare plata</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #172026; font-family: Arial, sans-serif; background: #f4f6f8; }
+      .page { width: min(720px, 100%); margin: 0 auto; padding: 32px; }
+      .receipt { background: #fff; border: 1px solid #d9e0e5; border-radius: 8px; padding: 28px; }
+      .top { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #172026; padding-bottom: 18px; margin-bottom: 22px; }
+      .brand { font-size: 22px; font-weight: 800; letter-spacing: 0; }
+      .title { margin-top: 6px; color: #66727a; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+      .date { text-align: right; color: #66727a; font-size: 13px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 11px 8px; border-bottom: 1px solid #e5eaee; vertical-align: top; }
+      th { width: 34%; color: #66727a; font-size: 13px; text-transform: uppercase; }
+      td { font-size: 16px; font-weight: 700; }
+      .amount td { font-size: 22px; color: #c5162e; }
+      .note { margin-top: 22px; color: #66727a; font-size: 12px; line-height: 1.45; }
+      .sign { margin-top: 42px; display: flex; justify-content: space-between; gap: 24px; color: #66727a; font-size: 13px; }
+      .line { border-top: 1px solid #66727a; padding-top: 8px; width: 42%; }
+      @media print {
+        body { background: #fff; }
+        .page { width: 100%; padding: 0; }
+        .receipt { border: 0; border-radius: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="receipt">
+        <div class="top">
+          <div>
+            <div class="brand">CS HEART</div>
+            <div class="title">Confirmare plata / incasare</div>
+          </div>
+          <div class="date">Tiparit: ${escapeHtml(new Date().toLocaleString("ro-RO"))}</div>
+        </div>
+        <table>
+          <tbody>
+            ${rows
+              .map(([label, value]) => `<tr class="${label === "Suma" ? "amount" : ""}"><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`)
+              .join("")}
+          </tbody>
+        </table>
+        <p class="note">Document generat din aplicatia CS HEART pentru evidenta interna a platilor si incasarilor.</p>
+        <div class="sign">
+          <div class="line">Semnatura</div>
+          <div class="line">Observatii</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+    setTimeout(() => receiptWindow.print(), 250);
+  }
+
+  function ReceiptPreview({ athletes, payment, onClose, onPrint }) {
+    if (!payment) return null;
+
+    const rows = getPaymentReceiptRows(athletes, payment);
+    const printCount = Number(payment.printCount || 0);
+    const wasPrinted = printCount > 0 || Boolean(payment.printedAt);
+
+    return h(
+      "div",
+      { className: "cs-print-overlay" },
+      h(
+        "div",
+        { className: "cs-print-dialog" },
+        h(
+          "div",
+          { className: "cs-print-actions" },
+          h("strong", null, "Previzualizare confirmare plata"),
+          h(
+            "div",
+            { className: "row-actions" },
+            h("button", { className: "primary", onClick: onPrint }, "Tipareste"),
+            h("button", { type: "button", onClick: onClose }, "Inchide")
+          )
+        ),
+        wasPrinted &&
+          h(
+            "div",
+            { className: "cs-print-warning" },
+            "Atentie: aceasta plata a mai fost tiparita",
+            payment.printedAt ? " la " + formatDateTime(payment.printedAt) : "",
+            printCount ? " (" + printCount + " ori)" : "",
+            "."
+          ),
+        h(
+          "section",
+          { className: "cs-receipt-preview" },
+          h(
+            "div",
+            { className: "cs-receipt-top" },
+            h("div", null, h("div", { className: "cs-receipt-brand" }, "CS HEART"), h("div", { className: "cs-receipt-title" }, "Confirmare plata / incasare")),
+            h("div", { className: "cs-receipt-date" }, "Previzualizare: " + new Date().toLocaleString("ro-RO"))
+          ),
+          h(
+            "table",
+            { className: "cs-receipt-table" },
+            h(
+              "tbody",
+              null,
+              rows.map(([label, value]) =>
+                h("tr", { key: label, className: label === "Suma" ? "amount" : "" }, h("th", null, label), h("td", null, value))
+              )
+            )
+          ),
+          h("p", { className: "cs-receipt-note" }, "Document generat din aplicatia CS HEART pentru evidenta interna a platilor si incasarilor."),
+          h("div", { className: "cs-receipt-sign" }, h("div", { className: "cs-receipt-line" }, "Semnatura"), h("div", { className: "cs-receipt-line" }, "Observatii"))
+        )
+      )
+    );
   }
 
   function comparePaymentsByPayer(athletes) {
@@ -635,6 +925,7 @@
     const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const [query, setQuery] = React.useState("");
     const [form, setForm] = React.useState(emptyForm);
+    const [printPreviewPayment, setPrintPreviewPayment] = React.useState(null);
     const formRef = React.useRef(null);
 
     const groups = getGroups(athletes);
@@ -745,9 +1036,28 @@
       setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     }
 
+    function printPreview(payment) {
+      setPrintPreviewPayment(payment);
+    }
+
+    function confirmPrint() {
+      if (!printPreviewPayment) return;
+
+      const markedPayment = {
+        ...printPreviewPayment,
+        printedAt: new Date().toISOString(),
+        printCount: Number(printPreviewPayment.printCount || 0) + 1
+      };
+
+      onSavePayment(markedPayment);
+      setPrintPreviewPayment(markedPayment);
+      printPaymentReceipt(athletes, markedPayment);
+    }
+
     return h(
       "section",
       { className: "stack" },
+      h(ReceiptPreview, { athletes, payment: printPreviewPayment, onClose: () => setPrintPreviewPayment(null), onPrint: confirmPrint }),
       h(
         "form",
         { className: "panel form-grid", ref: formRef, onSubmit: submit },
@@ -911,6 +1221,7 @@
                   "td",
                   { className: "row-actions" },
                   h("button", { onClick: () => edit(payment) }, "Editeaza"),
+                  h("button", { onClick: () => printPreview(payment) }, Number(payment.printCount || 0) > 0 || payment.printedAt ? "Reimprima" : "Imprima"),
                   h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
                 )
               );
