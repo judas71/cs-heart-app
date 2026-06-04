@@ -34,14 +34,31 @@
     }
   }
 
-  function formatMedicalVisa(athlete) {
-    const from = formatDate(athlete.medicalVisaFrom);
-    const to = formatDate(athlete.medicalVisaTo);
+  function medicalVisaPart(label, value) {
+    const formatted = formatDate(value);
 
-    if (from !== "-" && to !== "-") return `de la ${from} pana la ${to}`;
-    if (from !== "-") return `de la ${from}`;
-    if (to !== "-") return `pana la ${to}`;
-    return "-";
+    if (formatted === "-") return null;
+
+    return h(
+      "span",
+      { style: { display: "inline-flex", gap: "5px", marginRight: "18px", whiteSpace: "nowrap" } },
+      label + " -",
+      h("span", { style: { color: "#c5162e", fontWeight: 900 } }, formatted)
+    );
+  }
+
+  function MedicalVisaValue({ athlete }) {
+    const from = medicalVisaPart("de la", athlete.medicalVisaFrom);
+    const to = medicalVisaPart("pana la", athlete.medicalVisaTo);
+
+    if (!from && !to) return "-";
+
+    return h(
+      "span",
+      { style: { display: "flex", flexWrap: "wrap", gap: "6px 0" } },
+      from,
+      to
+    );
   }
 
   function Field({ label, children }) {
@@ -130,7 +147,7 @@
         { className: "metrics", style: { marginBottom: "14px" } },
         h("div", null, h("span", null, "Total incasat"), h("strong", null, formatMoney(totalPaid))),
         h("div", null, h("span", null, "Plati gasite"), h("strong", null, rows.length)),
-        h("div", null, h("span", null, "Viza medicala"), h("strong", null, formatMedicalVisa(athlete)))
+        h("div", null, h("span", null, "Viza medicala"), h("strong", null, h(MedicalVisaValue, { athlete })))
       ),
       rows.length
         ? h(
