@@ -412,6 +412,46 @@
     return "#172026";
   }
 
+  function parseDateValue(value) {
+    if (!value) return null;
+
+    const date = new Date(String(value) + "T00:00:00");
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function daysUntilDate(value) {
+    const target = parseDateValue(value);
+    if (!target) return null;
+
+    const now = parseDateValue(today());
+    return Math.ceil((target.getTime() - now.getTime()) / 86400000);
+  }
+
+  function hasMedicalVisa(athlete) {
+    return Boolean(athlete.medicalVisaFrom || athlete.medicalVisaTo);
+  }
+
+  function medicalVisaStatus(athlete) {
+    const daysLeft = daysUntilDate(athlete.medicalVisaTo);
+
+    if (daysLeft === null) return "Fara data finala";
+    if (daysLeft < 0) return "Expirata";
+    if (daysLeft <= 30) return "Expira curand";
+    return "Valabila";
+  }
+
+  function MedicalVisaPeriod({ athlete }) {
+    const from = athlete.medicalVisaFrom ? formatDate(athlete.medicalVisaFrom) : "-";
+    const to = athlete.medicalVisaTo ? formatDate(athlete.medicalVisaTo) : "-";
+
+    return h(
+      "span",
+      { style: { display: "flex", flexWrap: "wrap", gap: "8px 18px", fontWeight: 800 } },
+      h("span", null, "de la - ", h("span", { style: { color: "#c5162e" } }, from)),
+      h("span", null, "pana la - ", h("span", { style: { color: "#c5162e" } }, to))
+    );
+  }
+
   function getMonthRange(startMonth, endMonth) {
     if (!startMonth || !endMonth || startMonth >= endMonth) return [];
 
@@ -1700,6 +1740,74 @@
     );
   }
 
+  function MedicalVisaReportsView({ athletes = [] }) {
+    const [group, setGroup] = React.useState("toate");
+    const groups = getGroups(athletes);
+    const athletesInFilter = athletes.filter(
+      (athlete) =>
+        shouldShowAthleteInReports(athlete) &&
+        (group === "toate" || athlete.group === group)
+    ).sort(compareAthletesByName);
+    const rows = athletesInFilter
+      .filter(hasMedicalVisa)
+      .map((athlete) => ({ athlete, status: medicalVisaStatus(athlete), daysLeft: daysUntilDate(athlete.medicalVisaTo) }));
+    const validRows = rows.filter((row) => row.status === "Valabila");
+    const soonRows = rows.filter((row) => row.status === "Expira curand");
+    const expiredRows = rows.filter((row) => row.status === "Expirata");
+    const noFinalDateRows = rows.filter((row) => row.status === "Fara data finala");
+
+    return h(
+      "section",
+      { className: "stack" },
+      h("h2", null, "Vize medicale"),
+      h(
+        "div",
+        { className: "panel compact-grid" },
+        h(
+          Field,
+          { label: "Grupa" },
+          h(
+            "select",
+            { value: group, onChange: (event) => setGroup(event.target.value) },
+            h("option", { value: "toate" }, "Toate grupele"),
+            groups.map((item) => h("option", { key: item, value: item }, item))
+          )
+        )
+      ),
+      h(
+        "div",
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Vize introduse", value: rows.length, hint: `${athletesInFilter.length} sportivi in filtrul ales`, tone: "tone-blue" }),
+        h(SummaryCard, { label: "Valabile", value: validRows.length, hint: "Peste 30 zile ramase", tone: "tone-green" }),
+        h(SummaryCard, { label: "Expira curand", value: soonRows.length, hint: "30 zile sau mai putin", tone: "tone-amber" }),
+        h(SummaryCard, { label: "Expirate", value: expiredRows.length, hint: noFinalDateRows.length ? `${noFinalDateRows.length} fara data finala` : "De verificat", tone: "tone-red" })
+      ),
+      h(
+        DetailSection,
+        { title: "Sportivi cu viza medicala", meta: `${rows.length} sportivi`, open: true },
+        rows.length
+          ? h(
+              "ul",
+              { className: "cs-report-list" },
+              rows.map(({ athlete, status, daysLeft }) =>
+                h(
+                  ReportItem,
+                  {
+                    key: athlete.id,
+                    title: athleteName(athlete),
+                    subtitle: athlete.group || "-",
+                    amount: status === "Valabila" && daysLeft !== null ? `${daysLeft} zile` : status,
+                    negative: status === "Expirata"
+                  },
+                  h(MedicalVisaPeriod, { athlete })
+                )
+              )
+            )
+          : h(EmptyReportLine, { text: "Nu exista vize medicale introduse in filtrul ales." })
+      )
+    );
+  }
+
   function ReportsView(props) {
     const [section, setSection] = React.useState("taxe");
 
@@ -1717,6 +1825,7 @@
             { value: section, onChange: (event) => setSection(event.target.value) },
             h("option", { value: "taxe" }, "Taxe"),
             h("option", { value: "prezenta" }, "Prezenta"),
+            h("option", { value: "vizeMedicale" }, "Vize medicale"),
             h("option", { value: "alteIncasari" }, "Alte incasari"),
             h("option", { value: "tot" }, "Tot")
           )
@@ -1724,6 +1833,7 @@
       ),
       (section === "taxe" || section === "tot") && h(TaxReportsView, props),
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
+      (section === "vizeMedicale" || section === "tot") && h(MedicalVisaReportsView, props),
       (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props)
     );
   }
