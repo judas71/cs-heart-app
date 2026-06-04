@@ -5,6 +5,14 @@
     return `${athlete.lastName} ${athlete.firstName}`;
   }
 
+  function compareText(first, second) {
+    return String(first || "").trim().localeCompare(String(second || "").trim(), "ro-RO", { sensitivity: "base", numeric: true });
+  }
+
+  function compareAthletesByName(first, second) {
+    return compareText(athleteName(first), athleteName(second));
+  }
+
   function formatMoney(value) {
     return `${Number(value || 0).toLocaleString("ro-RO")} lei`;
   }
@@ -210,7 +218,8 @@
         if (statusFilter === "archived") return !active;
         return true;
       })
-      .filter((athlete) => athleteName(athlete).toLowerCase().includes(query.toLowerCase()));
+      .filter((athlete) => athleteName(athlete).toLowerCase().includes(query.toLowerCase()))
+      .sort(compareAthletesByName);
 
     function toggleArchive(athlete) {
       const active = isActiveAthlete(athlete);
