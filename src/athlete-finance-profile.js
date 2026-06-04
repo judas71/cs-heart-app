@@ -132,7 +132,7 @@
                 h(
                   "tr",
                   null,
-                  ["Luna", "Datorat", "Platit", "Data platii", "Metoda", "Status", "Operat de", "ID", "Modificat la"].map((head) => h("th", { key: head }, head))
+                  ["Luna", "Datorat", "Platit", "Data platii", "Metoda", "Status", "Operat de", "Modificat la"].map((head) => h("th", { key: head }, head))
                 )
               ),
               h(
@@ -149,7 +149,6 @@
                     h("td", { "data-label": "Metoda" }, fee.method || "-"),
                     h("td", { "data-label": "Status" }, fee.status || "-"),
                     h("td", { "data-label": "Operat de" }, fee.updatedByEmail || fee.updatedBy || "-"),
-                    h("td", { "data-label": "ID" }, fee.updatedById || "-"),
                     h("td", { "data-label": "Modificat la" }, formatDateTime(fee.updatedAt))
                   )
                 )
