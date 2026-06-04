@@ -34,6 +34,16 @@
     }
   }
 
+  function formatMedicalVisa(athlete) {
+    const from = formatDate(athlete.medicalVisaFrom);
+    const to = formatDate(athlete.medicalVisaTo);
+
+    if (from !== "-" && to !== "-") return `de la ${from} pana la ${to}`;
+    if (from !== "-") return `de la ${from}`;
+    if (to !== "-") return `pana la ${to}`;
+    return "-";
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -56,6 +66,8 @@
         feeDue: 200,
         active: true,
         notes: "",
+        medicalVisaFrom: "",
+        medicalVisaTo: "",
         joinMonth: new Date().toISOString().slice(0, 7)
       }
     );
@@ -86,6 +98,8 @@
       h(Field, { label: "Taxa lunara" }, h("input", { type: "number", min: "0", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value === "" ? "" : Number(e.target.value)) })),
       h(Field, { label: "Telefon parinte" }, h("input", { value: form.parentPhone, onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
       h(Field, { label: "Luna inscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
+      h(Field, { label: "Viza medicala de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
+      h(Field, { label: "Viza medicala pana la" }, h("input", { type: "date", value: form.medicalVisaTo || "", onChange: (e) => update("medicalVisaTo", e.target.value) })),
       h(
         Field,
         { label: "Status" },
@@ -106,7 +120,6 @@
       .filter((fee) => fee.athleteId === athlete.id && (Number(fee.amountPaid || 0) > 0 || fee.paymentDate))
       .sort((a, b) => String(b.month || "").localeCompare(String(a.month || "")));
     const totalPaid = rows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
-    const lastPayment = rows.find((fee) => fee.paymentDate);
 
     return h(
       "div",
@@ -117,7 +130,7 @@
         { className: "metrics", style: { marginBottom: "14px" } },
         h("div", null, h("span", null, "Total incasat"), h("strong", null, formatMoney(totalPaid))),
         h("div", null, h("span", null, "Plati gasite"), h("strong", null, rows.length)),
-        h("div", null, h("span", null, "Ultima plata"), h("strong", null, lastPayment ? formatDate(lastPayment.paymentDate) : "-"))
+        h("div", null, h("span", null, "Viza medicala"), h("strong", null, formatMedicalVisa(athlete)))
       ),
       rows.length
         ? h(
