@@ -73,6 +73,10 @@
     return h("span", { className: `pill ${tone || ""}` }, children);
   }
 
+  function isActiveAthlete(athlete) {
+    return athlete.active !== false;
+  }
+
   function AthleteForm({ initialValue, onSave, onCancel }) {
     const [form, setForm] = React.useState(
       initialValue || {
@@ -122,9 +126,9 @@
         { label: "Status" },
         h(
           "select",
-          { value: form.active ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") },
+          { value: isActiveAthlete(form) ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") },
           h("option", { value: "active" }, "Activ"),
-          h("option", { value: "inactive" }, "Inactiv")
+          h("option", { value: "inactive" }, "Arhivat")
         )
       ),
       h(Field, { label: "Observatii" }, h("textarea", { value: form.notes, onChange: (e) => update("notes", e.target.value), rows: 2 })),
@@ -196,10 +200,25 @@
     const [isAdding, setAdding] = React.useState(false);
     const [query, setQuery] = React.useState("");
     const [groupFilter, setGroupFilter] = React.useState("toate");
+    const [statusFilter, setStatusFilter] = React.useState("active");
     const groups = getGroups(athletes);
     const filtered = athletes
       .filter((athlete) => groupFilter === "toate" || athlete.group === groupFilter)
+      .filter((athlete) => {
+        const active = isActiveAthlete(athlete);
+        if (statusFilter === "active") return active;
+        if (statusFilter === "archived") return !active;
+        return true;
+      })
       .filter((athlete) => athleteName(athlete).toLowerCase().includes(query.toLowerCase()));
+
+    function toggleArchive(athlete) {
+      const active = isActiveAthlete(athlete);
+
+      onUpdate(athlete.id, { ...athlete, active: !active });
+      setEditingId(null);
+      if (active) setProfileId(null);
+    }
 
     return h(
       "section",
@@ -216,6 +235,13 @@
             { value: groupFilter, onChange: (e) => setGroupFilter(e.target.value) },
             h("option", { value: "toate" }, "Toate grupele"),
             groups.map((group) => h("option", { key: group, value: group }, group))
+          ),
+          h(
+            "select",
+            { value: statusFilter, onChange: (e) => setStatusFilter(e.target.value) },
+            h("option", { value: "active" }, "Doar activi"),
+            h("option", { value: "archived" }, "Arhivati"),
+            h("option", { value: "all" }, "Toti")
           )
         ),
         h("button", { className: "primary", onClick: () => setAdding(true) }, "Adauga sportiv")
@@ -255,13 +281,14 @@
                       h("td", { "data-label": "Grupa" }, athlete.group),
                       h("td", { "data-label": "Taxa" }, formatMoney(athlete.feeDue ?? 200)),
                       h("td", { "data-label": "Telefon parinte" }, athlete.parentPhone || "-"),
-                      h("td", { "data-label": "Status" }, h(StatusPill, { tone: athlete.active ? "ok" : "muted" }, athlete.active ? "Activ" : "Inactiv")),
+                      h("td", { "data-label": "Status" }, h(StatusPill, { tone: isActiveAthlete(athlete) ? "ok" : "muted" }, isActiveAthlete(athlete) ? "Activ" : "Arhivat")),
                       h("td", { "data-label": "Observatii" }, athlete.notes || "-"),
                       h(
                         "td",
                         { className: "row-actions" },
                         h("button", { onClick: () => setEditingId(athlete.id) }, "Editeaza"),
                         h("button", { onClick: () => setProfileId(profileId === athlete.id ? null : athlete.id) }, "Fisa"),
+                        h("button", { className: isActiveAthlete(athlete) ? "danger" : "primary", onClick: () => toggleArchive(athlete) }, isActiveAthlete(athlete) ? "Arhiveaza" : "Reactiveaza"),
                         h("button", { onClick: () => onDelete(athlete.id) }, "Sterge")
                       )
                     ),
