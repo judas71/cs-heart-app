@@ -95,6 +95,7 @@
         feeDue: 200,
         active: true,
         notes: "",
+        equipmentNotes: "",
         medicalVisaFrom: "",
         medicalVisaTo: "",
         joinMonth: new Date().toISOString().slice(0, 7)
@@ -129,6 +130,7 @@
       h(Field, { label: "Luna inscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
       h(Field, { label: "Viza medicala de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
       h(Field, { label: "Viza medicala pana la" }, h("input", { type: "date", value: form.medicalVisaTo || "", onChange: (e) => update("medicalVisaTo", e.target.value) })),
+      h(Field, { label: "Echipamente primite" }, h("textarea", { value: form.equipmentNotes || "", onChange: (e) => update("equipmentNotes", e.target.value), rows: 2, placeholder: "Ex: echipament joc M, trening 152, tricou alb 12 ani" })),
       h(
         Field,
         { label: "Status" },
@@ -160,6 +162,12 @@
         h("div", null, h("span", null, "Total incasat"), h("strong", null, formatMoney(totalPaid))),
         h("div", null, h("span", null, "Plati gasite"), h("strong", null, rows.length)),
         h("div", null, h("span", null, "Viza medicala"), h("strong", null, h(MedicalVisaValue, { athlete })))
+      ),
+      h(
+        "div",
+        { className: "panel", style: { marginBottom: "14px", padding: "12px 14px" } },
+        h("strong", null, "Echipamente primite"),
+        h("p", { style: { margin: "6px 0 0", whiteSpace: "pre-wrap" } }, athlete.equipmentNotes || "-")
       ),
       rows.length
         ? h(
