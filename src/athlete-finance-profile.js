@@ -69,6 +69,122 @@
     );
   }
 
+  function equipmentValue(value) {
+    return String(value || "").trim() || "-";
+  }
+
+  function EquipmentFormSection({ form, update }) {
+    const groupStyle = {
+      border: "1px solid #d9e0e5",
+      borderRadius: "8px",
+      padding: "10px",
+      display: "grid",
+      gap: "8px",
+      background: "#fff"
+    };
+
+    const gridStyle = {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+      gap: "10px"
+    };
+
+    return h(
+      "div",
+      { style: { gridColumn: "1 / -1", borderTop: "1px solid #d9e0e5", paddingTop: "12px", display: "grid", gap: "10px" } },
+      h("strong", null, "Echipamente primite"),
+      h(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" } },
+        h(
+          "div",
+          { style: groupStyle },
+          h("strong", null, "Echipament joc"),
+          h(
+            "div",
+            { style: gridStyle },
+            h(Field, { label: "Culoare" }, h("input", { value: form.equipmentGameColor || "", onChange: (e) => update("equipmentGameColor", e.target.value), placeholder: "rosu" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentGameSize || "", onChange: (e) => update("equipmentGameSize", e.target.value), placeholder: "M / 152" })),
+            h(Field, { label: "Numar" }, h("input", { value: form.equipmentGameNumber || "", onChange: (e) => update("equipmentGameNumber", e.target.value), placeholder: "10" }))
+          )
+        ),
+        h(
+          "div",
+          { style: groupStyle },
+          h("strong", null, "Trening"),
+          h(
+            "div",
+            { style: gridStyle },
+            h(Field, { label: "Culoare" }, h("input", { value: form.equipmentTracksuitColor || "", onChange: (e) => update("equipmentTracksuitColor", e.target.value), placeholder: "negru" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentTracksuitSize || "", onChange: (e) => update("equipmentTracksuitSize", e.target.value), placeholder: "S / 140" }))
+          )
+        ),
+        h(
+          "div",
+          { style: groupStyle },
+          h("strong", null, "Tricou"),
+          h(
+            "div",
+            { style: gridStyle },
+            h(Field, { label: "Culoare" }, h("input", { value: form.equipmentShirtColor || "", onChange: (e) => update("equipmentShirtColor", e.target.value), placeholder: "alb" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentShirtSize || "", onChange: (e) => update("equipmentShirtSize", e.target.value), placeholder: "12 ani" }))
+          )
+        )
+      )
+    );
+  }
+
+  function EquipmentSummary({ athlete }) {
+    const cardStyle = {
+      border: "1px solid #d9e0e5",
+      borderRadius: "8px",
+      padding: "10px 12px",
+      background: "#fff",
+      display: "grid",
+      gap: "6px"
+    };
+    const lineStyle = { display: "flex", justifyContent: "space-between", gap: "12px" };
+    const valueStyle = { fontWeight: 900, color: "#172026", textAlign: "right" };
+
+    function line(label, value) {
+      return h("div", { style: lineStyle }, h("span", null, label), h("strong", { style: valueStyle }, equipmentValue(value)));
+    }
+
+    return h(
+      "div",
+      { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginTop: "8px" } },
+      h(
+        "div",
+        { style: cardStyle },
+        h("strong", null, "Echipament joc"),
+        line("Culoare", athlete.equipmentGameColor),
+        line("Marime", athlete.equipmentGameSize),
+        line("Numar", athlete.equipmentGameNumber)
+      ),
+      h(
+        "div",
+        { style: cardStyle },
+        h("strong", null, "Trening"),
+        line("Culoare", athlete.equipmentTracksuitColor),
+        line("Marime", athlete.equipmentTracksuitSize)
+      ),
+      h(
+        "div",
+        { style: cardStyle },
+        h("strong", null, "Tricou"),
+        line("Culoare", athlete.equipmentShirtColor),
+        line("Marime", athlete.equipmentShirtSize)
+      ),
+      athlete.equipmentNotes &&
+        h(
+          "div",
+          { style: cardStyle },
+          h("strong", null, "Alte detalii"),
+          h("p", { style: { margin: 0, whiteSpace: "pre-wrap" } }, athlete.equipmentNotes)
+        )
+    );
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -91,11 +207,17 @@
         firstName: "",
         lastName: "",
         group: "",
-        parentPhone: "",
         feeDue: 200,
         active: true,
         notes: "",
         equipmentNotes: "",
+        equipmentGameColor: "",
+        equipmentGameSize: "",
+        equipmentGameNumber: "",
+        equipmentTracksuitColor: "",
+        equipmentTracksuitSize: "",
+        equipmentShirtColor: "",
+        equipmentShirtSize: "",
         medicalVisaFrom: "",
         medicalVisaTo: "",
         joinMonth: new Date().toISOString().slice(0, 7)
@@ -126,11 +248,11 @@
       h(Field, { label: "Prenume" }, h("input", { value: form.firstName, onChange: (e) => update("firstName", e.target.value), required: true })),
       h(Field, { label: "Grupa" }, h("input", { value: form.group, onChange: (e) => update("group", e.target.value), placeholder: "U10", required: true })),
       h(Field, { label: "Taxa lunara" }, h("input", { type: "number", min: "0", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value === "" ? "" : Number(e.target.value)) })),
-      h(Field, { label: "Telefon parinte" }, h("input", { value: form.parentPhone, onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
+      h(Field, { label: "Observatii" }, h("textarea", { value: form.notes, onChange: (e) => update("notes", e.target.value), rows: 2 })),
       h(Field, { label: "Luna inscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
       h(Field, { label: "Viza medicala de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
       h(Field, { label: "Viza medicala pana la" }, h("input", { type: "date", value: form.medicalVisaTo || "", onChange: (e) => update("medicalVisaTo", e.target.value) })),
-      h(Field, { label: "Echipamente primite" }, h("textarea", { value: form.equipmentNotes || "", onChange: (e) => update("equipmentNotes", e.target.value), rows: 2, placeholder: "Ex: echipament joc M, trening 152, tricou alb 12 ani" })),
+      h(EquipmentFormSection, { form, update }),
       h(
         Field,
         { label: "Status" },
@@ -141,7 +263,6 @@
           h("option", { value: "inactive" }, "Arhivat")
         )
       ),
-      h(Field, { label: "Observatii" }, h("textarea", { value: form.notes, onChange: (e) => update("notes", e.target.value), rows: 2 })),
       h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salveaza"), h("button", { type: "button", onClick: onCancel }, "Anuleaza"))
     );
   }
@@ -167,7 +288,7 @@
         "div",
         { className: "panel", style: { marginBottom: "14px", padding: "12px 14px" } },
         h("strong", null, "Echipamente primite"),
-        h("p", { style: { margin: "6px 0 0", whiteSpace: "pre-wrap" } }, athlete.equipmentNotes || "-")
+        h(EquipmentSummary, { athlete })
       ),
       rows.length
         ? h(
@@ -277,7 +398,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Sportiv", "Grupa", "Taxa", "Telefon parinte", "Status", "Observatii", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Sportiv", "Grupa", "Taxa", "Observatii", "Status", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -286,7 +407,7 @@
                 ? h(
                     "tr",
                     { key: athlete.id },
-                    h("td", { colSpan: 7 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
+                    h("td", { colSpan: 6 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
                   )
                 : h(
                     React.Fragment,
@@ -297,9 +418,8 @@
                       h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(athlete))),
                       h("td", { "data-label": "Grupa" }, athlete.group),
                       h("td", { "data-label": "Taxa" }, formatMoney(athlete.feeDue ?? 200)),
-                      h("td", { "data-label": "Telefon parinte" }, athlete.parentPhone || "-"),
-                      h("td", { "data-label": "Status" }, h(StatusPill, { tone: isActiveAthlete(athlete) ? "ok" : "muted" }, isActiveAthlete(athlete) ? "Activ" : "Arhivat")),
                       h("td", { "data-label": "Observatii" }, athlete.notes || "-"),
+                      h("td", { "data-label": "Status" }, h(StatusPill, { tone: isActiveAthlete(athlete) ? "ok" : "muted" }, isActiveAthlete(athlete) ? "Activ" : "Arhivat")),
                       h(
                         "td",
                         { className: "row-actions" },
@@ -310,7 +430,7 @@
                       )
                     ),
                     profileId === athlete.id &&
-                      h("tr", null, h("td", { colSpan: 7 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
+                      h("tr", null, h("td", { colSpan: 6 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
                   )
             )
           )
