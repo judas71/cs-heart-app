@@ -88,6 +88,7 @@
       gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
       gap: "10px"
     };
+    const shortInputStyle = { maxWidth: "90px" };
 
     return h(
       "div",
@@ -103,9 +104,10 @@
           h(
             "div",
             { style: gridStyle },
-            h(Field, { label: "Culoare" }, h("input", { value: form.equipmentGameColor || "", onChange: (e) => update("equipmentGameColor", e.target.value), placeholder: "rosu" })),
-            h(Field, { label: "Marime" }, h("input", { value: form.equipmentGameSize || "", onChange: (e) => update("equipmentGameSize", e.target.value), placeholder: "M / 152" })),
-            h(Field, { label: "Numar" }, h("input", { value: form.equipmentGameNumber || "", onChange: (e) => update("equipmentGameNumber", e.target.value), placeholder: "10" }))
+            h(Field, { label: "Culoare deschisa" }, h("input", { value: form.equipmentGameLightColor || form.equipmentGameColor || "", onChange: (e) => update("equipmentGameLightColor", e.target.value), placeholder: "alb" })),
+            h(Field, { label: "Culoare inchisa" }, h("input", { value: form.equipmentGameDarkColor || "", onChange: (e) => update("equipmentGameDarkColor", e.target.value), placeholder: "rosu" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentGameSize || "", onChange: (e) => update("equipmentGameSize", e.target.value), placeholder: "M", maxLength: 3, style: shortInputStyle })),
+            h(Field, { label: "Numar" }, h("input", { value: form.equipmentGameNumber || "", onChange: (e) => update("equipmentGameNumber", e.target.value), placeholder: "acelasi pe ambele", inputMode: "numeric", style: shortInputStyle }))
           )
         ),
         h(
@@ -157,7 +159,8 @@
         "div",
         { style: cardStyle },
         h("strong", null, "Echipament joc"),
-        line("Culoare", athlete.equipmentGameColor),
+        line("Culoare deschisa", athlete.equipmentGameLightColor || athlete.equipmentGameColor),
+        line("Culoare inchisa", athlete.equipmentGameDarkColor),
         line("Marime", athlete.equipmentGameSize),
         line("Numar", athlete.equipmentGameNumber)
       ),
@@ -212,6 +215,8 @@
         notes: "",
         equipmentNotes: "",
         equipmentGameColor: "",
+        equipmentGameLightColor: "",
+        equipmentGameDarkColor: "",
         equipmentGameSize: "",
         equipmentGameNumber: "",
         equipmentTracksuitColor: "",
