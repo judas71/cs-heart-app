@@ -2,9 +2,9 @@
   const h = React.createElement;
 
   const feeStatuses = ["nepl\u0103tit\u0103", "pl\u0103tit\u0103", "par\u021bial pl\u0103tit\u0103"];
-  const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
+  const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "salariu", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
-  const paymentTypes = ["incasare", "avans"];
+  const paymentTypes = ["incasare", "avans", "cheltuiala"];
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
 
@@ -523,17 +523,26 @@
     return !payment.paymentType || payment.paymentType === "plata" ? "incasare" : payment.paymentType;
   }
 
+  function paymentTypeLabel(type) {
+    const value = typeof type === "string" ? type : paymentType(type);
+    return value === "cheltuiala" ? "plata" : value;
+  }
+
+  function isOutgoingPayment(payment) {
+    return ["avans", "cheltuiala"].includes(paymentType(payment));
+  }
+
   function paymentCurrency(payment) {
     return payment.currency || "lei";
   }
 
   function signedAmount(payment) {
     const amount = Number(payment.amount || 0);
-    return paymentType(payment) === "avans" ? -amount : amount;
+    return isOutgoingPayment(payment) ? -amount : amount;
   }
 
   function formatPaymentAmount(payment) {
-    const prefix = paymentType(payment) === "avans" ? "- " : "";
+    const prefix = isOutgoingPayment(payment) ? "- " : "";
     return prefix + formatMoney(payment.amount, paymentCurrency(payment));
   }
 
@@ -566,7 +575,7 @@
       ["De la", payerLabel(athletes, payment)],
       ["Tip platitor", athlete ? "sportiv / " + athlete.group : payerType(payment)],
       ["Categorie", payment.category || "-"],
-      ["Tip", paymentType(payment)],
+      ["Tip", paymentTypeLabel(payment)],
       ["Suma", formatPaymentAmount(payment)],
       ["Metoda", payment.method || "-"],
       ["Observatii", payment.notes || "-"]
@@ -751,6 +760,13 @@
     return rows
       .filter((payment) => paymentCurrency(payment) === currency)
       .filter((payment) => paymentType(payment) === type)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
+  function sumOutgoingPayments(rows, currency) {
+    return rows
+      .filter((payment) => paymentCurrency(payment) === currency)
+      .filter(isOutgoingPayment)
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   }
 
@@ -1024,7 +1040,7 @@
           payerLabel(athletes, payment),
           payerType(payment),
           payment.category,
-          paymentType(payment),
+          paymentTypeLabel(payment),
           payment.method,
           paymentCurrency(payment),
           payment.notes
@@ -1048,7 +1064,7 @@
           payerLabel(athletes, payment),
           payerType(payment),
           payment.category,
-          paymentType(payment),
+          paymentTypeLabel(payment),
           payment.method,
           paymentCurrency(payment),
           payment.notes
@@ -1059,15 +1075,16 @@
       });
 
     const receivedLei = sumPaymentsByType(filteredPayments, "lei", "incasare");
-    const paidLei = sumPaymentsByType(filteredPayments, "lei", "avans");
+    const paidLei = sumOutgoingPayments(filteredPayments, "lei");
     const receivedEuro = sumPaymentsByType(filteredPayments, "euro", "incasare");
-    const paidEuro = sumPaymentsByType(filteredPayments, "euro", "avans");
+    const paidEuro = sumOutgoingPayments(filteredPayments, "euro");
     const balanceReceivedLei = sumPaymentsByType(balancePayments, "lei", "incasare");
-    const balancePaidLei = sumPaymentsByType(balancePayments, "lei", "avans");
+    const balancePaidLei = sumOutgoingPayments(balancePayments, "lei");
     const balanceReceivedEuro = sumPaymentsByType(balancePayments, "euro", "incasare");
-    const balancePaidEuro = sumPaymentsByType(balancePayments, "euro", "avans");
+    const balancePaidEuro = sumOutgoingPayments(balancePayments, "euro");
     const balanceLei = balanceReceivedLei - balancePaidLei;
     const balanceEuro = balanceReceivedEuro - balancePaidEuro;
+    const isFormPayment = form.paymentType === "cheltuiala";
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -1135,7 +1152,7 @@
         { className: "panel form-grid", ref: formRef, onSubmit: submit },
         h(
           Field,
-          { label: "De la" },
+          { label: isFormPayment ? "Catre" : "De la" },
           h(
             "select",
             { value: form.payerType, onChange: (event) => update("payerType", event.target.value) },
@@ -1155,10 +1172,10 @@
             )
           : h(
               Field,
-              { label: form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
-              h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
+              { label: isFormPayment ? "Cui ai platit" : form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
+              h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: isFormPayment ? "Ex: salariu, furnizor, partener" : form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
             ),
-        h(Field, { label: "Data incasarii" }, h("input", { type: "date", value: form.date, onChange: (event) => update("date", event.target.value), required: true })),
+        h(Field, { label: isFormPayment ? "Data platii" : "Data incasarii" }, h("input", { type: "date", value: form.date, onChange: (event) => update("date", event.target.value), required: true })),
         h(
           Field,
           { label: "Categorie" },
@@ -1174,7 +1191,7 @@
           h(
             "select",
             { value: form.paymentType, onChange: (event) => update("paymentType", event.target.value) },
-            paymentTypes.map((item) => h("option", { key: item, value: item }, item))
+            paymentTypes.map((item) => h("option", { key: item, value: item }, paymentTypeLabel(item)))
           )
         ),
         h(Field, { label: "Suma" }, h("input", { type: "number", min: "0", value: form.amount, onChange: (event) => update("amount", event.target.value), required: true })),
@@ -1200,7 +1217,7 @@
         h(
           "div",
           { className: "form-actions" },
-          h("button", { className: "primary", type: "submit" }, form.id ? "Actualizeaza incasarea" : "Adauga incasarea"),
+          h("button", { className: "primary", type: "submit" }, form.id ? isFormPayment ? "Actualizeaza plata" : "Actualizeaza incasarea" : isFormPayment ? "Adauga plata" : "Adauga incasarea"),
           form.id && h("button", { type: "button", onClick: () => setForm(emptyForm()) }, "Renunta")
         )
       ),
@@ -1234,8 +1251,8 @@
           h(
             "select",
             { value: typeFilter, onChange: (event) => setTypeFilter(event.target.value) },
-            h("option", { value: "toate" }, "Plati si avansuri"),
-            paymentTypes.map((item) => h("option", { key: item, value: item }, item))
+            h("option", { value: "toate" }, "Toate tipurile"),
+            paymentTypes.map((item) => h("option", { key: item, value: item }, paymentTypeLabel(item)))
           )
         ),
         h(
@@ -1270,7 +1287,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Data", "De la", "Categorie", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Data", "De la / Catre", "Categorie", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -1281,10 +1298,10 @@
                 "tr",
                 { key: payment.id },
                 h("td", { "data-label": "Data" }, formatDate(payment.date)),
-                h("td", { "data-label": "De la" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
+                h("td", { "data-label": "De la / Catre" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
                 h("td", { "data-label": "Categorie" }, payment.category || "-"),
-                h("td", { "data-label": "Tip" }, paymentType(payment)),
-                h("td", { "data-label": "Suma" }, h("strong", { className: paymentType(payment) === "avans" ? "arrears" : "" }, formatPaymentAmount(payment))),
+                h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
+                h("td", { "data-label": "Suma" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
                 h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
                 h("td", { "data-label": "Metoda" }, payment.method || "-"),
                 h("td", { "data-label": "Observatii" }, payment.notes || "-"),
@@ -1293,7 +1310,7 @@
                   "td",
                   { className: "row-actions" },
                   h("button", { onClick: () => edit(payment) }, "Editeaza"),
-                  h("button", { onClick: () => printPreview(payment) }, Number(payment.printCount || 0) > 0 || payment.printedAt ? "Reimprima" : "Imprima"),
+                  paymentType(payment) !== "cheltuiala" && h("button", { onClick: () => printPreview(payment) }, Number(payment.printCount || 0) > 0 || payment.printedAt ? "Reimprima" : "Imprima"),
                   h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
                 )
               );
@@ -1331,13 +1348,13 @@
         return group === "toate" || athlete?.group === group;
       });
     const receivedLei = sumPaymentsByType(rows, "lei", "incasare");
-    const paidLei = sumPaymentsByType(rows, "lei", "avans");
+    const paidLei = sumOutgoingPayments(rows, "lei");
     const receivedEuro = sumPaymentsByType(rows, "euro", "incasare");
-    const paidEuro = sumPaymentsByType(rows, "euro", "avans");
+    const paidEuro = sumOutgoingPayments(rows, "euro");
     const balanceReceivedLei = sumPaymentsByType(balanceRows, "lei", "incasare");
-    const balancePaidLei = sumPaymentsByType(balanceRows, "lei", "avans");
+    const balancePaidLei = sumOutgoingPayments(balanceRows, "lei");
     const balanceReceivedEuro = sumPaymentsByType(balanceRows, "euro", "incasare");
-    const balancePaidEuro = sumPaymentsByType(balanceRows, "euro", "avans");
+    const balancePaidEuro = sumOutgoingPayments(balanceRows, "euro");
     const balanceLei = balanceReceivedLei - balancePaidLei;
     const balanceEuro = balanceReceivedEuro - balancePaidEuro;
     const categoryTotals = categories
@@ -1382,8 +1399,8 @@
           h(
             "select",
             { value: typeFilter, onChange: (event) => setTypeFilter(event.target.value) },
-            h("option", { value: "toate" }, "Plati si avansuri"),
-            paymentTypes.map((item) => h("option", { key: item, value: item }, item))
+            h("option", { value: "toate" }, "Toate tipurile"),
+            paymentTypes.map((item) => h("option", { key: item, value: item }, paymentTypeLabel(item)))
           )
         ),
         h(
@@ -1438,9 +1455,9 @@
                   h(ReportItem, {
                     key: payment.id,
                     title: payerLabel(athletes, payment),
-                    subtitle: formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentType(payment) + " / " + (payment.method || "-"),
+                    subtitle: formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentTypeLabel(payment) + " / " + (payment.method || "-"),
                     amount: formatPaymentAmount(payment),
-                    negative: paymentType(payment) === "avans"
+                    negative: isOutgoingPayment(payment)
                   })
                 )
               )
