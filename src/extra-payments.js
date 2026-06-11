@@ -1638,6 +1638,140 @@
     );
   }
 
+  function MonthlyBalanceReport({ athletes = [], fees = [], otherPayments = [], taxPayments = [] }) {
+    const [month, setMonth] = React.useState(currentMonth());
+    const monthlyFees = fees.filter((fee) => fee.month === month && Number(fee.amountPaid || 0) > 0);
+    const monthlyOtherPayments = (otherPayments || []).filter((payment) => getMonth(payment.date) === month);
+    const monthlyTaxPayments = (taxPayments || []).filter((payment) => payment.month === month);
+    const taxIncome = monthlyFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const taxPaymentsTotal = monthlyTaxPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherIncomeLei = sumPaymentsByType(monthlyOtherPayments, "lei", "incasare");
+    const otherIncomeEuro = sumPaymentsByType(monthlyOtherPayments, "euro", "incasare");
+    const otherOutgoingLei = sumOutgoingPayments(monthlyOtherPayments, "lei");
+    const otherOutgoingEuro = sumOutgoingPayments(monthlyOtherPayments, "euro");
+    const totalIncomeLei = taxIncome + otherIncomeLei;
+    const totalPaymentsLei = taxPaymentsTotal + otherOutgoingLei;
+    const finalBalanceLei = totalIncomeLei - totalPaymentsLei;
+    const finalBalanceEuro = otherIncomeEuro - otherOutgoingEuro;
+    const groupTotals = [...monthlyFees.reduce((map, fee) => {
+      const athlete = findAthlete(athletes, fee.athleteId);
+      const group = athlete?.group || "Fara grupa";
+      const current = map.get(group) || { group, count: 0, total: 0 };
+
+      current.count += 1;
+      current.total += Number(fee.amountPaid || 0);
+      map.set(group, current);
+      return map;
+    }, new Map()).values()].sort((first, second) => compareText(first.group, second.group));
+    const otherCategoryTotals = [...monthlyOtherPayments
+      .filter((payment) => paymentType(payment) === "incasare")
+      .reduce((map, payment) => {
+        const category = payment.category || "altele";
+        const current = map.get(category) || { category, count: 0, lei: 0, euro: 0 };
+        const currency = paymentCurrency(payment);
+
+        current.count += 1;
+        if (currency === "euro") current.euro += Number(payment.amount || 0);
+        else current.lei += Number(payment.amount || 0);
+        map.set(category, current);
+        return map;
+      }, new Map()).values()].sort((first, second) => compareText(first.category, second.category));
+    const taxPaymentTotals = taxPaymentTypes.map((type) => ({
+      type,
+      total: monthlyTaxPayments
+        .filter((payment) => payment.paymentType === type)
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+    })).filter((item) => item.total > 0);
+    const otherOutgoingRows = monthlyOtherPayments.filter(isOutgoingPayment);
+
+    return h(
+      "section",
+      { className: "stack" },
+      h("h2", null, "Balanta lunii"),
+      h(
+        "div",
+        { className: "panel compact-grid" },
+        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) }))
+      ),
+      h(
+        "div",
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Incasari taxe", value: formatMoney(taxIncome), hint: `${monthlyFees.length} plati`, tone: "tone-green" }),
+        h(SummaryCard, { label: "Alte incasari", value: formatMoney(otherIncomeLei, "lei"), hint: otherIncomeEuro ? formatMoney(otherIncomeEuro, "euro") : "Doar incasari, fara plati", tone: "tone-blue" }),
+        h(SummaryCard, { label: "Plati", value: formatMoney(totalPaymentsLei), hint: "Salarii/chirii + plati din alte incasari", tone: "tone-red" }),
+        h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") : "Incasari - plati", tone: finalBalanceLei < 0 ? "tone-red" : "tone-purple" })
+      ),
+      h(
+        "div",
+        { className: "cs-report-sections" },
+        h(
+          DetailSection,
+          { title: "Incasari taxe pe grupe", meta: `${groupTotals.length} grupe / ${formatMoney(taxIncome)}`, open: true },
+          groupTotals.length
+            ? h(
+                "ul",
+                { className: "cs-report-list" },
+                groupTotals.map((row) =>
+                  h(ReportItem, {
+                    key: row.group,
+                    title: row.group,
+                    subtitle: `${row.count} plati`,
+                    amount: formatMoney(row.total)
+                  })
+                )
+              )
+            : h(EmptyReportLine, { text: "Nu exista taxe incasate in luna aleasa." })
+        ),
+        h(
+          DetailSection,
+          { title: "Plati", meta: `${monthlyTaxPayments.length + otherOutgoingRows.length} inregistrari / ${formatMoney(totalPaymentsLei)}`, open: true },
+          taxPaymentTotals.length || otherOutgoingRows.length
+            ? h(
+                "ul",
+                { className: "cs-report-list" },
+                taxPaymentTotals.map((row) =>
+                  h(ReportItem, {
+                    key: row.type,
+                    title: taxPaymentTypeLabel(row.type),
+                    subtitle: "Din taxele lunare",
+                    amount: "- " + formatMoney(row.total),
+                    negative: true
+                  })
+                ),
+                otherOutgoingRows.map((payment) =>
+                  h(ReportItem, {
+                    key: payment.id,
+                    title: paymentTypeLabel(payment) + " - " + (payment.category || "altele"),
+                    subtitle: payerLabel(athletes, payment) + " / " + formatDate(payment.date),
+                    amount: formatPaymentAmount(payment),
+                    negative: true
+                  })
+                )
+              )
+            : h(EmptyReportLine, { text: "Nu exista plati in luna aleasa." })
+        ),
+        h(
+          DetailSection,
+          { title: "Alte incasari", meta: `${otherCategoryTotals.length} categorii`, open: true },
+          otherCategoryTotals.length
+            ? h(
+                "ul",
+                { className: "cs-report-list" },
+                otherCategoryTotals.map((row) =>
+                  h(ReportItem, {
+                    key: row.category,
+                    title: row.category,
+                    subtitle: `${row.count} incasari`,
+                    amount: formatMoney(row.lei, "lei") + (row.euro ? " / " + formatMoney(row.euro, "euro") : "")
+                  })
+                )
+              )
+            : h(EmptyReportLine, { text: "Nu exista alte incasari in luna aleasa." })
+        )
+      )
+    );
+  }
+
   function TaxReportsView({ athletes, fees = [] }) {
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
@@ -1971,7 +2105,7 @@
   }
 
   function ReportsView(props) {
-    const [section, setSection] = React.useState("taxe");
+    const [section, setSection] = React.useState("balanta");
 
     return h(
       "div",
@@ -1985,6 +2119,7 @@
           h(
             "select",
             { value: section, onChange: (event) => setSection(event.target.value) },
+            h("option", { value: "balanta" }, "Balanta lunii"),
             h("option", { value: "taxe" }, "Taxe"),
             h("option", { value: "prezenta" }, "Prezenta"),
             h("option", { value: "vizeMedicale" }, "Vize medicale"),
@@ -1993,6 +2128,7 @@
           )
         )
       ),
+      (section === "balanta" || section === "tot") && h(MonthlyBalanceReport, props),
       (section === "taxe" || section === "tot") && h(TaxReportsView, props),
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
       (section === "vizeMedicale" || section === "tot") && h(MedicalVisaReportsView, props),
