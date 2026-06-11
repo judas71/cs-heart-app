@@ -873,6 +873,13 @@
       .filter((payment) => payment.month === month)
       .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
     const monthlyTaxPaymentsTotal = monthlyTaxPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const monthlySalaryPaymentsTotal = monthlyTaxPayments
+      .filter((payment) => payment.paymentType === "salariu")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const monthlyRentPaymentsTotal = monthlyTaxPayments
+      .filter((payment) => payment.paymentType === "chirie")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const monthlyTaxBalance = monthlyCollected - monthlyTaxPaymentsTotal;
 
     function updateMonth(value) {
       setMonth(value);
@@ -1025,7 +1032,14 @@
           null,
           h("span", null, "Plati din taxe"),
           h("strong", null, formatMoney(monthlyTaxPaymentsTotal)),
-          h("small", null, "Sold luna = " + formatMoney(monthlyCollected - monthlyTaxPaymentsTotal))
+          h("small", null, "Salarii: " + formatMoney(monthlySalaryPaymentsTotal) + " / Chirii: " + formatMoney(monthlyRentPaymentsTotal))
+        ),
+        h(
+          "div",
+          null,
+          h("span", null, "Sold dupa plati"),
+          h("strong", { className: monthlyTaxBalance < 0 ? "arrears" : "" }, formatMoney(monthlyTaxBalance)),
+          h("small", null, "Incasari taxe - salarii/chirii")
         )
       ),
       monthlyTaxPayments.length > 0 &&
