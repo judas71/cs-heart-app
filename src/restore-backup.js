@@ -26,7 +26,8 @@ function normalizeState(value) {
     athletes: value.athletes,
     trainings: value.trainings,
     fees: value.fees,
-    otherPayments: Array.isArray(value.otherPayments) ? value.otherPayments : []
+    otherPayments: Array.isArray(value.otherPayments) ? value.otherPayments : [],
+    taxPayments: Array.isArray(value.taxPayments) ? value.taxPayments : []
   };
 }
 
@@ -75,6 +76,7 @@ async function restoreFromFile(file) {
       state.trainings.length + " antrenamente/prezente\n" +
       state.fees.length + " inregistrari de taxe\n\n" +
       state.otherPayments.length + " alte incasari\n\n" +
+      state.taxPayments.length + " plati din taxe\n\n" +
       "Continui?"
   );
 

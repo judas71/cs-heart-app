@@ -2,9 +2,10 @@
   const h = React.createElement;
 
   const feeStatuses = ["nepl\u0103tit\u0103", "pl\u0103tit\u0103", "par\u021bial pl\u0103tit\u0103"];
-  const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "salariu", "sponsorizare", "parteneriat", "altele"];
+  const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
   const paymentTypes = ["incasare", "avans", "cheltuiala"];
+  const taxPaymentTypes = ["salariu", "chirie"];
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
 
@@ -834,10 +835,28 @@
     return "-";
   }
 
-  function FeesView({ athletes, fees, onSaveFee, onResetMonth }) {
+  function emptyTaxPaymentForm(month) {
+    return {
+      id: "",
+      month,
+      date: today(),
+      paymentType: "salariu",
+      amount: "",
+      method: "transfer",
+      notes: ""
+    };
+  }
+
+  function taxPaymentTypeLabel(type) {
+    return type === "chirie" ? "chirii" : type;
+  }
+
+  function FeesView({ athletes, fees, taxPayments = [], onSaveFee, onSaveTaxPayment, onDeleteTaxPayment }) {
     const monthNow = currentMonth();
     const [month, setMonth] = React.useState(monthNow);
     const [group, setGroup] = React.useState("toate");
+    const [showTaxPaymentForm, setShowTaxPaymentForm] = React.useState(false);
+    const [taxPaymentForm, setTaxPaymentForm] = React.useState(() => emptyTaxPaymentForm(monthNow));
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!athlete.active) return false;
@@ -850,6 +869,15 @@
     const monthlyCollected = fees
       .filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId))
       .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const monthlyTaxPayments = (taxPayments || [])
+      .filter((payment) => payment.month === month)
+      .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
+    const monthlyTaxPaymentsTotal = monthlyTaxPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+    function updateMonth(value) {
+      setMonth(value);
+      setTaxPaymentForm((current) => ({ ...current, month: value }));
+    }
 
     function getFee(athleteId) {
       const athlete = athletes.find((item) => item.id === athleteId);
@@ -870,6 +898,38 @@
     function updateFee(athleteId, field, value) {
       const fee = getFee(athleteId);
       onSaveFee({ ...fee, athleteId, month, [field]: value });
+    }
+
+    function updateTaxPayment(field, value) {
+      setTaxPaymentForm((current) => ({ ...current, [field]: value }));
+    }
+
+    function submitTaxPayment(event) {
+      event.preventDefault();
+
+      if (!onSaveTaxPayment || !taxPaymentForm.date || Number(taxPaymentForm.amount || 0) <= 0) return;
+
+      onSaveTaxPayment({
+        ...taxPaymentForm,
+        month,
+        amount: Number(taxPaymentForm.amount || 0),
+        notes: String(taxPaymentForm.notes || "").trim()
+      });
+      setTaxPaymentForm(emptyTaxPaymentForm(month));
+      setShowTaxPaymentForm(false);
+    }
+
+    function editTaxPayment(payment) {
+      setTaxPaymentForm({
+        id: payment.id || "",
+        month: payment.month || month,
+        date: payment.date || today(),
+        paymentType: payment.paymentType || "salariu",
+        amount: payment.amount || "",
+        method: payment.method || "transfer",
+        notes: payment.notes || ""
+      });
+      setShowTaxPaymentForm(true);
     }
 
     const monthlyOutstanding = listedAthletes.reduce((sum, athlete) => {
@@ -903,7 +963,7 @@
       h(
         "div",
         { className: "panel compact-grid" },
-        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) })),
+        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => updateMonth(event.target.value) })),
         h(
           Field,
           { label: "Grupa" },
@@ -914,8 +974,40 @@
             groups.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
-        h("button", { className: "danger align-end", onClick: () => onResetMonth(month, listedAthleteIds), disabled: !listedAthletes.length }, "Reset luna")
+        h("button", { className: "primary align-end", type: "button", onClick: () => setShowTaxPaymentForm((current) => !current) }, "PLATI")
       ),
+      showTaxPaymentForm &&
+        h(
+          "form",
+          { className: "panel compact-grid", onSubmit: submitTaxPayment },
+          h(
+            Field,
+            { label: "Tip plata" },
+            h(
+              "select",
+              { value: taxPaymentForm.paymentType, onChange: (event) => updateTaxPayment("paymentType", event.target.value) },
+              taxPaymentTypes.map((type) => h("option", { key: type, value: type }, taxPaymentTypeLabel(type)))
+            )
+          ),
+          h(Field, { label: "Data platii" }, h("input", { type: "date", value: taxPaymentForm.date, onChange: (event) => updateTaxPayment("date", event.target.value), required: true })),
+          h(Field, { label: "Suma" }, h("input", { type: "number", min: "0", value: taxPaymentForm.amount, onChange: (event) => updateTaxPayment("amount", event.target.value), required: true })),
+          h(
+            Field,
+            { label: "Metoda" },
+            h(
+              "select",
+              { value: taxPaymentForm.method, onChange: (event) => updateTaxPayment("method", event.target.value) },
+              paymentMethods.map((method) => h("option", { key: method, value: method }, method))
+            )
+          ),
+          h(Field, { label: "Observatii" }, h("input", { value: taxPaymentForm.notes, onChange: (event) => updateTaxPayment("notes", event.target.value), placeholder: "Optional" })),
+          h(
+            "div",
+            { className: "form-actions" },
+            h("button", { className: "primary", type: "submit" }, taxPaymentForm.id ? "Actualizeaza plata" : "Adauga plata"),
+            taxPaymentForm.id && h("button", { type: "button", onClick: () => setTaxPaymentForm(emptyTaxPaymentForm(month)) }, "Renunta")
+          )
+        ),
       h(
         "div",
         { className: "metrics" },
@@ -927,8 +1019,47 @@
           h("span", null, "Impartire incasari"),
           h("strong", null, "60% = " + formatMoney(monthlyCollected * 0.6)),
           h("strong", null, "40% = " + formatMoney(monthlyCollected * 0.4))
+        ),
+        h(
+          "div",
+          null,
+          h("span", null, "Plati din taxe"),
+          h("strong", null, formatMoney(monthlyTaxPaymentsTotal)),
+          h("small", null, "Sold luna = " + formatMoney(monthlyCollected - monthlyTaxPaymentsTotal))
         )
       ),
+      monthlyTaxPayments.length > 0 &&
+        h(
+          "div",
+          { className: "table-wrap wide" },
+          h(
+            "table",
+            null,
+            h("thead", null, h("tr", null, ["Data", "Tip", "Suma", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+            h(
+              "tbody",
+              null,
+              monthlyTaxPayments.map((payment) =>
+                h(
+                  "tr",
+                  { key: payment.id },
+                  h("td", { "data-label": "Data" }, formatDate(payment.date)),
+                  h("td", { "data-label": "Tip" }, taxPaymentTypeLabel(payment.paymentType || "-")),
+                  h("td", { "data-label": "Suma" }, h("strong", { className: "arrears" }, "- " + formatMoney(payment.amount))),
+                  h("td", { "data-label": "Metoda" }, payment.method || "-"),
+                  h("td", { "data-label": "Observatii" }, payment.notes || "-"),
+                  h("td", { "data-label": "Operat de" }, payment.updatedByEmail || "-"),
+                  h(
+                    "td",
+                    { className: "row-actions" },
+                    h("button", { type: "button", onClick: () => editTaxPayment(payment) }, "Editeaza"),
+                    h("button", { className: "danger", type: "button", onClick: () => onDeleteTaxPayment && onDeleteTaxPayment(payment.id) }, "Sterge")
+                  )
+                )
+              )
+            )
+          )
+        ),
       h(
         "div",
         { className: "table-wrap wide" },
@@ -1173,7 +1304,7 @@
           : h(
               Field,
               { label: isFormPayment ? "Cui ai platit" : form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
-              h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: isFormPayment ? "Ex: salariu, furnizor, partener" : form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
+              h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: isFormPayment ? "Ex: furnizor, arbitraj, transport" : form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
             ),
         h(Field, { label: isFormPayment ? "Data platii" : "Data incasarii" }, h("input", { type: "date", value: form.date, onChange: (event) => update("date", event.target.value), required: true })),
         h(

@@ -75,7 +75,8 @@
           athletes: Array.isArray(data.athletes) ? data.athletes : [],
           trainings: Array.isArray(data.trainings) ? data.trainings : [],
           fees: Array.isArray(data.fees) ? data.fees : [],
-          otherPayments: Array.isArray(data.otherPayments) ? data.otherPayments : []
+          otherPayments: Array.isArray(data.otherPayments) ? data.otherPayments : [],
+          taxPayments: Array.isArray(data.taxPayments) ? data.taxPayments : []
         });
       } else {
         await setDoc(appRef, state);
@@ -195,6 +196,35 @@ React.useEffect(() => {
         otherPayments: (current.otherPayments || []).filter((payment) => payment.id !== id)
       }));
     }
+    function saveTaxPayment(payment) {
+      setState((current) => {
+        const existing = (current.taxPayments || []).find((item) => item.id === payment.id);
+        const normalized = {
+          ...payment,
+          id: payment.id || createId("taxpay"),
+          updatedAt: new Date().toISOString(),
+          updatedByEmail: user?.email || "necunoscut",
+          updatedById: user?.uid || ""
+        };
+
+        return {
+          ...current,
+          taxPayments: existing
+            ? (current.taxPayments || []).map((item) => (item.id === existing.id ? normalized : item))
+            : [normalized, ...(current.taxPayments || [])]
+        };
+      });
+    }
+
+    function deleteTaxPayment(id) {
+      const ok = confirm("Stergi aceasta plata din taxe?");
+      if (!ok) return;
+
+      setState((current) => ({
+        ...current,
+        taxPayments: (current.taxPayments || []).filter((payment) => payment.id !== id)
+      }));
+    }
     function resetMonthFees(month, athleteIds) {
       const ok = confirm(`Resetezi taxele pentru luna ${month}?`);
       if (!ok) return;
@@ -261,9 +291,9 @@ React.useEffect(() => {
       ),
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining }),
-      activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, onSaveFee: saveFee, onResetMonth: resetMonthFees }),
+      activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment }),
-      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [] })
+      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [] })
     );
   }
 

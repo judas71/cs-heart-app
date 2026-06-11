@@ -26,7 +26,8 @@
       athletes: Array.isArray(state.athletes) ? state.athletes : [],
       trainings: Array.isArray(state.trainings) ? state.trainings : [],
       fees: Array.isArray(state.fees) ? state.fees : [],
-      otherPayments: Array.isArray(state.otherPayments) ? state.otherPayments : []
+      otherPayments: Array.isArray(state.otherPayments) ? state.otherPayments : [],
+      taxPayments: Array.isArray(state.taxPayments) ? state.taxPayments : []
     };
   }
 
