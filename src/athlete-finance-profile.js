@@ -403,16 +403,16 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Sportiv", "Grupa", "Taxa", "Observatii", "Status", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Nr. crt.", "Sportiv", "Grupa", "Taxa", "Observatii", "Status", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
-            filtered.map((athlete) =>
+            filtered.map((athlete, index) =>
               editingId === athlete.id
                 ? h(
                     "tr",
                     { key: athlete.id },
-                    h("td", { colSpan: 6 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
+                    h("td", { colSpan: 7 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
                   )
                 : h(
                     React.Fragment,
@@ -420,6 +420,7 @@
                     h(
                       "tr",
                       null,
+                      h("td", { "data-label": "Nr. crt." }, index + 1),
                       h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(athlete))),
                       h("td", { "data-label": "Grupa" }, athlete.group),
                       h("td", { "data-label": "Taxa" }, formatMoney(athlete.feeDue ?? 200)),
@@ -435,7 +436,7 @@
                       )
                     ),
                     profileId === athlete.id &&
-                      h("tr", null, h("td", { colSpan: 6 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
+                      h("tr", null, h("td", { colSpan: 7 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
                   )
             )
           )
