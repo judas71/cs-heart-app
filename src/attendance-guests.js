@@ -23,6 +23,29 @@
     return h("label", { className: "field" }, h("span", null, label), children);
   }
 
+  function formatDate(value) {
+    if (!value) return "-";
+
+    return new Date(value + "T00:00:00").toLocaleDateString("ro-RO", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function countStatuses(attendance) {
+    return Object.values(attendance || {}).reduce(
+      (counts, status) => {
+        if (status === "prezent") counts.present += 1;
+        if (status === "absent") counts.absent += 1;
+        if (status === "\u00eenvoit") counts.excused += 1;
+        if (status === "accidentat") counts.injured += 1;
+        return counts;
+      },
+      { present: 0, absent: 0, excused: 0, injured: 0 }
+    );
+  }
+
   function EmptyState({ title, text }) {
     return h("div", { className: "empty-state" }, h("strong", null, title), h("p", null, text));
   }
@@ -56,6 +79,7 @@
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
     const [attendance, setAttendance] = React.useState({});
     const attendanceIds = new Set(Object.keys(attendance));
+    const selectedMonth = date.slice(0, 7);
     const shownAthletes =
       mode === "individual"
         ? activeAthletes.filter((athlete) => attendanceIds.has(athlete.id))
@@ -96,6 +120,20 @@
       setPickerId("");
     }, [date, group, mode, selectedTraining?.id, athletes.length]);
 
+    function hasGuests(training) {
+      if (savedTrainingType(training) === "individual") return false;
+
+      return Object.keys(training.attendance || {}).some((athleteId) => {
+        const athlete = activeAthletes.find((item) => item.id === athleteId);
+
+        return athlete && athlete.group !== training.group;
+      });
+    }
+
+    const historyRows = [...trainings]
+      .filter((training) => training.date?.startsWith(selectedMonth) && Object.keys(training.attendance || {}).length > 0)
+      .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
+
     function save(nextAttendance) {
       const cleanedAttendance = Object.fromEntries(
         Object.entries(nextAttendance).filter(([, status]) => attendanceStatuses.includes(status))
@@ -109,6 +147,11 @@
         type: trainingRecordType(mode),
         attendance: cleanedAttendance
       });
+    }
+
+    function confirmTraining() {
+      if (!shownAthletes.length) return;
+      save(attendance);
     }
 
     function updateAttendance(athleteId, status) {
@@ -126,6 +169,18 @@
 
       delete nextAttendance[athleteId];
       save(nextAttendance);
+    }
+
+    function openHistory(training) {
+      setDate(training.date);
+
+      if (savedTrainingType(training) === "individual") {
+        setMode("individual");
+        return;
+      }
+
+      setMode(hasGuests(training) ? "mixt" : "grupa");
+      setGroup(training.group || groups[0] || "");
     }
 
     return h(
@@ -153,7 +208,8 @@
               { value: group, onChange: (event) => setGroup(event.target.value) },
               groups.map((item) => h("option", { key: item, value: item }, item))
             )
-          )
+          ),
+        h("button", { type: "button", className: "primary align-end", onClick: confirmTraining, disabled: !shownAthletes.length }, "Confirma prezenta")
       ),
       canPickAthletes &&
         h(
@@ -226,11 +282,54 @@
           )
         )
       ),
+      h(
+        "div",
+        { className: "panel" },
+        h(
+          "button",
+          { type: "button", className: "primary", onClick: confirmTraining, disabled: !shownAthletes.length },
+          "Confirma prezenta"
+        )
+      ),
       !shownAthletes.length &&
         h(EmptyState, {
           title: mode === "individual" ? "Nu ai ales sportivi pentru acest antrenament." : "Nu sunt sportivi pentru acest antrenament.",
           text: mode === "individual" ? "Adauga sportivii care fac antrenament individual." : "Alege alta grupa sau foloseste antrenament mixt."
-        })
+        }),
+      h(
+        "div",
+        { className: "table-wrap" },
+        h(
+          "table",
+          null,
+          h("thead", null, h("tr", null, ["Istoric antrenamente", "Prezenti", "Absenti", "Invoiti", "Accidentati", ""].map((head) => h("th", { key: head }, head)))),
+          h(
+            "tbody",
+            null,
+            historyRows.map((training) => {
+              const counts = countStatuses(training.attendance);
+              const type = savedTrainingType(training) === "individual" ? "Individual" : hasGuests(training) ? "Mixt" : "Grupa";
+              const label = type === "Individual" ? "Individual" : `${type} ${training.group || "-"}`;
+
+              return h(
+                "tr",
+                { key: training.id || `${training.date}-${training.group || "individual"}` },
+                h("td", { "data-label": "Istoric antrenamente" }, h("strong", null, formatDate(training.date)), h("small", null, label)),
+                h("td", { "data-label": "Prezenti" }, counts.present),
+                h("td", { "data-label": "Absenti" }, counts.absent),
+                h("td", { "data-label": "Invoiti" }, counts.excused),
+                h("td", { "data-label": "Accidentati" }, counts.injured),
+                h("td", { className: "row-actions" }, h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"))
+              );
+            })
+          )
+        ),
+        !historyRows.length &&
+          h(EmptyState, {
+            title: "Nu exista antrenamente salvate in luna aleasa.",
+            text: "Confirma prezenta ca sa apara aici."
+          })
+      )
     );
   }
 
