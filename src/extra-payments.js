@@ -1,7 +1,6 @@
 (function () {
   const h = React.createElement;
 
-  const feeStatuses = ["nepl\u0103tit\u0103", "pl\u0103tit\u0103", "par\u021bial pl\u0103tit\u0103"];
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
   const paymentTypes = ["incasare", "avans", "cheltuiala"];
@@ -511,6 +510,21 @@
     const amountPaid = Number(fee?.amountPaid || 0);
 
     return Math.max(Math.max(amountDue + previousBalance, 0) - amountPaid, 0);
+  }
+
+  function getAutomaticFeeStatus(fee, previousBalance, fallbackDue) {
+    const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
+    const amountPaid = Number(fee?.amountPaid || 0);
+
+    if (totalToPay <= 0 || amountPaid >= totalToPay) return "plătită";
+    if (amountPaid > 0) return "parțial plătită";
+    return "neplătită";
+  }
+
+  function getFeeStatusTone(status) {
+    if (status === "plătită") return "ok";
+    if (status === "parțial plătită") return "warn";
+    return "";
   }
 
   function getBalanceAfterMonth(fee, previousBalance, fallbackDue) {
@@ -1090,6 +1104,7 @@
               const fallbackDue = getDefaultAmountDue(fees, athlete, month);
               const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
               const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+              const automaticStatus = getAutomaticFeeStatus(fee, previousBalance, fallbackDue);
               const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
               const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
 
@@ -1105,11 +1120,7 @@
                 h(
                   "td",
                   { "data-label": "Status" },
-                  h(
-                    "select",
-                    { value: fee.status, onChange: (event) => updateFee(athlete.id, "status", event.target.value) },
-                    feeStatuses.map((status) => h("option", { key: status, value: status }, status))
-                  )
+                  h("span", { className: "pill " + getFeeStatusTone(automaticStatus) }, automaticStatus)
                 ),
                 h("td", { "data-label": "Datorat" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
                 h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
