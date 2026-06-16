@@ -79,7 +79,6 @@
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
     const [attendance, setAttendance] = React.useState({});
     const attendanceIds = new Set(Object.keys(attendance));
-    const selectedMonth = date.slice(0, 7);
     const shownAthletes =
       mode === "individual"
         ? activeAthletes.filter((athlete) => attendanceIds.has(athlete.id))
@@ -131,7 +130,7 @@
     }
 
     const historyRows = [...trainings]
-      .filter((training) => training.date?.startsWith(selectedMonth) && Object.keys(training.attendance || {}).length > 0)
+      .filter((training) => training.date === date && Object.keys(training.attendance || {}).length > 0)
       .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
 
     function save(nextAttendance) {
@@ -302,7 +301,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Istoric antrenamente", "Prezenti", "Absenti", "Invoiti", "Accidentati", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Istoric data aleasa", "Prezenti", "Absenti", "Invoiti", "Accidentati", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -314,7 +313,7 @@
               return h(
                 "tr",
                 { key: training.id || `${training.date}-${training.group || "individual"}` },
-                h("td", { "data-label": "Istoric antrenamente" }, h("strong", null, formatDate(training.date)), h("small", null, label)),
+                h("td", { "data-label": "Istoric data aleasa" }, h("strong", null, formatDate(training.date)), h("small", null, label)),
                 h("td", { "data-label": "Prezenti" }, counts.present),
                 h("td", { "data-label": "Absenti" }, counts.absent),
                 h("td", { "data-label": "Invoiti" }, counts.excused),
@@ -326,8 +325,8 @@
         ),
         !historyRows.length &&
           h(EmptyState, {
-            title: "Nu exista antrenamente salvate in luna aleasa.",
-            text: "Confirma prezenta ca sa apara aici."
+            title: "Nu exista antrenamente salvate in data aleasa.",
+            text: "Alege alta data sau confirma prezenta ca sa apara aici."
           })
       )
     );
