@@ -51,21 +51,57 @@
   }
 
   function trainingRecordType(mode) {
-    return mode === "individual" ? "individual" : "grupa";
+    if (mode === "individual") return "individual";
+    if (mode === "mixt") return "mixt";
+    return "grupa";
   }
 
   function savedTrainingType(training) {
     return training?.type || "grupa";
   }
 
-  function findTraining(trainings, date, mode, group) {
+  function trainingHasGuests(training, athletes) {
+    if (savedTrainingType(training) !== "grupa") return false;
+
+    return Object.keys(training.attendance || {}).some((athleteId) => {
+      const athlete = athletes.find((item) => item.id === athleteId);
+
+      return athlete && athlete.group !== training.group;
+    });
+  }
+
+  function displayTrainingType(training, athletes) {
+    if (savedTrainingType(training) === "individual") return "Individual";
+    if (savedTrainingType(training) === "mixt" || trainingHasGuests(training, athletes)) return "Mixt";
+    return "Grupa";
+  }
+
+  function findTraining(trainings, date, mode, group, athletes) {
     const recordType = trainingRecordType(mode);
 
-    return trainings.find((training) => {
-      if (training.date !== date || savedTrainingType(training) !== recordType) return false;
-      if (recordType === "individual") return training.group === "Individual" || !training.group;
-      return training.group === group;
-    });
+    if (recordType === "individual") {
+      return trainings.find(
+        (training) =>
+          training.date === date &&
+          savedTrainingType(training) === "individual" &&
+          (training.group === "Individual" || !training.group)
+      );
+    }
+
+    if (recordType === "mixt") {
+      return (
+        trainings.find((training) => training.date === date && savedTrainingType(training) === "mixt") ||
+        trainings.find((training) => training.date === date && trainingHasGuests(training, athletes))
+      );
+    }
+
+    return trainings.find(
+      (training) =>
+        training.date === date &&
+        savedTrainingType(training) === "grupa" &&
+        !trainingHasGuests(training, athletes) &&
+        training.group === group
+    );
   }
 
   function AttendanceView({ athletes, trainings, onSaveTraining, onDeleteTraining }) {
@@ -73,35 +109,28 @@
     const [date, setDate] = React.useState(new Date().toISOString().slice(0, 10));
     const [mode, setMode] = React.useState("grupa");
     const [group, setGroup] = React.useState(groups[0] || "");
-    const [pickerId, setPickerId] = React.useState("");
-    const selectedTraining = findTraining(trainings, date, mode, group);
+    const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
     const activeAthletes = athletes.filter((athlete) => athlete.active).sort(compareAthletes);
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
+    const selectedTraining = findTraining(trainings, date, mode, group, activeAthletes);
     const [attendance, setAttendance] = React.useState({});
     const attendanceIds = new Set(Object.keys(attendance));
     const shownAthletes =
-      mode === "individual"
-        ? activeAthletes.filter((athlete) => attendanceIds.has(athlete.id))
-        : activeAthletes.filter((athlete) => athlete.group === group || attendanceIds.has(athlete.id));
+      mode === "grupa"
+        ? activeAthletes.filter((athlete) => athlete.group === group || attendanceIds.has(athlete.id))
+        : activeAthletes.filter((athlete) => attendanceIds.has(athlete.id));
     const shownIds = new Set(shownAthletes.map((athlete) => athlete.id));
     const canPickAthletes = mode !== "grupa";
-    const availableAthletes = activeAthletes.filter((athlete) => {
-      if (shownIds.has(athlete.id)) return false;
-      if (mode === "mixt") return athlete.group !== group;
-      return mode === "individual";
-    });
+    const availableAthletes = activeAthletes.filter((athlete) => !shownIds.has(athlete.id));
+    const selectedAvailableIds = selectedAthleteIds.filter((athleteId) =>
+      availableAthletes.some((athlete) => athlete.id === athleteId)
+    );
 
     React.useEffect(() => {
       const savedAttendance = selectedTraining?.attendance || {};
       const next = {};
 
-      if (mode === "individual") {
-        Object.keys(savedAttendance).forEach((athleteId) => {
-          if (activeAthletes.some((athlete) => athlete.id === athleteId)) {
-            next[athleteId] = savedAttendance[athleteId] || "prezent";
-          }
-        });
-      } else {
+      if (mode === "grupa") {
         groupAthletes.forEach((athlete) => {
           next[athlete.id] = savedAttendance[athlete.id] || "prezent";
         });
@@ -113,21 +142,17 @@
             next[athleteId] = savedAttendance[athleteId] || "prezent";
           }
         });
+      } else {
+        Object.keys(savedAttendance).forEach((athleteId) => {
+          if (activeAthletes.some((athlete) => athlete.id === athleteId)) {
+            next[athleteId] = savedAttendance[athleteId] || "prezent";
+          }
+        });
       }
 
       setAttendance(next);
-      setPickerId("");
+      setSelectedAthleteIds([]);
     }, [date, group, mode, selectedTraining?.id, athletes.length]);
-
-    function hasGuests(training) {
-      if (savedTrainingType(training) === "individual") return false;
-
-      return Object.keys(training.attendance || {}).some((athleteId) => {
-        const athlete = activeAthletes.find((item) => item.id === athleteId);
-
-        return athlete && athlete.group !== training.group;
-      });
-    }
 
     const historyRows = [...trainings]
       .filter((training) => training.date === date && Object.keys(training.attendance || {}).length > 0)
@@ -142,7 +167,7 @@
       onSaveTraining({
         id: selectedTraining?.id,
         date,
-        group: mode === "individual" ? "Individual" : group,
+        group: mode === "individual" ? "Individual" : mode === "mixt" ? "Mixt" : group,
         type: trainingRecordType(mode),
         attendance: cleanedAttendance
       });
@@ -157,10 +182,30 @@
       save({ ...attendance, [athleteId]: status });
     }
 
-    function addAthlete() {
-      if (!pickerId) return;
-      save({ ...attendance, [pickerId]: "prezent" });
-      setPickerId("");
+    function toggleSelectedAthlete(athleteId) {
+      setSelectedAthleteIds((current) =>
+        current.includes(athleteId) ? current.filter((id) => id !== athleteId) : [...current, athleteId]
+      );
+    }
+
+    function selectAllAvailable() {
+      setSelectedAthleteIds(availableAthletes.map((athlete) => athlete.id));
+    }
+
+    function clearSelectedAthletes() {
+      setSelectedAthleteIds([]);
+    }
+
+    function addSelectedAthletes() {
+      if (!selectedAvailableIds.length) return;
+
+      const nextAttendance = { ...attendance };
+      selectedAvailableIds.forEach((athleteId) => {
+        nextAttendance[athleteId] = nextAttendance[athleteId] || "prezent";
+      });
+
+      save(nextAttendance);
+      setSelectedAthleteIds([]);
     }
 
     function removeAthlete(athleteId) {
@@ -171,14 +216,21 @@
     }
 
     function openHistory(training) {
+      const type = displayTrainingType(training, activeAthletes);
+
       setDate(training.date);
 
-      if (savedTrainingType(training) === "individual") {
+      if (type === "Individual") {
         setMode("individual");
         return;
       }
 
-      setMode(hasGuests(training) ? "mixt" : "grupa");
+      if (type === "Mixt") {
+        setMode("mixt");
+        return;
+      }
+
+      setMode("grupa");
       setGroup(training.group || groups[0] || "");
     }
 
@@ -207,7 +259,7 @@
             trainingModes.map(([value, label]) => h("option", { key: value, value }, label))
           )
         ),
-        mode !== "individual" &&
+        mode === "grupa" &&
           h(
             Field,
             { label: "Grupa" },
@@ -222,20 +274,46 @@
       canPickAthletes &&
         h(
           "div",
-          { className: "panel compact-grid" },
+          { className: "panel stack" },
           h(
-            Field,
-            { label: mode === "mixt" ? "Sportiv din alta grupa" : "Sportiv" },
+            "div",
+            { className: "toolbar" },
+            h("strong", null, mode === "mixt" ? "Alege sportivii pentru antrenamentul mixt" : "Alege sportivii pentru antrenamentul individual"),
             h(
-              "select",
-              { value: pickerId, onChange: (event) => setPickerId(event.target.value), disabled: !availableAthletes.length },
-              h("option", { value: "" }, availableAthletes.length ? "Alege sportivul" : "Nu sunt sportivi disponibili"),
-              availableAthletes.map((athlete) =>
-                h("option", { key: athlete.id, value: athlete.id }, athleteName(athlete) + " / " + athlete.group)
+              "div",
+              { className: "row-actions" },
+              h("button", { type: "button", onClick: selectAllAvailable, disabled: !availableAthletes.length }, "Selecteaza toti"),
+              h("button", { type: "button", onClick: clearSelectedAthletes, disabled: !selectedAvailableIds.length }, "Goleste"),
+              h(
+                "button",
+                { type: "button", className: "primary", onClick: addSelectedAthletes, disabled: !selectedAvailableIds.length },
+                "Adauga selectatii" + (selectedAvailableIds.length ? ` (${selectedAvailableIds.length})` : "")
               )
             )
           ),
-          h("button", { type: "button", className: "primary align-end", onClick: addAthlete, disabled: !pickerId }, "Adauga la antrenament")
+          availableAthletes.length
+            ? h(
+                "ul",
+                { className: "clean-list", style: { maxHeight: "280px", overflow: "auto" } },
+                availableAthletes.map((athlete) =>
+                  h(
+                    "li",
+                    { key: athlete.id },
+                    h(
+                      "label",
+                      { style: { display: "flex", alignItems: "center", gap: "10px", width: "100%", cursor: "pointer" } },
+                      h("input", {
+                        type: "checkbox",
+                        checked: selectedAthleteIds.includes(athlete.id),
+                        onChange: () => toggleSelectedAthlete(athlete.id),
+                        style: { width: "auto", minHeight: "auto" }
+                      }),
+                      h("span", null, h("strong", null, athleteName(athlete)), h("small", null, athlete.group || "Fara grupa"))
+                    )
+                  )
+                )
+              )
+            : h(EmptyState, { title: "Nu mai sunt sportivi de adaugat.", text: "Toti sportivii disponibili sunt deja in antrenament." })
         ),
       h(
         "div",
@@ -248,7 +326,7 @@
             "tbody",
             null,
             shownAthletes.map((athlete) => {
-              const canRemove = mode === "individual" || athlete.group !== group;
+              const canRemove = mode !== "grupa" || athlete.group !== group;
 
               return h(
                 "tr",
@@ -293,16 +371,12 @@
       h(
         "div",
         { className: "panel" },
-        h(
-          "button",
-          { type: "button", className: "primary", onClick: confirmTraining, disabled: !shownAthletes.length },
-          "Confirma prezenta"
-        )
+        h("button", { type: "button", className: "primary", onClick: confirmTraining, disabled: !shownAthletes.length }, "Confirma prezenta")
       ),
       !shownAthletes.length &&
         h(EmptyState, {
-          title: mode === "individual" ? "Nu ai ales sportivi pentru acest antrenament." : "Nu sunt sportivi pentru acest antrenament.",
-          text: mode === "individual" ? "Adauga sportivii care fac antrenament individual." : "Alege alta grupa sau foloseste antrenament mixt."
+          title: mode === "grupa" ? "Nu sunt sportivi pentru acest antrenament." : "Nu ai ales sportivi pentru acest antrenament.",
+          text: mode === "grupa" ? "Alege alta grupa sau foloseste antrenament mixt." : "Bifeaza sportivii si apasa Adauga selectatii."
         }),
       h(
         "div",
@@ -316,12 +390,12 @@
             null,
             historyRows.map((training) => {
               const counts = countStatuses(training.attendance);
-              const type = savedTrainingType(training) === "individual" ? "Individual" : hasGuests(training) ? "Mixt" : "Grupa";
-              const label = type === "Individual" ? "Individual" : `${type} ${training.group || "-"}`;
+              const type = displayTrainingType(training, activeAthletes);
+              const label = type === "Grupa" ? `Grupa ${training.group || "-"}` : type;
 
               return h(
                 "tr",
-                { key: training.id || `${training.date}-${training.group || "individual"}` },
+                { key: training.id || `${training.date}-${training.group || "antrenament"}` },
                 h("td", { "data-label": "Istoric data aleasa" }, h("strong", null, formatDate(training.date)), h("small", null, label)),
                 h("td", { "data-label": "Prezenti" }, counts.present),
                 h("td", { "data-label": "Absenti" }, counts.absent),
