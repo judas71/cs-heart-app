@@ -225,6 +225,20 @@ React.useEffect(() => {
         taxPayments: (current.taxPayments || []).filter((payment) => payment.id !== id)
       }));
     }
+    function deleteTraining(trainingToDelete) {
+      setState((current) => ({
+        ...current,
+        trainings: current.trainings.filter((training) => {
+          if (trainingToDelete.id) return training.id !== trainingToDelete.id;
+
+          return !(
+            training.date === trainingToDelete.date &&
+            training.group === trainingToDelete.group &&
+            (training.type || "grupa") === (trainingToDelete.type || "grupa")
+          );
+        })
+      }));
+    }
     function resetMonthFees(month, athleteIds) {
       const ok = confirm(`Resetezi taxele pentru luna ${month}?`);
       if (!ok) return;
@@ -290,7 +304,7 @@ React.useEffect(() => {
         views.map(([id, label]) => h("button", { key: id, className: activeView === id ? "active" : "", onClick: () => setActiveView(id) }, label))
       ),
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
-      activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining }),
+      activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment }),
       activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [] })

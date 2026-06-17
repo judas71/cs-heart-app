@@ -68,7 +68,7 @@
     });
   }
 
-  function AttendanceView({ athletes, trainings, onSaveTraining }) {
+  function AttendanceView({ athletes, trainings, onSaveTraining, onDeleteTraining }) {
     const groups = getGroups(athletes);
     const [date, setDate] = React.useState(new Date().toISOString().slice(0, 10));
     const [mode, setMode] = React.useState("grupa");
@@ -180,6 +180,15 @@
 
       setMode(hasGuests(training) ? "mixt" : "grupa");
       setGroup(training.group || groups[0] || "");
+    }
+
+    function deleteHistory(training) {
+      if (!onDeleteTraining) return;
+
+      const ok = confirm("Stergi aceasta prezenta/antrenament?");
+      if (!ok) return;
+
+      onDeleteTraining(training);
     }
 
     return h(
@@ -318,7 +327,12 @@
                 h("td", { "data-label": "Absenti" }, counts.absent),
                 h("td", { "data-label": "Invoiti" }, counts.excused),
                 h("td", { "data-label": "Accidentati" }, counts.injured),
-                h("td", { className: "row-actions" }, h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"))
+                h(
+                  "td",
+                  { className: "row-actions" },
+                  h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"),
+                  h("button", { type: "button", className: "danger", onClick: () => deleteHistory(training) }, "Sterge")
+                )
               );
             })
           )
