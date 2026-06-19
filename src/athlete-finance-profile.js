@@ -13,8 +13,32 @@
     return compareText(athleteName(first), athleteName(second));
   }
 
-  function formatMoney(value) {
-    return `${Number(value || 0).toLocaleString("ro-RO")} lei`;
+  function formatMoney(value, currency = "lei") {
+    return `${Number(value || 0).toLocaleString("ro-RO")} ${currency === "euro" ? "euro" : "lei"}`;
+  }
+
+  function paymentCurrency(payment) {
+    return payment.currency || "lei";
+  }
+
+  function paymentType(payment) {
+    return !payment.paymentType || payment.paymentType === "plata" ? "incasare" : payment.paymentType;
+  }
+
+  function paymentTypeLabel(type) {
+    const value = typeof type === "string" ? type : paymentType(type);
+    if (value === "cheltuiala") return "plata";
+    if (value === "retur") return "retur de sume";
+    return value;
+  }
+
+  function isOutgoingPayment(payment) {
+    return ["avans", "cheltuiala", "retur"].includes(paymentType(payment));
+  }
+
+  function formatPaymentAmount(payment) {
+    const prefix = isOutgoingPayment(payment) ? "- " : "";
+    return prefix + formatMoney(payment.amount, paymentCurrency(payment));
   }
 
   function getGroups(athletes) {
@@ -272,11 +296,26 @@
     );
   }
 
-  function PaymentHistory({ athlete, fees }) {
+  function PaymentHistory({ athlete, fees, otherPayments = [] }) {
     const rows = fees
       .filter((fee) => fee.athleteId === athlete.id && (Number(fee.amountPaid || 0) > 0 || fee.paymentDate))
       .sort((a, b) => String(b.month || "").localeCompare(String(a.month || "")));
     const totalPaid = rows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const otherRows = otherPayments
+      .filter((payment) => payment.athleteId === athlete.id)
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const otherReceivedLei = otherRows
+      .filter((payment) => paymentCurrency(payment) === "lei" && !isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherPaidLei = otherRows
+      .filter((payment) => paymentCurrency(payment) === "lei" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherReceivedEuro = otherRows
+      .filter((payment) => paymentCurrency(payment) === "euro" && !isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherPaidEuro = otherRows
+      .filter((payment) => paymentCurrency(payment) === "euro" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
     return h(
       "div",
@@ -288,6 +327,13 @@
         h("div", null, h("span", null, "Total incasat"), h("strong", null, formatMoney(totalPaid))),
         h("div", null, h("span", null, "Plati gasite"), h("strong", null, rows.length)),
         h("div", null, h("span", null, "Viza medicala"), h("strong", null, h(MedicalVisaValue, { athlete })))
+      ),
+      h(
+        "div",
+        { className: "metrics", style: { marginBottom: "14px" } },
+        h("div", null, h("span", null, "Alte incasari lei"), h("strong", null, formatMoney(otherReceivedLei)), h("small", null, "Platit/retur: " + formatMoney(otherPaidLei))),
+        h("div", null, h("span", null, "Alte incasari euro"), h("strong", null, formatMoney(otherReceivedEuro, "euro")), h("small", null, "Platit/retur: " + formatMoney(otherPaidEuro, "euro"))),
+        h("div", null, h("span", null, "Operatiuni extra"), h("strong", null, otherRows.length), h("small", null, "Incasari, avansuri, plati si retururi"))
       ),
       h(
         "div",
@@ -332,11 +378,40 @@
             )
           )
         : h("p", null, "Nu exista plati inregistrate pentru acest sportiv."),
+      h("h2", { style: { marginTop: "18px" } }, "Alte incasari / plati"),
+      otherRows.length
+        ? h(
+            "div",
+            { className: "table-wrap wide" },
+            h(
+              "table",
+              null,
+              h("thead", null, h("tr", null, ["Data", "Categorie", "Tip", "Suma", "Metoda", "Observatii", "Operat de"].map((head) => h("th", { key: head }, head)))),
+              h(
+                "tbody",
+                null,
+                otherRows.map((payment) =>
+                  h(
+                    "tr",
+                    { key: payment.id || `${payment.date}-${payment.category}-${payment.amount}` },
+                    h("td", { "data-label": "Data" }, formatDate(payment.date)),
+                    h("td", { "data-label": "Categorie" }, payment.category || "-"),
+                    h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
+                    h("td", { "data-label": "Suma" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
+                    h("td", { "data-label": "Metoda" }, payment.method || "-"),
+                    h("td", { "data-label": "Observatii" }, payment.notes || "-"),
+                    h("td", { "data-label": "Operat de" }, payment.updatedByEmail || "-")
+                  )
+                )
+              )
+            )
+          )
+        : h("p", null, "Nu exista alte incasari pentru acest sportiv."),
       h("small", null, "Pentru platile vechi, utilizatorul apare doar dupa ce plata este modificata din nou.")
     );
   }
 
-  function AthletesView({ athletes, fees = [], onAdd, onUpdate, onDelete }) {
+  function AthletesView({ athletes, fees = [], otherPayments = [], taxPayments = [], onAdd, onUpdate, onDelete }) {
     const [editingId, setEditingId] = React.useState(null);
     const [profileId, setProfileId] = React.useState(null);
     const [isAdding, setAdding] = React.useState(false);
@@ -436,7 +511,7 @@
                       )
                     ),
                     profileId === athlete.id &&
-                      h("tr", null, h("td", { colSpan: 7 }, h(PaymentHistory, { athlete, fees }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
+                      h("tr", null, h("td", { colSpan: 7 }, h(PaymentHistory, { athlete, fees, otherPayments }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
                   )
             )
           )

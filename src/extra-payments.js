@@ -3,7 +3,7 @@
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
-  const paymentTypes = ["incasare", "avans", "cheltuiala"];
+  const paymentTypes = ["incasare", "avans", "cheltuiala", "retur"];
   const taxPaymentTypes = ["salariu", "chirie"];
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
@@ -540,11 +540,13 @@
 
   function paymentTypeLabel(type) {
     const value = typeof type === "string" ? type : paymentType(type);
-    return value === "cheltuiala" ? "plata" : value;
+    if (value === "cheltuiala") return "plata";
+    if (value === "retur") return "retur de sume";
+    return value;
   }
 
   function isOutgoingPayment(payment) {
-    return ["avans", "cheltuiala"].includes(paymentType(payment));
+    return ["avans", "cheltuiala", "retur"].includes(paymentType(payment));
   }
 
   function paymentCurrency(payment) {
@@ -855,6 +857,7 @@
       month,
       date: today(),
       paymentType: "salariu",
+      athleteId: "",
       amount: "",
       method: "transfer",
       notes: ""
@@ -862,7 +865,8 @@
   }
 
   function taxPaymentTypeLabel(type) {
-    return type === "chirie" ? "chirii" : type;
+    if (type === "chirie") return "chirii";
+    return type;
   }
 
   function FeesView({ athletes, fees, taxPayments = [], onSaveFee, onSaveTaxPayment, onDeleteTaxPayment }) {
@@ -933,6 +937,7 @@
       onSaveTaxPayment({
         ...taxPaymentForm,
         month,
+        athleteId: "",
         amount: Number(taxPaymentForm.amount || 0),
         notes: String(taxPaymentForm.notes || "").trim()
       });
@@ -946,6 +951,7 @@
         month: payment.month || month,
         date: payment.date || today(),
         paymentType: payment.paymentType || "salariu",
+        athleteId: payment.athleteId || "",
         amount: payment.amount || "",
         method: payment.method || "transfer",
         notes: payment.notes || ""
@@ -1240,7 +1246,7 @@
     const balancePaidEuro = sumOutgoingPayments(balancePayments, "euro");
     const balanceLei = balanceReceivedLei - balancePaidLei;
     const balanceEuro = balanceReceivedEuro - balancePaidEuro;
-    const isFormPayment = form.paymentType === "cheltuiala";
+    const isFormPayment = ["cheltuiala", "retur"].includes(form.paymentType);
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -1709,7 +1715,7 @@
         { className: "cs-report-summary" },
         h(SummaryCard, { label: "Incasari taxe", value: formatMoney(taxIncome), hint: `${monthlyFees.length} plati`, tone: "tone-green" }),
         h(SummaryCard, { label: "Alte incasari", value: formatMoney(otherIncomeLei, "lei"), hint: otherIncomeEuro ? formatMoney(otherIncomeEuro, "euro") : "Doar incasari, fara plati", tone: "tone-blue" }),
-        h(SummaryCard, { label: "Plati", value: formatMoney(totalPaymentsLei), hint: "Salarii/chirii + plati din alte incasari", tone: "tone-red" }),
+        h(SummaryCard, { label: "Plati", value: formatMoney(totalPaymentsLei), hint: "Salarii/chirii + plati/retururi din alte incasari", tone: "tone-red" }),
         h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") : "Incasari - plati", tone: finalBalanceLei < 0 ? "tone-red" : "tone-purple" })
       ),
       h(

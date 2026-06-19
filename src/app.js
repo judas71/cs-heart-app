@@ -303,7 +303,7 @@ React.useEffect(() => {
         { className: "tabs", "aria-label": "SecÈ›iuni aplicaÈ›ie" },
         views.map(([id, label]) => h("button", { key: id, className: activeView === id ? "active" : "", onClick: () => setActiveView(id) }, label))
       ),
-      activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
+      activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment }),
