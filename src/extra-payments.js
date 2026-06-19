@@ -1247,6 +1247,17 @@
     const balanceLei = balanceReceivedLei - balancePaidLei;
     const balanceEuro = balanceReceivedEuro - balancePaidEuro;
     const isFormPayment = ["cheltuiala", "retur"].includes(form.paymentType);
+    const isRefund = form.paymentType === "retur";
+    const selectedAthleteBalanceRows = otherPayments.filter((payment) => payment.athleteId === form.athleteId && payment.id !== form.id);
+    const selectedAthleteBalanceLei = selectedAthleteBalanceRows
+      .filter((payment) => paymentCurrency(payment) === "lei")
+      .reduce((sum, payment) => sum + signedAmount(payment), 0);
+    const selectedAthleteBalanceEuro = selectedAthleteBalanceRows
+      .filter((payment) => paymentCurrency(payment) === "euro")
+      .reduce((sum, payment) => sum + signedAmount(payment), 0);
+    const selectedCurrencyBalance = form.currency === "euro" ? selectedAthleteBalanceEuro : selectedAthleteBalanceLei;
+    const refundAmount = Number(form.amount || 0);
+    const refundExceedsBalance = isRefund && form.athleteId && refundAmount > selectedCurrencyBalance;
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -1337,6 +1348,20 @@
               { label: isFormPayment ? "Cui ai platit" : form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
               h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: isFormPayment ? "Ex: furnizor, arbitraj, transport" : form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
             ),
+        isRefund &&
+          h(
+            "div",
+            { style: { gridColumn: "1 / -1", borderTop: "1px solid #d9e0e5", borderBottom: "1px solid #d9e0e5", padding: "10px 0", display: "grid", gap: "4px" } },
+            h("strong", null, form.athleteId ? "Sold alte incasari: " + formatMoney(selectedAthleteBalanceLei, "lei") + " / " + formatMoney(selectedAthleteBalanceEuro, "euro") : "Alege sportivul ca sa vezi soldul din Alte incasari"),
+            form.athleteId &&
+              h(
+                "small",
+                { className: refundExceedsBalance ? "arrears" : "" },
+                refundExceedsBalance
+                  ? "Atentie: returul este mai mare decat soldul pe moneda aleasa."
+                  : "Soldul este calculat doar din Alte incasari, fara taxe."
+              )
+          ),
         h(Field, { label: isFormPayment ? "Data platii" : "Data incasarii" }, h("input", { type: "date", value: form.date, onChange: (event) => update("date", event.target.value), required: true })),
         h(
           Field,
