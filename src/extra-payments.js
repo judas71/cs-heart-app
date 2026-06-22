@@ -875,6 +875,7 @@
 
     const needle = actionMatchText(action);
     if (!needle) return false;
+    if (payment.actionName && normalizeText(payment.actionName) === needle) return true;
 
     const haystack = normalizeText([payment.notes, payment.actionName, payment.category].join(" "));
     if (haystack.includes(needle)) return true;
@@ -1288,6 +1289,7 @@
       date: today(),
       category: categories[0],
       actionId: "",
+      actionName: "",
       paymentType: "incasare",
       amount: "",
       method: "cash",
@@ -1430,15 +1432,16 @@
       setForm((current) => ({ ...current, [field]: value }));
     }
 
-    function updatePaymentAction(actionId) {
-      const action = uniqueActions.find((item) => item.id === actionId);
+    function updatePaymentActionName(actionName) {
+      const normalizedActionName = normalizeText(actionName);
+      const action = uniqueActions.find((item) => normalizeText(item.name) === normalizedActionName || actionMatchText(item) === normalizedActionName);
 
       setForm((current) => ({
         ...current,
-        actionId,
+        actionName,
+        actionId: action?.id || "",
         category: action?.category || current.category,
-        currency: action?.currency || current.currency,
-        notes: action && !String(current.notes || "").trim() ? action.name : current.notes
+        currency: action?.currency || current.currency
       }));
     }
 
@@ -1532,7 +1535,7 @@
         ...form,
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
-        actionName: form.actionId ? uniqueActions.find((action) => action.id === form.actionId)?.name || "" : "",
+        actionName: String(form.actionName || "").trim(),
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
       });
@@ -1540,6 +1543,8 @@
     }
 
     function edit(payment) {
+      const linkedAction = uniqueActions.find((action) => action.id === payment.actionId || (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)));
+
       setForm({
         id: payment.id || "",
         payerType: payerType(payment),
@@ -1548,6 +1553,7 @@
         date: payment.date || today(),
         category: payment.category || categories[0],
         actionId: payment.actionId || "",
+        actionName: payment.actionName || linkedAction?.name || "",
         paymentType: paymentType(payment),
         amount: payment.amount || "",
         method: payment.method || "cash",
@@ -1662,12 +1668,7 @@
         h(
           Field,
           { label: "Actiune" },
-          h(
-            "select",
-            { value: form.actionId, onChange: (event) => updatePaymentAction(event.target.value) },
-            h("option", { value: "" }, "Fara actiune"),
-            uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
-          )
+          h("input", { value: form.actionName, onChange: (event) => updatePaymentActionName(event.target.value), placeholder: "Ex: Costinesti 2026" })
         ),
         h(Field, { label: "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: "Optional" })),
         h(
