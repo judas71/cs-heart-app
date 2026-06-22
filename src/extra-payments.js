@@ -3,7 +3,7 @@
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
-  const paymentTypes = ["incasare", "avans", "cheltuiala", "retur"];
+  const paymentTypes = ["incasare", "avans", "cheltuiala", "retur", "anulare"];
   const taxPaymentTypes = ["salariu", "chirie"];
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
@@ -577,6 +577,7 @@
     const value = typeof type === "string" ? type : paymentType(type);
     if (value === "cheltuiala") return "plata";
     if (value === "retur") return "retur de sume";
+    if (value === "anulare") return "rest anulat";
     return value;
   }
 
@@ -590,10 +591,12 @@
 
   function signedAmount(payment) {
     const amount = Number(payment.amount || 0);
+    if (paymentType(payment) === "anulare") return 0;
     return isOutgoingPayment(payment) ? -amount : amount;
   }
 
   function formatPaymentAmount(payment) {
+    if (paymentType(payment) === "anulare") return "Anulat " + formatMoney(payment.amount, paymentCurrency(payment));
     const prefix = isOutgoingPayment(payment) ? "- " : "";
     return prefix + formatMoney(payment.amount, paymentCurrency(payment));
   }
@@ -1002,11 +1005,14 @@
         const returned = payments
           .filter((payment) => paymentType(payment) === "retur")
           .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const waived = payments
+          .filter((payment) => paymentType(payment) === "anulare")
+          .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const netReceived = received - returned;
-        const outstanding = Math.max(amountDue - netReceived, 0);
+        const outstanding = Math.max(amountDue - netReceived - waived, 0);
         const extra = Math.max(netReceived - amountDue, 0);
 
-        return { athlete, amountDue, received, returned, netReceived, outstanding, extra, payments };
+        return { athlete, amountDue, received, returned, waived, netReceived, outstanding, extra, payments };
       })
       .filter(Boolean)
       .sort((first, second) => compareAthletesByName(first.athlete, second.athlete));
@@ -1643,6 +1649,36 @@
       setForm(emptyForm());
     }
 
+    function cancelActionOutstanding(row) {
+      if (!row || !selectedAction || !onSavePayment || row.outstanding <= 0) return;
+      const athlete = row.athlete;
+      const confirmed = window.confirm(
+        "Anulezi restul de " +
+          formatMoney(row.outstanding, selectedActionCurrency) +
+          " pentru " +
+          athleteName(athlete) +
+          " la actiunea " +
+          selectedAction.name +
+          "?"
+      );
+      if (!confirmed) return;
+
+      onSavePayment({
+        payerType: "sportiv",
+        athleteId: athlete.id,
+        payerName: "",
+        date: today(),
+        category: selectedAction.category || "turneu",
+        paymentType: "anulare",
+        amount: row.outstanding,
+        currency: selectedActionCurrency,
+        method: "intern",
+        actionId: selectedAction.id || "",
+        actionName: selectedAction.name || "",
+        notes: "Rest anulat"
+      });
+    }
+
     function edit(payment) {
       const linkedAction = uniqueActions.find((action) => action.id === payment.actionId || (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)));
 
@@ -1913,14 +1949,25 @@
                   { key: row.athlete.id, className: row.outstanding > 0 ? "row-unpaid" : "" },
                   h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(row.athlete)), h("small", null, row.athlete.group || "-")),
                   h("td", { "data-label": "De achitat" }, formatMoney(row.amountDue, selectedActionCurrency)),
-                  h("td", { "data-label": "Incasat" }, h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)), row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency))),
+                  h(
+                    "td",
+                    { "data-label": "Incasat" },
+                    h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)),
+                    row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency)),
+                    row.waived > 0 && h("small", null, "Anulat: " + formatMoney(row.waived, selectedActionCurrency))
+                  ),
                   h(
                     "td",
                     { "data-label": "Rest" },
                     h("strong", { className: row.outstanding > 0 ? "arrears" : "" }, formatMoney(row.outstanding, selectedActionCurrency)),
                     row.extra > 0 && h("small", null, "Avans: " + formatMoney(row.extra, selectedActionCurrency))
                   ),
-                  h("td", { "data-label": "Detalii" }, row.payments.length ? row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))) : h("small", null, "Fara incasari gasite"))
+                  h(
+                    "td",
+                    { "data-label": "Detalii" },
+                    row.payments.length ? row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))) : h("small", null, "Fara incasari gasite"),
+                    row.outstanding > 0 && onSavePayment && h("button", { type: "button", onClick: () => cancelActionOutstanding(row) }, "Anuleaza rest")
+                  )
                 )
               )
             )
@@ -2016,7 +2063,7 @@
                   "td",
                   { className: "row-actions" },
                   h("button", { onClick: () => edit(payment) }, "Editeaza"),
-                  paymentType(payment) !== "cheltuiala" && h("button", { onClick: () => printPreview(payment) }, Number(payment.printCount || 0) > 0 || payment.printedAt ? "Reimprima" : "Imprima"),
+                  ["incasare", "avans"].includes(paymentType(payment)) && h("button", { onClick: () => printPreview(payment) }, Number(payment.printCount || 0) > 0 || payment.printedAt ? "Reimprima" : "Imprima"),
                   h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
                 )
               );
@@ -2196,7 +2243,11 @@
                     h(ReportItem, {
                       key: row.athlete.id,
                       title: athleteName(row.athlete),
-                      subtitle: (row.athlete.group || "-") + " / incasat " + formatMoney(row.netReceived, selectedActionCurrency),
+                      subtitle:
+                        (row.athlete.group || "-") +
+                        " / incasat " +
+                        formatMoney(row.netReceived, selectedActionCurrency) +
+                        (row.waived > 0 ? " / anulat " + formatMoney(row.waived, selectedActionCurrency) : ""),
                       amount: "Rest " + formatMoney(row.outstanding, selectedActionCurrency),
                       negative: row.outstanding > 0
                     })
