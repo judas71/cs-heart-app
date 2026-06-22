@@ -808,10 +808,52 @@
     return normalizeText(action.matchText || action.name);
   }
 
+  function actionKeywords(value) {
+    return normalizeText(value)
+      .split(" ")
+      .filter((word) => word.length >= 4 && !/^\d+$/.test(word));
+  }
+
+  function fuzzyWordMatch(first, second) {
+    if (!first || !second) return false;
+    return first === second || first.startsWith(second) || second.startsWith(first);
+  }
+
+  function actionKey(action) {
+    return [
+      actionMatchText(action),
+      action.category || "toate",
+      action.currency || "lei",
+      action.startDate || ""
+    ].join("|");
+  }
+
+  function getUniqueActions(actions = []) {
+    const byKey = new Map();
+
+    actions.forEach((action) => {
+      const key = actionKey(action);
+      const existing = byKey.get(key);
+
+      if (!existing) {
+        byKey.set(key, { ...action, participantIds: actionParticipantIds(action), aliasIds: action.id ? [action.id] : [] });
+        return;
+      }
+
+      existing.participantIds = [...new Set([...actionParticipantIds(existing), ...actionParticipantIds(action)])];
+      existing.aliasIds = [...new Set([...(existing.aliasIds || []), action.id].filter(Boolean))];
+      existing.amountDue = existing.amountDue || action.amountDue;
+      existing.notes = existing.notes || action.notes;
+    });
+
+    return [...byKey.values()].sort((first, second) => compareText(first.name, second.name));
+  }
+
   function paymentMatchesAction(payment, action) {
     if (!payment || !action) return false;
     if (action.startDate && (!payment.date || String(payment.date) < String(action.startDate))) return false;
     if (action.id && payment.actionId === action.id) return true;
+    if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
     if (action.category && action.category !== "toate" && payment.category !== action.category) return false;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
 
@@ -819,7 +861,10 @@
     if (!needle) return false;
 
     const haystack = normalizeText([payment.notes, payment.actionName, payment.category].join(" "));
-    return haystack.includes(needle);
+    if (haystack.includes(needle)) return true;
+
+    const paymentWords = actionKeywords(haystack);
+    return actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)));
   }
 
   function getActionPayments(otherPayments, action, athleteId) {
@@ -1258,7 +1303,7 @@
     const [actionForm, setActionForm] = React.useState(emptyActionForm);
     const [actionGroup, setActionGroup] = React.useState("toate");
     const [selectedActionId, setSelectedActionId] = React.useState("");
-    const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(true);
+    const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(false);
     const [printPreviewPayment, setPrintPreviewPayment] = React.useState(null);
     const formRef = React.useRef(null);
 
@@ -1271,8 +1316,9 @@
       ...activeAthletes,
       ...(selectedAthlete && !activeAthletes.some((athlete) => athlete.id === selectedAthlete.id) ? [selectedAthlete] : [])
     ].sort(compareAthletesByName);
+    const uniqueActions = getUniqueActions(otherActions);
     const actionAthletes = (actionGroup === "toate" ? activeAthletes : activeAthletes.filter((athlete) => athlete.group === actionGroup)).sort(compareAthletesByName);
-    const selectedAction = otherActions.find((action) => action.id === selectedActionId) || otherActions[0] || null;
+    const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
     const selectedActionCurrency = selectedAction?.currency || "lei";
@@ -1281,15 +1327,15 @@
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
 
     React.useEffect(() => {
-      if (!otherActions.length && selectedActionId) {
+      if (!uniqueActions.length && selectedActionId) {
         setSelectedActionId("");
         return;
       }
 
-      if (otherActions.length && !otherActions.some((action) => action.id === selectedActionId)) {
-        setSelectedActionId(otherActions[0].id);
+      if (uniqueActions.length && !uniqueActions.some((action) => action.id === selectedActionId)) {
+        setSelectedActionId(uniqueActions[0].id);
       }
-    }, [otherActions, selectedActionId]);
+    }, [uniqueActions, selectedActionId]);
 
     const filteredPayments = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
@@ -1367,7 +1413,7 @@
     }
 
     function updatePaymentAction(actionId) {
-      const action = otherActions.find((item) => item.id === actionId);
+      const action = uniqueActions.find((item) => item.id === actionId);
 
       setForm((current) => ({
         ...current,
@@ -1414,7 +1460,7 @@
 
       if (!name || amountDue <= 0 || !participantIds.length || !onSaveAction) return;
 
-      const action = {
+      const actionDraft = {
         ...actionForm,
         name,
         amountDue,
@@ -1422,6 +1468,16 @@
         matchText: String(actionForm.matchText || "").trim(),
         notes: String(actionForm.notes || "").trim()
       };
+      const existingAction = actionDraft.id
+        ? null
+        : uniqueActions.find((action) => actionKey(action) === actionKey(actionDraft));
+      const action = existingAction
+        ? {
+            ...actionDraft,
+            id: existingAction.id,
+            participantIds: [...new Set([...actionParticipantIds(existingAction), ...participantIds])]
+          }
+        : actionDraft;
 
       onSaveAction(action);
       setActionForm(emptyActionForm());
@@ -1455,7 +1511,7 @@
         ...form,
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
-        actionName: form.actionId ? otherActions.find((action) => action.id === form.actionId)?.name || "" : "",
+        actionName: form.actionId ? uniqueActions.find((action) => action.id === form.actionId)?.name || "" : "",
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
       });
@@ -1589,7 +1645,7 @@
             "select",
             { value: form.actionId, onChange: (event) => updatePaymentAction(event.target.value) },
             h("option", { value: "" }, "Fara actiune"),
-            otherActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+            uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
           )
         ),
         h(Field, { label: "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: "Optional" })),
@@ -1677,7 +1733,7 @@
           actionForm.id && h("button", { type: "button", onClick: () => setActionForm(emptyActionForm()) }, "Renunta")
         )
       ),
-      otherActions.length > 0 &&
+      uniqueActions.length > 0 &&
         h(
           "div",
           { className: "panel compact-grid" },
@@ -1687,7 +1743,7 @@
             h(
               "select",
               { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
-              otherActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
             )
           ),
           h(
@@ -1729,7 +1785,12 @@
                   h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(row.athlete)), h("small", null, row.athlete.group || "-")),
                   h("td", { "data-label": "De achitat" }, formatMoney(selectedAction.amountDue, selectedActionCurrency)),
                   h("td", { "data-label": "Incasat" }, h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)), row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency))),
-                  h("td", { "data-label": "Rest" }, row.outstanding > 0 ? h("strong", { className: "arrears" }, formatMoney(row.outstanding, selectedActionCurrency)) : row.extra > 0 ? h("span", { className: "pill ok" }, "Avans " + formatMoney(row.extra, selectedActionCurrency)) : h("span", { className: "pill ok" }, "Achitat")),
+                  h(
+                    "td",
+                    { "data-label": "Rest" },
+                    h("strong", { className: row.outstanding > 0 ? "arrears" : "" }, formatMoney(row.outstanding, selectedActionCurrency)),
+                    row.extra > 0 && h("small", null, "Avans: " + formatMoney(row.extra, selectedActionCurrency))
+                  ),
                   h("td", { "data-label": "Detalii" }, row.payments.length ? row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))) : h("small", null, "Fara incasari gasite"))
                 )
               )
@@ -1845,9 +1906,10 @@
     const [typeFilter, setTypeFilter] = React.useState("toate");
     const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const [selectedActionId, setSelectedActionId] = React.useState("");
-    const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(true);
+    const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(false);
     const groups = getGroups(athletes);
-    const selectedAction = otherActions.find((action) => action.id === selectedActionId) || otherActions[0] || null;
+    const uniqueActions = getUniqueActions(otherActions);
+    const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
     const selectedActionCurrency = selectedAction?.currency || "lei";
@@ -1891,15 +1953,15 @@
       .filter((item) => item.totalLei !== 0 || item.totalEuro !== 0);
 
     React.useEffect(() => {
-      if (!otherActions.length && selectedActionId) {
+      if (!uniqueActions.length && selectedActionId) {
         setSelectedActionId("");
         return;
       }
 
-      if (otherActions.length && !otherActions.some((action) => action.id === selectedActionId)) {
-        setSelectedActionId(otherActions[0].id);
+      if (uniqueActions.length && !uniqueActions.some((action) => action.id === selectedActionId)) {
+        setSelectedActionId(uniqueActions[0].id);
       }
-    }, [otherActions, selectedActionId]);
+    }, [uniqueActions, selectedActionId]);
 
     return h(
       "section",
@@ -1960,7 +2022,7 @@
         h(SummaryCard, { label: "Cash", value: formatDualAmount(rows, "cash"), hint: "Doar filtrul ales", tone: "tone-amber" }),
         h(SummaryCard, { label: "Transfer", value: formatDualAmount(rows, "transfer"), hint: "Doar filtrul ales", tone: "tone-purple" })
       ),
-      otherActions.length > 0 &&
+      uniqueActions.length > 0 &&
         h(
           "div",
           { className: "panel compact-grid" },
@@ -1970,7 +2032,7 @@
             h(
               "select",
               { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
-              otherActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
             )
           ),
           h(
@@ -2006,7 +2068,7 @@
                       key: row.athlete.id,
                       title: athleteName(row.athlete),
                       subtitle: (row.athlete.group || "-") + " / incasat " + formatMoney(row.netReceived, selectedActionCurrency),
-                      amount: row.outstanding > 0 ? "Rest " + formatMoney(row.outstanding, selectedActionCurrency) : row.extra > 0 ? "Avans " + formatMoney(row.extra, selectedActionCurrency) : "Achitat",
+                      amount: "Rest " + formatMoney(row.outstanding, selectedActionCurrency),
                       negative: row.outstanding > 0
                     })
                   )
