@@ -1436,6 +1436,9 @@
     ].sort(compareAthletesByName);
     const uniqueActions = getUniqueActions(otherActions);
     const actionAthletes = (actionGroup === "toate" ? activeAthletes : activeAthletes.filter((athlete) => athlete.group === actionGroup)).sort(compareAthletesByName);
+    const selectedPaymentAction = findActionById(uniqueActions, form.actionId) || findActionByWrittenName(uniqueActions, form.actionName, form.category);
+    const hasLegacyPaymentAction = !selectedPaymentAction && !isBlankMarker(form.actionName);
+    const paymentActionSelectValue = selectedPaymentAction?.id || (hasLegacyPaymentAction ? "__legacy__" : "");
     const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
@@ -1530,19 +1533,18 @@
       setForm((current) => ({ ...current, [field]: value }));
     }
 
-    function updatePaymentActionName(actionName) {
-      setForm((current) => ({
-        ...current,
-        actionName,
-        ...(() => {
-          const action = findActionByWrittenName(uniqueActions, actionName, current.category);
-          return {
-            actionId: action?.id || "",
-            category: action?.category || current.category,
-            currency: action?.currency || current.currency
-          };
-        })()
-      }));
+    function updatePaymentActionId(actionId) {
+      setForm((current) => {
+        const action = findActionById(uniqueActions, actionId);
+
+        return {
+          ...current,
+          actionId: action?.id || "",
+          actionName: action?.name || "",
+          category: action?.category || current.category,
+          currency: action?.currency || current.currency
+        };
+      });
     }
 
     function updateAction(field, value) {
@@ -1629,8 +1631,8 @@
       const isSportiv = form.payerType === "sportiv";
       const payerName = String(form.payerName || "").trim();
       const paymentDate = normalizeDateInput(form.date);
-      const writtenActionName = String(form.actionName || "").trim();
-      const linkedAction = findActionByWrittenName(uniqueActions, writtenActionName, form.category);
+      const linkedAction = findActionById(uniqueActions, form.actionId) || findActionByWrittenName(uniqueActions, form.actionName, form.category);
+      const writtenActionName = linkedAction?.name || String(form.actionName || "").trim();
 
       if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !paymentDate || !form.category || Number(form.amount || 0) <= 0) return;
 
@@ -1639,7 +1641,7 @@
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
         date: paymentDate,
-        actionId: linkedAction?.id || form.actionId || "",
+        actionId: linkedAction?.id || "",
         actionName: writtenActionName,
         category: linkedAction?.category || form.category,
         currency: linkedAction?.currency || form.currency,
@@ -1805,7 +1807,13 @@
         h(
           Field,
           { label: "Actiune" },
-          h("input", { value: form.actionName, onChange: (event) => updatePaymentActionName(event.target.value), placeholder: "Ex: Costinesti 2026" })
+          h(
+            "select",
+            { value: paymentActionSelectValue, onChange: (event) => event.target.value !== "__legacy__" && updatePaymentActionId(event.target.value) },
+            h("option", { value: "" }, "Fara actiune"),
+            hasLegacyPaymentAction && h("option", { value: "__legacy__" }, "Actiune salvata: " + form.actionName),
+            uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name + " - " + (action.category || "actiune")))
+          )
         ),
         h(Field, { label: "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: "Optional" })),
         h(
