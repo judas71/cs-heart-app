@@ -854,7 +854,32 @@
 
   function fuzzyWordMatch(first, second) {
     if (!first || !second) return false;
-    return first === second || first.startsWith(second) || second.startsWith(first);
+    if (first === second || first.startsWith(second) || second.startsWith(first)) return true;
+
+    const maxDistance = Math.max(1, Math.floor(Math.max(first.length, second.length) * 0.15));
+    const previous = Array(second.length + 1)
+      .fill(0)
+      .map((_, index) => index);
+
+    for (let firstIndex = 1; firstIndex <= first.length; firstIndex += 1) {
+      const current = [firstIndex];
+      let rowMinimum = current[0];
+
+      for (let secondIndex = 1; secondIndex <= second.length; secondIndex += 1) {
+        const cost = first[firstIndex - 1] === second[secondIndex - 1] ? 0 : 1;
+        current[secondIndex] = Math.min(
+          previous[secondIndex] + 1,
+          current[secondIndex - 1] + 1,
+          previous[secondIndex - 1] + cost
+        );
+        rowMinimum = Math.min(rowMinimum, current[secondIndex]);
+      }
+
+      if (rowMinimum > maxDistance) return false;
+      previous.splice(0, previous.length, ...current);
+    }
+
+    return previous[second.length] <= maxDistance;
   }
 
   function isBlankMarker(value) {
@@ -880,6 +905,24 @@
     );
   }
 
+  function actionNumberTokens(value) {
+    return normalizeText(value).match(/\d+/g) || [];
+  }
+
+  function canMergeActions(first, second) {
+    if (!first || !second) return false;
+    if ((first.category || "toate") !== (second.category || "toate")) return false;
+    if ((first.currency || "lei") !== (second.currency || "lei")) return false;
+
+    const firstNumbers = actionNumberTokens(first.name || first.matchText);
+    const secondNumbers = actionNumberTokens(second.name || second.matchText);
+    if (firstNumbers.length || secondNumbers.length) {
+      if (firstNumbers.join("|") !== secondNumbers.join("|")) return false;
+    }
+
+    return actionNameMatchesText(first.name || first.matchText, second) || actionNameMatchesText(second.name || second.matchText, first);
+  }
+
   function actionKey(action) {
     return [
       actionMatchText(action),
@@ -890,24 +933,24 @@
   }
 
   function getUniqueActions(actions = []) {
-    const byKey = new Map();
+    const mergedActions = [];
 
     actions.forEach((action) => {
-      const key = actionKey(action);
-      const existing = byKey.get(key);
+      const existing = mergedActions.find((item) => actionKey(item) === actionKey(action) || canMergeActions(item, action));
 
       if (!existing) {
-        byKey.set(key, { ...action, participantIds: actionParticipantIds(action), aliasIds: action.id ? [action.id] : [] });
+        mergedActions.push({ ...action, participantIds: actionParticipantIds(action), aliasIds: action.id ? [action.id] : [] });
         return;
       }
 
       existing.participantIds = [...new Set([...actionParticipantIds(existing), ...actionParticipantIds(action)])];
       existing.aliasIds = [...new Set([...(existing.aliasIds || []), action.id].filter(Boolean))];
       existing.amountDue = existing.amountDue || action.amountDue;
+      existing.startDate = existing.startDate || action.startDate;
       existing.notes = existing.notes || action.notes;
     });
 
-    return [...byKey.values()].sort((first, second) => compareText(first.name, second.name));
+    return mergedActions.sort((first, second) => compareText(first.name, second.name));
   }
 
   function sameActionIdentity(first, second) {
@@ -1547,6 +1590,23 @@
       });
     }
 
+    function choosePaymentAction(value) {
+      if (value === "__legacy__") return;
+
+      if (value === "__new__") {
+        setForm((current) => ({ ...current, actionId: "", actionName: "" }));
+        setActionForm({
+          ...emptyActionForm(),
+          category: form.category || "turneu",
+          currency: form.currency || "lei"
+        });
+        setTimeout(() => document.getElementById("cs-action-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+        return;
+      }
+
+      updatePaymentActionId(value);
+    }
+
     function updateAction(field, value) {
       setActionForm((current) => ({ ...current, [field]: value }));
     }
@@ -1809,8 +1869,9 @@
           { label: "Actiune" },
           h(
             "select",
-            { value: paymentActionSelectValue, onChange: (event) => event.target.value !== "__legacy__" && updatePaymentActionId(event.target.value) },
+            { value: paymentActionSelectValue, onChange: (event) => choosePaymentAction(event.target.value) },
             h("option", { value: "" }, "Fara actiune"),
+            h("option", { value: "__new__" }, "+ Creeaza actiune noua"),
             hasLegacyPaymentAction && h("option", { value: "__legacy__" }, "Actiune salvata: " + form.actionName),
             uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name + " - " + (action.category || "actiune")))
           )
@@ -1825,7 +1886,7 @@
       ),
       h(
         "form",
-        { className: "panel form-grid", onSubmit: submitAction },
+        { id: "cs-action-form", className: "panel form-grid", onSubmit: submitAction },
         h(
           "div",
           { style: { gridColumn: "1 / -1", display: "grid", gap: "4px" } },
