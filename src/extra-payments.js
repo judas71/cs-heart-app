@@ -363,14 +363,7 @@
     const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (iso) return text;
 
-    const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (slash) {
-      const month = String(slash[1]).padStart(2, "0");
-      const day = String(slash[2]).padStart(2, "0");
-      return `${slash[3]}-${month}-${day}`;
-    }
-
-    const ro = text.match(/^(\d{1,2})[.-](\d{1,2})[.-](\d{4})$/);
+    const ro = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
     if (!ro) return "";
 
     const day = String(ro[1]).padStart(2, "0");
@@ -892,7 +885,31 @@
     return [...byKey.values()].sort((first, second) => compareText(first.name, second.name));
   }
 
-  function paymentMatchesAction(payment, action) {
+  function sameActionIdentity(first, second) {
+    if (!first || !second) return false;
+    if (first === second) return true;
+    if (first.id && second.id && first.id === second.id) return true;
+    if (first.id && Array.isArray(second.aliasIds) && second.aliasIds.includes(first.id)) return true;
+    if (second.id && Array.isArray(first.aliasIds) && first.aliasIds.includes(second.id)) return true;
+    return actionKey(first) === actionKey(second);
+  }
+
+  function canAutoAttachUnmarkedPayment(payment, action, athleteId) {
+    if (!payment || !action || !athleteId) return false;
+    if (payment.actionId || String(payment.actionName || "").trim()) return false;
+
+    const notes = normalizeText(payment.notes);
+    if (notes && notes !== "-") return false;
+    if (!actionParticipantIds(action).includes(athleteId)) return false;
+    if (action.currency && paymentCurrency(payment) !== action.currency) return false;
+    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
+
+    const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
+    const paymentDate = normalizeDateInput(payment.date) || payment.date || "";
+    return !actionStartDate || Boolean(paymentDate && String(paymentDate) >= String(actionStartDate));
+  }
+
+  function paymentMatchesAction(payment, action, athleteId, allActions = []) {
     if (!payment || !action) return false;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
     if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
@@ -911,19 +928,23 @@
     if (haystack.includes(needle)) return true;
 
     const paymentWords = actionKeywords(haystack);
-    return actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)));
+    if (actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)))) return true;
+
+    if (!canAutoAttachUnmarkedPayment(payment, action, athleteId)) return false;
+
+    const candidates = (allActions.length ? allActions : [action]).filter((candidate) => canAutoAttachUnmarkedPayment(payment, candidate, athleteId));
+    return candidates.length === 1 && sameActionIdentity(candidates[0], action);
   }
 
-  function getActionPayments(otherPayments, action, athleteId) {
+  function getActionPayments(otherPayments, action, athleteId, allActions = []) {
     return (otherPayments || [])
       .filter((payment) => payment.athleteId === athleteId)
-      .filter((payment) => paymentMatchesAction(payment, action));
+      .filter((payment) => paymentMatchesAction(payment, action, athleteId, allActions));
   }
 
-  function getActionRows(athletes, otherPayments, action) {
+  function getActionRows(athletes, otherPayments, action, allActions = []) {
     if (!action) return [];
 
-    const amountDue = Number(action.amountDue || 0);
     const currency = action.currency || "lei";
 
     return actionParticipantIds(action)
@@ -931,7 +952,8 @@
         const athlete = findAthlete(athletes, athleteId);
         if (!athlete) return null;
 
-        const payments = getActionPayments(otherPayments, action, athleteId).filter((payment) => paymentCurrency(payment) === currency);
+        const amountDue = Number(action.amountDue || 0);
+        const payments = getActionPayments(otherPayments, action, athleteId, allActions).filter((payment) => paymentCurrency(payment) === currency);
         const received = payments
           .filter((payment) => paymentType(payment) === "incasare")
           .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
@@ -942,7 +964,7 @@
         const outstanding = Math.max(amountDue - netReceived, 0);
         const extra = Math.max(netReceived - amountDue, 0);
 
-        return { athlete, received, returned, netReceived, outstanding, extra, payments };
+        return { athlete, amountDue, received, returned, netReceived, outstanding, extra, payments };
       })
       .filter(Boolean)
       .sort((first, second) => compareAthletesByName(first.athlete, second.athlete));
@@ -1367,10 +1389,10 @@
     const uniqueActions = getUniqueActions(otherActions);
     const actionAthletes = (actionGroup === "toate" ? activeAthletes : activeAthletes.filter((athlete) => athlete.group === actionGroup)).sort(compareAthletesByName);
     const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
-    const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction);
+    const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
     const selectedActionCurrency = selectedAction?.currency || "lei";
-    const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + Number(selectedAction?.amountDue || 0), 0);
+    const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + row.amountDue, 0);
     const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0);
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
 
@@ -1773,15 +1795,21 @@
           h(
             "div",
             { style: { border: "1px solid #d9e0e5", borderRadius: "8px", maxHeight: "210px", overflow: "auto", padding: "10px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "6px 12px" } },
-            actionAthletes.map((athlete) =>
-              h(
-                "label",
-                { key: athlete.id, style: { display: "flex", alignItems: "center", gap: "8px", fontWeight: 800 } },
-                h("input", { type: "checkbox", checked: actionParticipantIds(actionForm).includes(athlete.id), onChange: () => toggleActionParticipant(athlete.id), style: { width: "auto", minHeight: "auto" } }),
-                athleteName(athlete),
-                h("small", { style: { color: "#66727a", fontWeight: 700 } }, athlete.group || "-")
-              )
-            )
+            actionAthletes.map((athlete) => {
+              const isSelected = actionParticipantIds(actionForm).includes(athlete.id);
+
+              return h(
+                "div",
+                { key: athlete.id, style: { border: "1px solid #edf1f4", borderRadius: "8px", padding: "8px" } },
+                h(
+                  "label",
+                  { style: { display: "flex", alignItems: "center", gap: "8px", fontWeight: 800 } },
+                  h("input", { type: "checkbox", checked: isSelected, onChange: () => toggleActionParticipant(athlete.id), style: { width: "auto", minHeight: "auto" } }),
+                  athleteName(athlete),
+                  h("small", { style: { color: "#66727a", fontWeight: 700 } }, athlete.group || "-")
+                )
+              );
+            })
           )
         ),
         h(Field, { label: "Observatii actiune" }, h("input", { value: actionForm.notes, onChange: (event) => updateAction("notes", event.target.value), placeholder: "Optional" })),
@@ -1842,7 +1870,7 @@
                   "tr",
                   { key: row.athlete.id, className: row.outstanding > 0 ? "row-unpaid" : "" },
                   h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(row.athlete)), h("small", null, row.athlete.group || "-")),
-                  h("td", { "data-label": "De achitat" }, formatMoney(selectedAction.amountDue, selectedActionCurrency)),
+                  h("td", { "data-label": "De achitat" }, formatMoney(row.amountDue, selectedActionCurrency)),
                   h("td", { "data-label": "Incasat" }, h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)), row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency))),
                   h(
                     "td",
@@ -1969,10 +1997,10 @@
     const groups = getGroups(athletes);
     const uniqueActions = getUniqueActions(otherActions);
     const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
-    const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction);
+    const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
     const selectedActionCurrency = selectedAction?.currency || "lei";
-    const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + Number(selectedAction?.amountDue || 0), 0);
+    const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + row.amountDue, 0);
     const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0);
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
     const rows = otherPayments
