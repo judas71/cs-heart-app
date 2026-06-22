@@ -347,6 +347,23 @@
     return compareText(athleteName(first), athleteName(second));
   }
 
+  function sameAthleteIdentity(first, second) {
+    if (!first || !second) return false;
+    const firstName = normalizeText(athleteName(first));
+    const secondName = normalizeText(athleteName(second));
+    if (!firstName || firstName !== secondName) return false;
+
+    const firstGroup = normalizeText(first.group);
+    const secondGroup = normalizeText(second.group);
+    return !firstGroup || !secondGroup || firstGroup === secondGroup;
+  }
+
+  function paymentBelongsToAthlete(athletes, payment, athlete) {
+    if (!payment || !athlete) return false;
+    if (payment.athleteId === athlete.id) return true;
+    return sameAthleteIdentity(findAthlete(athletes, payment.athleteId), athlete);
+  }
+
   function formatMoney(value, currency = "lei") {
     return `${Number(value || 0).toLocaleString("ro-RO")} ${currency === "euro" ? "euro" : "lei"}`;
   }
@@ -899,9 +916,29 @@
     return actionKey(first) === actionKey(second);
   }
 
-  function canAutoAttachUnmarkedPayment(payment, action, athleteId) {
+  function actionHasId(action, id) {
+    return Boolean(id && action && (action.id === id || (Array.isArray(action.aliasIds) && action.aliasIds.includes(id))));
+  }
+
+  function findActionById(actions, id) {
+    if (!id) return null;
+    return (actions || []).find((action) => actionHasId(action, id)) || null;
+  }
+
+  function hasCompatibleActionId(payment, action, allActions = []) {
+    if (!payment.actionId) return true;
+    if (actionHasId(action, payment.actionId)) return true;
+
+    const referencedAction = findActionById(allActions, payment.actionId);
+    if (!referencedAction) return true;
+
+    return sameActionIdentity(referencedAction, action) || actionNameMatchesText(referencedAction.name, action) || actionNameMatchesText(action.name, referencedAction);
+  }
+
+  function canAutoAttachUnmarkedPayment(payment, action, athleteId, allActions = []) {
     if (!payment || !action || !athleteId) return false;
-    if (payment.actionId || !isBlankMarker(payment.actionName)) return false;
+    if (!isBlankMarker(payment.actionName)) return false;
+    if (!hasCompatibleActionId(payment, action, allActions)) return false;
 
     if (!isBlankMarker(payment.notes)) return false;
     if (!actionParticipantIds(action).includes(athleteId)) return false;
@@ -934,17 +971,17 @@
     const paymentWords = actionKeywords(haystack);
     if (actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)))) return true;
 
-    if (!canAutoAttachUnmarkedPayment(payment, action, athleteId)) return false;
+    if (!canAutoAttachUnmarkedPayment(payment, action, athleteId, allActions)) return false;
 
-    const candidates = (allActions.length ? allActions : [action]).filter((candidate) => canAutoAttachUnmarkedPayment(payment, candidate, athleteId));
+    const candidates = (allActions.length ? allActions : [action]).filter((candidate) => canAutoAttachUnmarkedPayment(payment, candidate, athleteId, allActions));
     if (candidates.length === 1) return sameActionIdentity(candidates[0], action);
     return candidates.length > 1 && candidates.every((candidate) => sameActionIdentity(candidate, action) || actionNameMatchesText(candidate.name, action));
   }
 
-  function getActionPayments(otherPayments, action, athleteId, allActions = []) {
+  function getActionPayments(athletes, otherPayments, action, athlete, allActions = []) {
     return (otherPayments || [])
-      .filter((payment) => payment.athleteId === athleteId)
-      .filter((payment) => paymentMatchesAction(payment, action, athleteId, allActions));
+      .filter((payment) => paymentBelongsToAthlete(athletes, payment, athlete))
+      .filter((payment) => paymentMatchesAction(payment, action, athlete.id, allActions));
   }
 
   function getActionRows(athletes, otherPayments, action, allActions = []) {
@@ -958,7 +995,7 @@
         if (!athlete) return null;
 
         const amountDue = Number(action.amountDue || 0);
-        const payments = getActionPayments(otherPayments, action, athleteId, allActions).filter((payment) => paymentCurrency(payment) === currency);
+        const payments = getActionPayments(athletes, otherPayments, action, athlete, allActions).filter((payment) => paymentCurrency(payment) === currency);
         const received = payments
           .filter((payment) => paymentType(payment) === "incasare")
           .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
