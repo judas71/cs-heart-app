@@ -1061,6 +1061,44 @@
       .sort((first, second) => compareAthletesByName(first.athlete, second.athlete));
   }
 
+  function getActionExternalRows(athletes, otherPayments, action, allActions = []) {
+    if (!action) return [];
+
+    const currency = action.currency || "lei";
+    const rowsByPayer = new Map();
+
+    (otherPayments || [])
+      .filter((payment) => !payment.athleteId)
+      .filter((payment) => paymentCurrency(payment) === currency)
+      .filter((payment) => paymentMatchesAction(payment, action, "", allActions))
+      .forEach((payment) => {
+        const label = payerLabel(athletes, payment);
+        const kind = payerType(payment);
+        const key = [normalizeText(label), kind].join("|");
+        const row =
+          rowsByPayer.get(key) ||
+          {
+            id: key,
+            label,
+            kind,
+            received: 0,
+            returned: 0,
+            waived: 0,
+            netReceived: 0,
+            payments: []
+          };
+
+        if (paymentType(payment) === "incasare") row.received += Number(payment.amount || 0);
+        if (paymentType(payment) === "retur") row.returned += Number(payment.amount || 0);
+        if (paymentType(payment) === "anulare") row.waived += Number(payment.amount || 0);
+        row.netReceived = row.received - row.returned;
+        row.payments.push(payment);
+        rowsByPayer.set(key, row);
+      });
+
+    return [...rowsByPayer.values()].sort((first, second) => compareText(first.label, second.label));
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -1484,10 +1522,13 @@
     const paymentActionSelectValue = selectedPaymentAction?.id || (hasLegacyPaymentAction ? "__legacy__" : "");
     const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
+    const selectedActionExternalRows = getActionExternalRows(athletes, otherPayments, selectedAction, uniqueActions);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
+    const visibleActionExternalRows = showOnlyDebtors ? [] : selectedActionExternalRows;
     const selectedActionCurrency = selectedAction?.currency || "lei";
     const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + row.amountDue, 0);
-    const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const actionTotalExternalReceived = selectedActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0) + actionTotalExternalReceived;
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
 
     React.useEffect(() => {
@@ -1998,7 +2039,13 @@
           "div",
           { className: "metrics" },
           h("div", null, h("span", null, "De achitat total"), h("strong", null, formatMoney(actionTotalDue, selectedActionCurrency)), h("small", null, selectedActionRows.length + " participanti")),
-          h("div", null, h("span", null, "Incasat total"), h("strong", null, formatMoney(actionTotalReceived, selectedActionCurrency)), h("small", null, "De la " + formatDate(selectedAction.startDate))),
+          h(
+            "div",
+            null,
+            h("span", null, "Incasat total"),
+            h("strong", null, formatMoney(actionTotalReceived, selectedActionCurrency)),
+            h("small", null, "Sportivi " + formatMoney(actionTotalReceived - actionTotalExternalReceived, selectedActionCurrency) + (actionTotalExternalReceived > 0 ? " / parteneri " + formatMoney(actionTotalExternalReceived, selectedActionCurrency) : ""))
+          ),
           h("div", null, h("span", null, "Rest de incasat"), h("strong", { className: actionTotalOutstanding > 0 ? "arrears" : "" }, formatMoney(actionTotalOutstanding, selectedActionCurrency)), h("small", null, selectedAction.name))
         ),
       selectedAction &&
@@ -2008,7 +2055,7 @@
           h(
             "table",
             null,
-            h("thead", null, h("tr", null, ["Sportiv", "De achitat", "Incasat", "Rest", "Detalii"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv / sursa", "De achitat", "Incasat", "Rest", "Detalii"].map((head) => h("th", { key: head }, head)))),
             h(
               "tbody",
               null,
@@ -2038,11 +2085,31 @@
                     row.outstanding > 0 && onSavePayment && h("button", { type: "button", onClick: () => cancelActionOutstanding(row) }, "Anuleaza rest")
                   )
                 )
+              ),
+              visibleActionExternalRows.map((row) =>
+                h(
+                  "tr",
+                  { key: "external-" + row.id },
+                  h("td", { "data-label": "Sportiv / sursa" }, h("strong", null, row.label), h("small", null, row.kind === "partener" ? "partener" : "alta sursa")),
+                  h("td", { "data-label": "De achitat" }, "-"),
+                  h(
+                    "td",
+                    { "data-label": "Incasat" },
+                    h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)),
+                    row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency)),
+                    row.waived > 0 && h("small", null, "Anulat: " + formatMoney(row.waived, selectedActionCurrency))
+                  ),
+                  h("td", { "data-label": "Rest" }, "-"),
+                  h("td", { "data-label": "Detalii" }, row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))))
+                )
               )
             )
           )
         ),
-      selectedAction && !visibleActionRows.length && h(EmptyState, { title: "Nu exista sportivi in filtrul actiunii.", text: showOnlyDebtors ? "Debifeaza filtrul cu rest sau verifica participantii." : "Adauga participanti la actiune." }),
+      selectedAction &&
+        !visibleActionRows.length &&
+        !visibleActionExternalRows.length &&
+        h(EmptyState, { title: "Nu exista inregistrari in filtrul actiunii.", text: showOnlyDebtors ? "Debifeaza filtrul cu rest sau verifica participantii." : "Adauga participanti sau incasari la actiune." }),
       h(
         "div",
         { className: "panel compact-grid" },
@@ -2156,10 +2223,13 @@
     const uniqueActions = getUniqueActions(otherActions);
     const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
+    const selectedActionExternalRows = getActionExternalRows(athletes, otherPayments, selectedAction, uniqueActions);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
+    const visibleActionExternalRows = showOnlyDebtors ? [] : selectedActionExternalRows;
     const selectedActionCurrency = selectedAction?.currency || "lei";
     const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + row.amountDue, 0);
-    const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const actionTotalExternalReceived = selectedActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0) + actionTotalExternalReceived;
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
     const rows = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
@@ -2294,7 +2364,7 @@
           { className: "cs-report-summary" },
           h(SummaryCard, { label: "Actiune", value: selectedAction.name, hint: `${selectedActionRows.length} participanti`, tone: "tone-blue" }),
           h(SummaryCard, { label: "De achitat", value: formatMoney(actionTotalDue, selectedActionCurrency), hint: "Suma totala", tone: "tone-amber" }),
-          h(SummaryCard, { label: "Incasat", value: formatMoney(actionTotalReceived, selectedActionCurrency), hint: "Toate lunile de la data de inceput", tone: "tone-green" }),
+          h(SummaryCard, { label: "Incasat", value: formatMoney(actionTotalReceived, selectedActionCurrency), hint: actionTotalExternalReceived > 0 ? "Include parteneri: " + formatMoney(actionTotalExternalReceived, selectedActionCurrency) : "Toate lunile de la data de inceput", tone: "tone-green" }),
           h(SummaryCard, { label: "Rest", value: formatMoney(actionTotalOutstanding, selectedActionCurrency), hint: showOnlyDebtors ? "Doar restantierii sunt listati" : "Toti participantii", tone: actionTotalOutstanding > 0 ? "tone-red" : "tone-green" })
         ),
       h(
@@ -2323,6 +2393,25 @@
                   )
                 )
               : h(EmptyReportLine, { text: showOnlyDebtors ? "Nu exista restanti la actiunea aleasa." : "Nu exista participanti la actiunea aleasa." })
+          ),
+        selectedAction &&
+          visibleActionExternalRows.length > 0 &&
+          h(
+            DetailSection,
+            { title: "Parteneri / alte surse", meta: `${visibleActionExternalRows.length} surse / ${formatMoney(actionTotalExternalReceived, selectedActionCurrency)}`, open: true },
+            h(
+              "ul",
+              { className: "cs-report-list" },
+              visibleActionExternalRows.map((row) =>
+                h(ReportItem, {
+                  key: row.id,
+                  title: row.label,
+                  subtitle: row.kind + " / " + row.payments.map((payment) => formatDate(payment.date)).join(", "),
+                  amount: formatMoney(row.netReceived, selectedActionCurrency),
+                  negative: row.netReceived < 0
+                })
+              )
+            )
           ),
         h(
           DetailSection,
