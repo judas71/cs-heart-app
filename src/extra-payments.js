@@ -837,6 +837,24 @@
     return first === second || first.startsWith(second) || second.startsWith(first);
   }
 
+  function actionNameMatchesText(value, action) {
+    const text = normalizeText(value);
+    const needle = actionMatchText(action);
+    if (!text || !needle) return false;
+    if (text === needle || text.includes(needle) || needle.includes(text)) return true;
+
+    const textWords = actionKeywords(text);
+    return actionKeywords(needle).some((word) => textWords.some((textWord) => fuzzyWordMatch(word, textWord)));
+  }
+
+  function findActionByWrittenName(actions, value, category) {
+    return actions.find(
+      (action) =>
+        (!category || !action.category || action.category === "toate" || action.category === category) &&
+        actionNameMatchesText(value, action)
+    );
+  }
+
   function actionKey(action) {
     return [
       actionMatchText(action),
@@ -875,12 +893,11 @@
     if (action.id && payment.actionId === action.id) return true;
     if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
+    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
+    if (payment.actionName) return actionNameMatchesText(payment.actionName, action);
 
     const needle = actionMatchText(action);
     if (!needle) return false;
-    const paymentActionName = normalizeText(payment.actionName);
-    if (paymentActionName) return paymentActionName === needle;
-    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
 
     const haystack = normalizeText([payment.notes, payment.category].join(" "));
     if (haystack.includes(needle)) return true;
@@ -1436,15 +1453,17 @@
     }
 
     function updatePaymentActionName(actionName) {
-      const normalizedActionName = normalizeText(actionName);
-      const action = uniqueActions.find((item) => normalizeText(item.name) === normalizedActionName || actionMatchText(item) === normalizedActionName);
-
       setForm((current) => ({
         ...current,
         actionName,
-        actionId: action?.id || "",
-        category: action?.category || current.category,
-        currency: action?.currency || current.currency
+        ...(() => {
+          const action = findActionByWrittenName(uniqueActions, actionName, current.category);
+          return {
+            actionId: action?.id || "",
+            category: action?.category || current.category,
+            currency: action?.currency || current.currency
+          };
+        })()
       }));
     }
 
