@@ -353,7 +353,8 @@
 
   function formatDate(value) {
     if (!value) return "-";
-    const parts = String(value).split("-");
+    const normalized = normalizeDateInput(value);
+    const parts = String(normalized || value).split("-");
     return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
   }
 
@@ -381,7 +382,7 @@
   }
 
   function getMonth(value) {
-    return String(value || "").slice(0, 7);
+    return String(normalizeDateInput(value) || value || "").slice(0, 7);
   }
 
   function isSameOrBeforeMonth(value, month) {
@@ -868,7 +869,9 @@
 
   function paymentMatchesAction(payment, action) {
     if (!payment || !action) return false;
-    if (action.startDate && (!payment.date || String(payment.date) < String(action.startDate))) return false;
+    const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
+    const paymentDate = normalizeDateInput(payment.date) || payment.date || "";
+    if (actionStartDate && (!paymentDate || String(paymentDate) < String(actionStartDate))) return false;
     if (action.id && payment.actionId === action.id) return true;
     if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
@@ -1286,7 +1289,7 @@
       payerType: "sportiv",
       athleteId: "",
       payerName: "",
-      date: today(),
+      date: todayRo(),
       category: categories[0],
       actionId: "",
       actionName: "",
@@ -1528,13 +1531,15 @@
 
       const isSportiv = form.payerType === "sportiv";
       const payerName = String(form.payerName || "").trim();
+      const paymentDate = normalizeDateInput(form.date);
 
-      if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !form.date || !form.category || Number(form.amount || 0) <= 0) return;
+      if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !paymentDate || !form.category || Number(form.amount || 0) <= 0) return;
 
       onSavePayment({
         ...form,
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
+        date: paymentDate,
         actionName: String(form.actionName || "").trim(),
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
@@ -1550,7 +1555,7 @@
         payerType: payerType(payment),
         athleteId: payment.athleteId || "",
         payerName: payment.payerName || "",
-        date: payment.date || today(),
+        date: formatDate(payment.date || today()),
         category: payment.category || categories[0],
         actionId: payment.actionId || "",
         actionName: payment.actionName || linkedAction?.name || "",
@@ -1627,7 +1632,7 @@
                   : "Soldul este calculat doar din Alte incasari, fara taxe."
               )
           ),
-        h(Field, { label: isFormPayment ? "Data platii" : "Data incasarii" }, h("input", { type: "date", value: form.date, onChange: (event) => update("date", event.target.value), required: true })),
+        h(Field, { label: isFormPayment ? "Data platii" : "Data incasarii" }, h("input", { value: form.date, onChange: (event) => update("date", event.target.value), placeholder: "01.05.2026", required: true })),
         h(
           Field,
           { label: "Categorie" },
