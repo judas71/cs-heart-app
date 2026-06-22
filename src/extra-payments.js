@@ -943,7 +943,9 @@
         return;
       }
 
-      existing.participantIds = [...new Set([...actionParticipantIds(existing), ...actionParticipantIds(action)])];
+      if (actionKey(existing) === actionKey(action)) {
+        existing.participantIds = [...new Set([...actionParticipantIds(existing), ...actionParticipantIds(action)])];
+      }
       existing.aliasIds = [...new Set([...(existing.aliasIds || []), action.id].filter(Boolean))];
       existing.amountDue = existing.amountDue || action.amountDue;
       existing.startDate = existing.startDate || action.startDate;
