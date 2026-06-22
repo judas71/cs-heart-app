@@ -880,7 +880,9 @@
     if (haystack.includes(needle)) return true;
 
     const paymentWords = actionKeywords(haystack);
-    return actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)));
+    if (actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)))) return true;
+
+    return Boolean(action.category && action.category !== "toate" && payment.category === action.category);
   }
 
   function getActionPayments(otherPayments, action, athleteId) {
