@@ -363,7 +363,14 @@
     const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (iso) return text;
 
-    const ro = text.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+    const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slash) {
+      const month = String(slash[1]).padStart(2, "0");
+      const day = String(slash[2]).padStart(2, "0");
+      return `${slash[3]}-${month}-${day}`;
+    }
+
+    const ro = text.match(/^(\d{1,2})[.-](\d{1,2})[.-](\d{4})$/);
     if (!ro) return "";
 
     const day = String(ro[1]).padStart(2, "0");
@@ -887,14 +894,15 @@
 
   function paymentMatchesAction(payment, action) {
     if (!payment || !action) return false;
+    if (action.currency && paymentCurrency(payment) !== action.currency) return false;
+    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
+    if (action.id && payment.actionId === action.id) return true;
+    if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
+    if (payment.actionName) return actionNameMatchesText(payment.actionName, action);
+
     const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
     const paymentDate = normalizeDateInput(payment.date) || payment.date || "";
     if (actionStartDate && (!paymentDate || String(paymentDate) < String(actionStartDate))) return false;
-    if (action.id && payment.actionId === action.id) return true;
-    if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
-    if (action.currency && paymentCurrency(payment) !== action.currency) return false;
-    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
-    if (payment.actionName) return actionNameMatchesText(payment.actionName, action);
 
     const needle = actionMatchText(action);
     if (!needle) return false;
@@ -1551,6 +1559,8 @@
       const isSportiv = form.payerType === "sportiv";
       const payerName = String(form.payerName || "").trim();
       const paymentDate = normalizeDateInput(form.date);
+      const writtenActionName = String(form.actionName || "").trim();
+      const linkedAction = findActionByWrittenName(uniqueActions, writtenActionName, form.category);
 
       if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !paymentDate || !form.category || Number(form.amount || 0) <= 0) return;
 
@@ -1559,7 +1569,10 @@
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
         date: paymentDate,
-        actionName: String(form.actionName || "").trim(),
+        actionId: linkedAction?.id || form.actionId || "",
+        actionName: writtenActionName,
+        category: linkedAction?.category || form.category,
+        currency: linkedAction?.currency || form.currency,
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
       });
