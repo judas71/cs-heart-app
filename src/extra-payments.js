@@ -357,6 +357,19 @@
     return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
   }
 
+  function normalizeDateInput(value) {
+    const text = String(value || "").trim();
+    const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return text;
+
+    const ro = text.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+    if (!ro) return "";
+
+    const day = String(ro[1]).padStart(2, "0");
+    const month = String(ro[2]).padStart(2, "0");
+    return `${ro[3]}-${month}-${day}`;
+  }
+
   function formatDateTime(value) {
     if (!value) return "-";
     const date = new Date(value);
@@ -378,6 +391,10 @@
 
   function today() {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  function todayRo() {
+    return formatDate(today());
   }
 
   function currentMonth() {
@@ -854,7 +871,6 @@
     if (action.startDate && (!payment.date || String(payment.date) < String(action.startDate))) return false;
     if (action.id && payment.actionId === action.id) return true;
     if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
-    if (action.category && action.category !== "toate" && payment.category !== action.category) return false;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
 
     const needle = actionMatchText(action);
@@ -1283,7 +1299,7 @@
       id: "",
       name: "",
       category: "turneu",
-      startDate: today(),
+      startDate: todayRo(),
       amountDue: "",
       currency: "lei",
       participantIds: [],
@@ -1459,10 +1475,13 @@
       const amountDue = Number(actionForm.amountDue || 0);
 
       if (!name || amountDue <= 0 || !participantIds.length || !onSaveAction) return;
+      const startDate = normalizeDateInput(actionForm.startDate);
+      if (!startDate) return;
 
       const actionDraft = {
         ...actionForm,
         name,
+        startDate,
         amountDue,
         participantIds,
         matchText: String(actionForm.matchText || "").trim(),
@@ -1489,7 +1508,7 @@
         id: action.id || "",
         name: action.name || "",
         category: action.category || "turneu",
-        startDate: action.startDate || today(),
+        startDate: formatDate(action.startDate || today()),
         amountDue: action.amountDue || "",
         currency: action.currency || "lei",
         participantIds: actionParticipantIds(action),
@@ -1675,7 +1694,7 @@
             categories.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
-        h(Field, { label: "Data inceput" }, h("input", { type: "date", value: actionForm.startDate, onChange: (event) => updateAction("startDate", event.target.value), required: true })),
+        h(Field, { label: "Data inceput" }, h("input", { value: actionForm.startDate, onChange: (event) => updateAction("startDate", event.target.value), placeholder: "01.05.2026", required: true })),
         h(Field, { label: "Suma de achitat / sportiv" }, h("input", { type: "number", min: "0", value: actionForm.amountDue, onChange: (event) => updateAction("amountDue", event.target.value), required: true })),
         h(
           Field,
