@@ -875,15 +875,15 @@
 
     const needle = actionMatchText(action);
     if (!needle) return false;
-    if (payment.actionName && normalizeText(payment.actionName) === needle) return true;
+    const paymentActionName = normalizeText(payment.actionName);
+    if (paymentActionName) return paymentActionName === needle;
+    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
 
-    const haystack = normalizeText([payment.notes, payment.actionName, payment.category].join(" "));
+    const haystack = normalizeText([payment.notes, payment.category].join(" "));
     if (haystack.includes(needle)) return true;
 
     const paymentWords = actionKeywords(haystack);
-    if (actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)))) return true;
-
-    return Boolean(action.category && action.category !== "toate" && payment.category === action.category);
+    return actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)));
   }
 
   function getActionPayments(otherPayments, action, athleteId) {
