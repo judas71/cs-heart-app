@@ -837,6 +837,11 @@
     return first === second || first.startsWith(second) || second.startsWith(first);
   }
 
+  function isBlankMarker(value) {
+    const text = normalizeText(value);
+    return !text || text === "-" || text === "—";
+  }
+
   function actionNameMatchesText(value, action) {
     const text = normalizeText(value);
     const needle = actionMatchText(action);
@@ -896,10 +901,9 @@
 
   function canAutoAttachUnmarkedPayment(payment, action, athleteId) {
     if (!payment || !action || !athleteId) return false;
-    if (payment.actionId || String(payment.actionName || "").trim()) return false;
+    if (payment.actionId || !isBlankMarker(payment.actionName)) return false;
 
-    const notes = normalizeText(payment.notes);
-    if (notes && notes !== "-") return false;
+    if (!isBlankMarker(payment.notes)) return false;
     if (!actionParticipantIds(action).includes(athleteId)) return false;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
     if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
@@ -915,7 +919,7 @@
     if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
     if (action.id && payment.actionId === action.id) return true;
     if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
-    if (payment.actionName) return actionNameMatchesText(payment.actionName, action);
+    if (!isBlankMarker(payment.actionName)) return actionNameMatchesText(payment.actionName, action);
 
     const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
     const paymentDate = normalizeDateInput(payment.date) || payment.date || "";
@@ -933,7 +937,8 @@
     if (!canAutoAttachUnmarkedPayment(payment, action, athleteId)) return false;
 
     const candidates = (allActions.length ? allActions : [action]).filter((candidate) => canAutoAttachUnmarkedPayment(payment, candidate, athleteId));
-    return candidates.length === 1 && sameActionIdentity(candidates[0], action);
+    if (candidates.length === 1) return sameActionIdentity(candidates[0], action);
+    return candidates.length > 1 && candidates.every((candidate) => sameActionIdentity(candidate, action) || actionNameMatchesText(candidate.name, action));
   }
 
   function getActionPayments(otherPayments, action, athleteId, allActions = []) {
