@@ -27,7 +27,8 @@
       trainings: Array.isArray(state.trainings) ? state.trainings : [],
       fees: Array.isArray(state.fees) ? state.fees : [],
       otherPayments: Array.isArray(state.otherPayments) ? state.otherPayments : [],
-      taxPayments: Array.isArray(state.taxPayments) ? state.taxPayments : []
+      taxPayments: Array.isArray(state.taxPayments) ? state.taxPayments : [],
+      otherActions: Array.isArray(state.otherActions) ? state.otherActions : []
     };
   }
 

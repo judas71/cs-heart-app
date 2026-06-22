@@ -16,7 +16,8 @@
         trainings: Array.isArray(parsed.trainings) ? parsed.trainings : [],
         fees: Array.isArray(parsed.fees) ? parsed.fees : [],
         otherPayments: Array.isArray(parsed.otherPayments) ? parsed.otherPayments : [],
-        taxPayments: Array.isArray(parsed.taxPayments) ? parsed.taxPayments : []
+        taxPayments: Array.isArray(parsed.taxPayments) ? parsed.taxPayments : [],
+        otherActions: Array.isArray(parsed.otherActions) ? parsed.otherActions : []
       };
     } catch (error) {
       return clone(window.CSHeartDemoData);

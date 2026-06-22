@@ -76,7 +76,8 @@
           trainings: Array.isArray(data.trainings) ? data.trainings : [],
           fees: Array.isArray(data.fees) ? data.fees : [],
           otherPayments: Array.isArray(data.otherPayments) ? data.otherPayments : [],
-          taxPayments: Array.isArray(data.taxPayments) ? data.taxPayments : []
+          taxPayments: Array.isArray(data.taxPayments) ? data.taxPayments : [],
+          otherActions: Array.isArray(data.otherActions) ? data.otherActions : []
         });
       } else {
         await setDoc(appRef, state);
@@ -239,6 +240,35 @@ React.useEffect(() => {
         })
       }));
     }
+    function saveOtherAction(action) {
+      setState((current) => {
+        const existing = (current.otherActions || []).find((item) => item.id === action.id);
+        const normalized = {
+          ...action,
+          id: action.id || createId("otheraction"),
+          updatedAt: new Date().toISOString(),
+          updatedByEmail: user?.email || "necunoscut",
+          updatedById: user?.uid || ""
+        };
+
+        return {
+          ...current,
+          otherActions: existing
+            ? (current.otherActions || []).map((item) => (item.id === existing.id ? normalized : item))
+            : [normalized, ...(current.otherActions || [])]
+        };
+      });
+    }
+
+    function deleteOtherAction(id) {
+      const ok = confirm("Stergi aceasta actiune? Incasarile existente raman in registru.");
+      if (!ok) return;
+
+      setState((current) => ({
+        ...current,
+        otherActions: (current.otherActions || []).filter((action) => action.id !== id)
+      }));
+    }
     function resetMonthFees(month, athleteIds) {
       const ok = confirm(`Resetezi taxele pentru luna ${month}?`);
       if (!ok) return;
@@ -306,8 +336,8 @@ React.useEffect(() => {
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
-      activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment }),
-      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [] })
+      activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment, onSaveAction: saveOtherAction, onDeleteAction: deleteOtherAction }),
+      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], taxPayments: state.taxPayments || [] })
     );
   }
 

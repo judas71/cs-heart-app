@@ -791,6 +791,71 @@
     return formatMoney(sumPayments(rows, "lei", method), "lei") + " / " + formatMoney(sumPayments(rows, "euro", method), "euro");
   }
 
+  function normalizeText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function actionParticipantIds(action) {
+    return Array.isArray(action.participantIds) ? action.participantIds : [];
+  }
+
+  function actionMatchText(action) {
+    return normalizeText(action.matchText || action.name);
+  }
+
+  function paymentMatchesAction(payment, action) {
+    if (!payment || !action) return false;
+    if (action.startDate && (!payment.date || String(payment.date) < String(action.startDate))) return false;
+    if (action.id && payment.actionId === action.id) return true;
+    if (action.category && action.category !== "toate" && payment.category !== action.category) return false;
+    if (action.currency && paymentCurrency(payment) !== action.currency) return false;
+
+    const needle = actionMatchText(action);
+    if (!needle) return false;
+
+    const haystack = normalizeText([payment.notes, payment.actionName, payment.category].join(" "));
+    return haystack.includes(needle);
+  }
+
+  function getActionPayments(otherPayments, action, athleteId) {
+    return (otherPayments || [])
+      .filter((payment) => payment.athleteId === athleteId)
+      .filter((payment) => paymentMatchesAction(payment, action));
+  }
+
+  function getActionRows(athletes, otherPayments, action) {
+    if (!action) return [];
+
+    const amountDue = Number(action.amountDue || 0);
+    const currency = action.currency || "lei";
+
+    return actionParticipantIds(action)
+      .map((athleteId) => {
+        const athlete = findAthlete(athletes, athleteId);
+        if (!athlete) return null;
+
+        const payments = getActionPayments(otherPayments, action, athleteId).filter((payment) => paymentCurrency(payment) === currency);
+        const received = payments
+          .filter((payment) => paymentType(payment) === "incasare")
+          .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const returned = payments
+          .filter((payment) => paymentType(payment) === "retur")
+          .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const netReceived = received - returned;
+        const outstanding = Math.max(amountDue - netReceived, 0);
+        const extra = Math.max(netReceived - amountDue, 0);
+
+        return { athlete, received, returned, netReceived, outstanding, extra, payments };
+      })
+      .filter(Boolean)
+      .sort((first, second) => compareAthletesByName(first.athlete, second.athlete));
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -1159,6 +1224,7 @@
       payerName: "",
       date: today(),
       category: categories[0],
+      actionId: "",
       paymentType: "incasare",
       amount: "",
       method: "cash",
@@ -1167,7 +1233,21 @@
     };
   }
 
-  function OtherPaymentsView({ athletes, otherPayments = [], onSavePayment, onDeletePayment }) {
+  function emptyActionForm() {
+    return {
+      id: "",
+      name: "",
+      category: "turneu",
+      startDate: today(),
+      amountDue: "",
+      currency: "lei",
+      participantIds: [],
+      matchText: "",
+      notes: ""
+    };
+  }
+
+  function OtherPaymentsView({ athletes, otherPayments = [], otherActions = [], onSavePayment, onDeletePayment, onSaveAction, onDeleteAction }) {
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
     const [category, setCategory] = React.useState("toate");
@@ -1175,6 +1255,10 @@
     const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const [query, setQuery] = React.useState("");
     const [form, setForm] = React.useState(emptyForm);
+    const [actionForm, setActionForm] = React.useState(emptyActionForm);
+    const [actionGroup, setActionGroup] = React.useState("toate");
+    const [selectedActionId, setSelectedActionId] = React.useState("");
+    const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(true);
     const [printPreviewPayment, setPrintPreviewPayment] = React.useState(null);
     const formRef = React.useRef(null);
 
@@ -1187,6 +1271,25 @@
       ...activeAthletes,
       ...(selectedAthlete && !activeAthletes.some((athlete) => athlete.id === selectedAthlete.id) ? [selectedAthlete] : [])
     ].sort(compareAthletesByName);
+    const actionAthletes = (actionGroup === "toate" ? activeAthletes : activeAthletes.filter((athlete) => athlete.group === actionGroup)).sort(compareAthletesByName);
+    const selectedAction = otherActions.find((action) => action.id === selectedActionId) || otherActions[0] || null;
+    const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction);
+    const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
+    const selectedActionCurrency = selectedAction?.currency || "lei";
+    const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + Number(selectedAction?.amountDue || 0), 0);
+    const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
+
+    React.useEffect(() => {
+      if (!otherActions.length && selectedActionId) {
+        setSelectedActionId("");
+        return;
+      }
+
+      if (otherActions.length && !otherActions.some((action) => action.id === selectedActionId)) {
+        setSelectedActionId(otherActions[0].id);
+      }
+    }, [otherActions, selectedActionId]);
 
     const filteredPayments = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
@@ -1263,6 +1366,83 @@
       setForm((current) => ({ ...current, [field]: value }));
     }
 
+    function updatePaymentAction(actionId) {
+      const action = otherActions.find((item) => item.id === actionId);
+
+      setForm((current) => ({
+        ...current,
+        actionId,
+        category: action?.category || current.category,
+        currency: action?.currency || current.currency,
+        notes: action && !String(current.notes || "").trim() ? action.name : current.notes
+      }));
+    }
+
+    function updateAction(field, value) {
+      setActionForm((current) => ({ ...current, [field]: value }));
+    }
+
+    function toggleActionParticipant(athleteId) {
+      setActionForm((current) => {
+        const participantIds = actionParticipantIds(current);
+        const exists = participantIds.includes(athleteId);
+
+        return {
+          ...current,
+          participantIds: exists ? participantIds.filter((id) => id !== athleteId) : [...participantIds, athleteId]
+        };
+      });
+    }
+
+    function setParticipantsFromGroup() {
+      setActionForm((current) => ({
+        ...current,
+        participantIds: actionAthletes.map((athlete) => athlete.id)
+      }));
+    }
+
+    function clearActionParticipants() {
+      setActionForm((current) => ({ ...current, participantIds: [] }));
+    }
+
+    function submitAction(event) {
+      event.preventDefault();
+
+      const name = String(actionForm.name || "").trim();
+      const participantIds = actionParticipantIds(actionForm);
+      const amountDue = Number(actionForm.amountDue || 0);
+
+      if (!name || amountDue <= 0 || !participantIds.length || !onSaveAction) return;
+
+      const action = {
+        ...actionForm,
+        name,
+        amountDue,
+        participantIds,
+        matchText: String(actionForm.matchText || "").trim(),
+        notes: String(actionForm.notes || "").trim()
+      };
+
+      onSaveAction(action);
+      setActionForm(emptyActionForm());
+      setActionGroup("toate");
+    }
+
+    function editAction(action) {
+      setActionForm({
+        id: action.id || "",
+        name: action.name || "",
+        category: action.category || "turneu",
+        startDate: action.startDate || today(),
+        amountDue: action.amountDue || "",
+        currency: action.currency || "lei",
+        participantIds: actionParticipantIds(action),
+        matchText: action.matchText || "",
+        notes: action.notes || ""
+      });
+      setSelectedActionId(action.id || "");
+    }
+
     function submit(event) {
       event.preventDefault();
 
@@ -1275,6 +1455,7 @@
         ...form,
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
+        actionName: form.actionId ? otherActions.find((action) => action.id === form.actionId)?.name || "" : "",
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
       });
@@ -1289,6 +1470,7 @@
         payerName: payment.payerName || "",
         date: payment.date || today(),
         category: payment.category || categories[0],
+        actionId: payment.actionId || "",
         paymentType: paymentType(payment),
         amount: payment.amount || "",
         method: payment.method || "cash",
@@ -1400,6 +1582,16 @@
             paymentMethods.map((method) => h("option", { key: method, value: method }, method))
           )
         ),
+        h(
+          Field,
+          { label: "Actiune" },
+          h(
+            "select",
+            { value: form.actionId, onChange: (event) => updatePaymentAction(event.target.value) },
+            h("option", { value: "" }, "Fara actiune"),
+            otherActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+          )
+        ),
         h(Field, { label: "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: "Optional" })),
         h(
           "div",
@@ -1408,6 +1600,143 @@
           form.id && h("button", { type: "button", onClick: () => setForm(emptyForm()) }, "Renunta")
         )
       ),
+      h(
+        "form",
+        { className: "panel form-grid", onSubmit: submitAction },
+        h(
+          "div",
+          { style: { gridColumn: "1 / -1", display: "grid", gap: "4px" } },
+          h("h2", { style: { marginBottom: 0 } }, "Situatie actiuni"),
+          h("p", { style: { margin: 0, color: "#66727a" } }, "Pentru turnee, cantonamente sau echipamente: setezi suma de achitat si vezi rapid cine mai are rest.")
+        ),
+        h(Field, { label: "Nume actiune" }, h("input", { value: actionForm.name, onChange: (event) => updateAction("name", event.target.value), placeholder: "Ex: Costinesti 2026", required: true })),
+        h(
+          Field,
+          { label: "Categorie" },
+          h(
+            "select",
+            { value: actionForm.category, onChange: (event) => updateAction("category", event.target.value) },
+            categories.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h(Field, { label: "Data inceput" }, h("input", { type: "date", value: actionForm.startDate, onChange: (event) => updateAction("startDate", event.target.value), required: true })),
+        h(Field, { label: "Suma de achitat / sportiv" }, h("input", { type: "number", min: "0", value: actionForm.amountDue, onChange: (event) => updateAction("amountDue", event.target.value), required: true })),
+        h(
+          Field,
+          { label: "Moneda" },
+          h(
+            "select",
+            { value: actionForm.currency, onChange: (event) => updateAction("currency", event.target.value) },
+            currencies.map((item) => h("option", { key: item, value: item }, item))
+          )
+        ),
+        h(Field, { label: "Text cautat in observatii" }, h("input", { value: actionForm.matchText, onChange: (event) => updateAction("matchText", event.target.value), placeholder: "Optional, daca difera de nume" })),
+        h(
+          "div",
+          { style: { gridColumn: "1 / -1", display: "grid", gap: "10px" } },
+          h(
+            "div",
+            { className: "compact-grid" },
+            h(
+              Field,
+              { label: "Filtru participanti" },
+              h(
+                "select",
+                { value: actionGroup, onChange: (event) => setActionGroup(event.target.value) },
+                h("option", { value: "toate" }, "Toti sportivii"),
+                groups.map((item) => h("option", { key: item, value: item }, item))
+              )
+            ),
+            h(
+              "div",
+              { className: "form-actions align-end" },
+              h("button", { type: "button", onClick: setParticipantsFromGroup }, actionGroup === "toate" ? "Adauga toti" : "Adauga grupa"),
+              h("button", { type: "button", onClick: clearActionParticipants }, "Goleste")
+            ),
+            h("div", null, h("span", { className: "pill" }, actionParticipantIds(actionForm).length + " participanti selectati"))
+          ),
+          h(
+            "div",
+            { style: { border: "1px solid #d9e0e5", borderRadius: "8px", maxHeight: "210px", overflow: "auto", padding: "10px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "6px 12px" } },
+            actionAthletes.map((athlete) =>
+              h(
+                "label",
+                { key: athlete.id, style: { display: "flex", alignItems: "center", gap: "8px", fontWeight: 800 } },
+                h("input", { type: "checkbox", checked: actionParticipantIds(actionForm).includes(athlete.id), onChange: () => toggleActionParticipant(athlete.id), style: { width: "auto", minHeight: "auto" } }),
+                athleteName(athlete),
+                h("small", { style: { color: "#66727a", fontWeight: 700 } }, athlete.group || "-")
+              )
+            )
+          )
+        ),
+        h(Field, { label: "Observatii actiune" }, h("input", { value: actionForm.notes, onChange: (event) => updateAction("notes", event.target.value), placeholder: "Optional" })),
+        h(
+          "div",
+          { className: "form-actions" },
+          h("button", { className: "primary", type: "submit", disabled: !onSaveAction }, actionForm.id ? "Actualizeaza actiunea" : "Adauga actiunea"),
+          actionForm.id && h("button", { type: "button", onClick: () => setActionForm(emptyActionForm()) }, "Renunta")
+        )
+      ),
+      otherActions.length > 0 &&
+        h(
+          "div",
+          { className: "panel compact-grid" },
+          h(
+            Field,
+            { label: "Actiune urmarita" },
+            h(
+              "select",
+              { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
+              otherActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+            )
+          ),
+          h(
+            "label",
+            { style: { display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, alignSelf: "end", minHeight: "40px" } },
+            h("input", { type: "checkbox", checked: showOnlyDebtors, onChange: (event) => setShowOnlyDebtors(event.target.checked), style: { width: "auto", minHeight: "auto" } }),
+            "Arata doar cei cu rest"
+          ),
+          h(
+            "div",
+            { className: "row-actions align-end" },
+            selectedAction && h("button", { type: "button", onClick: () => editAction(selectedAction) }, "Editeaza actiunea"),
+            selectedAction && onDeleteAction && h("button", { className: "danger", type: "button", onClick: () => onDeleteAction(selectedAction.id) }, "Sterge actiunea")
+          )
+        ),
+      selectedAction &&
+        h(
+          "div",
+          { className: "metrics" },
+          h("div", null, h("span", null, "De achitat total"), h("strong", null, formatMoney(actionTotalDue, selectedActionCurrency)), h("small", null, selectedActionRows.length + " participanti")),
+          h("div", null, h("span", null, "Incasat total"), h("strong", null, formatMoney(actionTotalReceived, selectedActionCurrency)), h("small", null, "De la " + formatDate(selectedAction.startDate))),
+          h("div", null, h("span", null, "Rest de incasat"), h("strong", { className: actionTotalOutstanding > 0 ? "arrears" : "" }, formatMoney(actionTotalOutstanding, selectedActionCurrency)), h("small", null, selectedAction.name))
+        ),
+      selectedAction &&
+        h(
+          "div",
+          { className: "table-wrap wide" },
+          h(
+            "table",
+            null,
+            h("thead", null, h("tr", null, ["Sportiv", "De achitat", "Incasat", "Rest", "Detalii"].map((head) => h("th", { key: head }, head)))),
+            h(
+              "tbody",
+              null,
+              visibleActionRows.map((row) =>
+                h(
+                  "tr",
+                  { key: row.athlete.id, className: row.outstanding > 0 ? "row-unpaid" : "" },
+                  h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(row.athlete)), h("small", null, row.athlete.group || "-")),
+                  h("td", { "data-label": "De achitat" }, formatMoney(selectedAction.amountDue, selectedActionCurrency)),
+                  h("td", { "data-label": "Incasat" }, h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)), row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency))),
+                  h("td", { "data-label": "Rest" }, row.outstanding > 0 ? h("strong", { className: "arrears" }, formatMoney(row.outstanding, selectedActionCurrency)) : row.extra > 0 ? h("span", { className: "pill ok" }, "Avans " + formatMoney(row.extra, selectedActionCurrency)) : h("span", { className: "pill ok" }, "Achitat")),
+                  h("td", { "data-label": "Detalii" }, row.payments.length ? row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))) : h("small", null, "Fara incasari gasite"))
+                )
+              )
+            )
+          )
+        ),
+      selectedAction && !visibleActionRows.length && h(EmptyState, { title: "Nu exista sportivi in filtrul actiunii.", text: showOnlyDebtors ? "Debifeaza filtrul cu rest sau verifica participantii." : "Adauga participanti la actiune." }),
       h(
         "div",
         { className: "panel compact-grid" },
@@ -1509,13 +1838,22 @@
     );
   }
 
-  function ExtraPaymentsReport({ athletes, otherPayments = [] }) {
+  function ExtraPaymentsReport({ athletes, otherPayments = [], otherActions = [] }) {
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
     const [category, setCategory] = React.useState("toate");
     const [typeFilter, setTypeFilter] = React.useState("toate");
     const [currencyFilter, setCurrencyFilter] = React.useState("toate");
+    const [selectedActionId, setSelectedActionId] = React.useState("");
+    const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(true);
     const groups = getGroups(athletes);
+    const selectedAction = otherActions.find((action) => action.id === selectedActionId) || otherActions[0] || null;
+    const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction);
+    const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
+    const selectedActionCurrency = selectedAction?.currency || "lei";
+    const actionTotalDue = selectedActionRows.reduce((sum, row) => sum + Number(selectedAction?.amountDue || 0), 0);
+    const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
     const rows = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
       .filter((payment) => category === "toate" || payment.category === category)
@@ -1551,6 +1889,17 @@
         totalEuro: sumPayments(rows.filter((payment) => payment.category === item), "euro")
       }))
       .filter((item) => item.totalLei !== 0 || item.totalEuro !== 0);
+
+    React.useEffect(() => {
+      if (!otherActions.length && selectedActionId) {
+        setSelectedActionId("");
+        return;
+      }
+
+      if (otherActions.length && !otherActions.some((action) => action.id === selectedActionId)) {
+        setSelectedActionId(otherActions[0].id);
+      }
+    }, [otherActions, selectedActionId]);
 
     return h(
       "section",
@@ -1611,9 +1960,59 @@
         h(SummaryCard, { label: "Cash", value: formatDualAmount(rows, "cash"), hint: "Doar filtrul ales", tone: "tone-amber" }),
         h(SummaryCard, { label: "Transfer", value: formatDualAmount(rows, "transfer"), hint: "Doar filtrul ales", tone: "tone-purple" })
       ),
+      otherActions.length > 0 &&
+        h(
+          "div",
+          { className: "panel compact-grid" },
+          h(
+            Field,
+            { label: "Situatie actiune" },
+            h(
+              "select",
+              { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
+              otherActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+            )
+          ),
+          h(
+            "label",
+            { style: { display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, alignSelf: "end", minHeight: "40px" } },
+            h("input", { type: "checkbox", checked: showOnlyDebtors, onChange: (event) => setShowOnlyDebtors(event.target.checked), style: { width: "auto", minHeight: "auto" } }),
+            "Arata doar cei cu rest"
+          ),
+          selectedAction && h("div", null, h("span", { className: "pill" }, "De la " + formatDate(selectedAction.startDate)))
+        ),
+      selectedAction &&
+        h(
+          "div",
+          { className: "cs-report-summary" },
+          h(SummaryCard, { label: "Actiune", value: selectedAction.name, hint: `${selectedActionRows.length} participanti`, tone: "tone-blue" }),
+          h(SummaryCard, { label: "De achitat", value: formatMoney(actionTotalDue, selectedActionCurrency), hint: "Suma totala", tone: "tone-amber" }),
+          h(SummaryCard, { label: "Incasat", value: formatMoney(actionTotalReceived, selectedActionCurrency), hint: "Toate lunile de la data de inceput", tone: "tone-green" }),
+          h(SummaryCard, { label: "Rest", value: formatMoney(actionTotalOutstanding, selectedActionCurrency), hint: showOnlyDebtors ? "Doar restantierii sunt listati" : "Toti participantii", tone: actionTotalOutstanding > 0 ? "tone-red" : "tone-green" })
+        ),
       h(
         "div",
         { className: "cs-report-sections" },
+        selectedAction &&
+          h(
+            DetailSection,
+            { title: "Situatie actiune", meta: `${visibleActionRows.length} sportivi / rest ${formatMoney(actionTotalOutstanding, selectedActionCurrency)}`, open: true },
+            visibleActionRows.length
+              ? h(
+                  "ul",
+                  { className: "cs-report-list" },
+                  visibleActionRows.map((row) =>
+                    h(ReportItem, {
+                      key: row.athlete.id,
+                      title: athleteName(row.athlete),
+                      subtitle: (row.athlete.group || "-") + " / incasat " + formatMoney(row.netReceived, selectedActionCurrency),
+                      amount: row.outstanding > 0 ? "Rest " + formatMoney(row.outstanding, selectedActionCurrency) : row.extra > 0 ? "Avans " + formatMoney(row.extra, selectedActionCurrency) : "Achitat",
+                      negative: row.outstanding > 0
+                    })
+                  )
+                )
+              : h(EmptyReportLine, { text: showOnlyDebtors ? "Nu exista restanti la actiunea aleasa." : "Nu exista participanti la actiunea aleasa." })
+          ),
         h(
           DetailSection,
           { title: "Pe categorii", meta: `${categoryTotals.length} categorii`, open: true },

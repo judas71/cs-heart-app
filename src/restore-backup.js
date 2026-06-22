@@ -27,7 +27,8 @@ function normalizeState(value) {
     trainings: value.trainings,
     fees: value.fees,
     otherPayments: Array.isArray(value.otherPayments) ? value.otherPayments : [],
-    taxPayments: Array.isArray(value.taxPayments) ? value.taxPayments : []
+    taxPayments: Array.isArray(value.taxPayments) ? value.taxPayments : [],
+    otherActions: Array.isArray(value.otherActions) ? value.otherActions : []
   };
 }
 
@@ -77,6 +78,7 @@ async function restoreFromFile(file) {
       state.fees.length + " inregistrari de taxe\n\n" +
       state.otherPayments.length + " alte incasari\n\n" +
       state.taxPayments.length + " plati din taxe\n\n" +
+      state.otherActions.length + " actiuni din alte incasari\n\n" +
       "Continui?"
   );
 
