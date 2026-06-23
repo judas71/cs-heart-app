@@ -2189,7 +2189,7 @@
             currencies.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
-        h(Field, { label: "Cauta" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, actiune, observatii" }))
+        h(Field, { label: "Cauta ce vrei" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, actiune, observatii" }))
       ),
       h(
         "div",
