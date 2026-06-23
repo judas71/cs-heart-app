@@ -921,6 +921,41 @@
     return actionWordSetsMatch(actionWords(text), actionWords(actionText));
   }
 
+  function actionWordsIncludedInText(value, needle) {
+    const text = normalizeText(value);
+    const actionText = normalizeText(needle);
+    if (!text || !actionText) return false;
+    if (text === actionText) return true;
+
+    const textNumbers = actionNumberTokens(text);
+    const actionNumbers = actionNumberTokens(actionText);
+    if (textNumbers.length && actionNumbers.length && textNumbers.join("|") !== actionNumbers.join("|")) return false;
+
+    const textWords = actionWords(text);
+    const used = new Set();
+    return actionWords(actionText).every((word) => {
+      const matchIndex = textWords.findIndex((candidate, index) => !used.has(index) && fuzzyWordMatch(word, candidate));
+      if (matchIndex < 0) return false;
+      used.add(matchIndex);
+      return true;
+    });
+  }
+
+  function actionWordCount(action) {
+    return actionWords(actionMatchText(action)).length;
+  }
+
+  function actionTextMatchesKnownAction(value, action, allActions = []) {
+    const needle = actionMatchText(action);
+    if (actionTextMatchesNeedle(value, needle)) return true;
+    if (!actionWordsIncludedInText(value, needle)) return false;
+
+    const candidates = (allActions.length ? allActions : [action]).filter((candidate) => actionWordsIncludedInText(value, actionMatchText(candidate)));
+    const bestMatchSize = candidates.reduce((best, candidate) => Math.max(best, actionWordCount(candidate)), actionWordCount(action));
+
+    return actionWordCount(action) >= bestMatchSize;
+  }
+
   function actionNameMatchesText(value, action) {
     const needle = actionMatchText(action);
     return actionTextMatchesNeedle(value, needle);
@@ -1038,7 +1073,7 @@
     if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
     if (action.id && payment.actionId === action.id) return true;
     if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
-    if (!isBlankMarker(payment.actionName)) return actionNameMatchesText(payment.actionName, action);
+    if (!isBlankMarker(payment.actionName)) return actionTextMatchesKnownAction(payment.actionName, action, allActions);
 
     const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
     const paymentDate = normalizeDateInput(payment.date) || payment.date || "";
@@ -1048,7 +1083,7 @@
     if (!needle) return false;
 
     const haystack = normalizeText([payment.notes, payment.category].join(" "));
-    if (actionTextMatchesNeedle(haystack, needle)) return true;
+    if (actionTextMatchesKnownAction(haystack, action, allActions)) return true;
 
     if (!canAutoAttachUnmarkedPayment(payment, action, athleteId, allActions)) return false;
 
