@@ -1906,8 +1906,8 @@
           "div",
           { className: "segmented", style: { gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" } },
           h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Cauta incasari"),
-          h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica incasare" : "Adauga incasare"),
-          h("button", { type: "button", className: workMode === "actiuni" ? "selected" : "", onClick: () => setWorkMode("actiuni") }, "Situatie actiuni")
+          h("button", { type: "button", className: workMode === "actiuni" ? "selected" : "", onClick: () => setWorkMode("actiuni") }, "Situatie actiuni"),
+          h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica incasare" : "Adauga incasare")
         )
       ),
       workMode === "adauga" &&
