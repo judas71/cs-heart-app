@@ -852,6 +852,15 @@
       .filter((word) => word.length >= 4 && !/^\d+$/.test(word));
   }
 
+  function actionWords(value) {
+    return normalizeText(value)
+      .replace(/([a-z])(\d)/g, "$1 $2")
+      .replace(/(\d)([a-z])/g, "$1 $2")
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(" ")
+      .filter((word) => word.length >= 3 && !/^\d+$/.test(word));
+  }
+
   function fuzzyWordMatch(first, second) {
     if (!first || !second) return false;
     if (first === second || first.startsWith(second) || second.startsWith(first)) return true;
@@ -887,14 +896,34 @@
     return !text || text === "-" || text === "—";
   }
 
-  function actionNameMatchesText(value, action) {
-    const text = normalizeText(value);
-    const needle = actionMatchText(action);
-    if (!text || !needle) return false;
-    if (text === needle || text.includes(needle) || needle.includes(text)) return true;
+  function actionWordSetsMatch(firstWords, secondWords) {
+    if (!firstWords.length || firstWords.length !== secondWords.length) return false;
 
-    const textWords = actionKeywords(text);
-    return actionKeywords(needle).some((word) => textWords.some((textWord) => fuzzyWordMatch(word, textWord)));
+    const used = new Set();
+    return firstWords.every((word) => {
+      const matchIndex = secondWords.findIndex((candidate, index) => !used.has(index) && fuzzyWordMatch(word, candidate));
+      if (matchIndex < 0) return false;
+      used.add(matchIndex);
+      return true;
+    });
+  }
+
+  function actionTextMatchesNeedle(value, needle) {
+    const text = normalizeText(value);
+    const actionText = normalizeText(needle);
+    if (!text || !actionText) return false;
+    if (text === actionText) return true;
+
+    const textNumbers = actionNumberTokens(text);
+    const actionNumbers = actionNumberTokens(actionText);
+    if (textNumbers.length && actionNumbers.length && textNumbers.join("|") !== actionNumbers.join("|")) return false;
+
+    return actionWordSetsMatch(actionWords(text), actionWords(actionText));
+  }
+
+  function actionNameMatchesText(value, action) {
+    const needle = actionMatchText(action);
+    return actionTextMatchesNeedle(value, needle);
   }
 
   function findActionByWrittenName(actions, value, category) {
@@ -930,6 +959,11 @@
       action.currency || "lei",
       action.startDate || ""
     ].join("|");
+  }
+
+  function actionLabel(action) {
+    if (!action) return "-";
+    return (action.name || "Actiune fara nume") + " - " + (action.category || "actiune");
   }
 
   function getUniqueActions(actions = []) {
@@ -1014,10 +1048,7 @@
     if (!needle) return false;
 
     const haystack = normalizeText([payment.notes, payment.category].join(" "));
-    if (haystack.includes(needle)) return true;
-
-    const paymentWords = actionKeywords(haystack);
-    if (actionKeywords(needle).some((word) => paymentWords.some((paymentWord) => fuzzyWordMatch(word, paymentWord)))) return true;
+    if (actionTextMatchesNeedle(haystack, needle)) return true;
 
     if (!canAutoAttachUnmarkedPayment(payment, action, athleteId, allActions)) return false;
 
@@ -1558,6 +1589,7 @@
           payerLabel(athletes, payment),
           payerType(payment),
           payment.category,
+          payment.actionName,
           paymentTypeLabel(payment),
           payment.method,
           paymentCurrency(payment),
@@ -1582,6 +1614,7 @@
           payerLabel(athletes, payment),
           payerType(payment),
           payment.category,
+          payment.actionName,
           paymentTypeLabel(payment),
           payment.method,
           paymentCurrency(payment),
@@ -1916,7 +1949,7 @@
             h("option", { value: "" }, "Fara actiune"),
             h("option", { value: "__new__" }, "+ Creeaza actiune noua"),
             hasLegacyPaymentAction && h("option", { value: "__legacy__" }, "Actiune salvata: " + form.actionName),
-            uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name + " - " + (action.category || "actiune")))
+            uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, actionLabel(action)))
           )
         ),
         h(Field, { label: "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: "Optional" })),
@@ -2020,7 +2053,7 @@
             h(
               "select",
               { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
-              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, actionLabel(action)))
             )
           ),
           h(
@@ -2156,7 +2189,7 @@
             currencies.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
-        h(Field, { label: "Cauta" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, observatii" }))
+        h(Field, { label: "Cauta" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, actiune, observatii" }))
       ),
       h(
         "div",
@@ -2178,7 +2211,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Data", "De la / Catre", "Categorie", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Data", "De la / Catre", "Categorie", "Actiune", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -2191,6 +2224,7 @@
                 h("td", { "data-label": "Data" }, formatDate(payment.date)),
                 h("td", { "data-label": "De la / Catre" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
                 h("td", { "data-label": "Categorie" }, payment.category || "-"),
+                h("td", { "data-label": "Actiune" }, payment.actionName || "-"),
                 h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
                 h("td", { "data-label": "Suma" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
                 h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
@@ -2349,7 +2383,7 @@
             h(
               "select",
               { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
-              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, action.name))
+              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, actionLabel(action)))
             )
           ),
           h(
@@ -2443,7 +2477,7 @@
                   h(ReportItem, {
                     key: payment.id,
                     title: payerLabel(athletes, payment),
-                    subtitle: formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + paymentTypeLabel(payment) + " / " + (payment.method || "-"),
+                    subtitle: formatDate(payment.date) + " / " + payerType(payment) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + paymentTypeLabel(payment) + " / " + (payment.method || "-"),
                     amount: formatPaymentAmount(payment),
                     negative: isOutgoingPayment(payment)
                   })
