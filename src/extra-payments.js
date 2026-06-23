@@ -1536,6 +1536,7 @@
     const [actionGroup, setActionGroup] = React.useState("toate");
     const [selectedActionId, setSelectedActionId] = React.useState("");
     const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(false);
+    const [workMode, setWorkMode] = React.useState("lista");
     const [printPreviewPayment, setPrintPreviewPayment] = React.useState(null);
     const formRef = React.useRef(null);
 
@@ -1671,6 +1672,7 @@
 
       if (value === "__new__") {
         setForm((current) => ({ ...current, actionId: "", actionName: "" }));
+        setWorkMode("actiuni");
         setActionForm({
           ...emptyActionForm(),
           category: form.category || "turneu",
@@ -1747,6 +1749,7 @@
     }
 
     function editAction(action) {
+      setWorkMode("actiuni");
       setActionForm({
         id: action.id || "",
         name: action.name || "",
@@ -1819,6 +1822,7 @@
 
     function edit(payment) {
       const linkedAction = uniqueActions.find((action) => action.id === payment.actionId || (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)));
+      setWorkMode("adauga");
 
       setForm({
         id: payment.id || "",
@@ -1835,7 +1839,7 @@
         currency: paymentCurrency(payment),
         notes: payment.notes || ""
       });
-      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }
 
     function printPreview(payment) {
@@ -1861,6 +1865,18 @@
       { className: "stack" },
       h(ReceiptPreview, { athletes, payment: printPreviewPayment, onClose: () => setPrintPreviewPayment(null), onPrint: confirmPrint }),
       h(
+        "div",
+        { className: "panel" },
+        h(
+          "div",
+          { className: "segmented", style: { gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" } },
+          h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Cauta incasari"),
+          h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica incasare" : "Adauga incasare"),
+          h("button", { type: "button", className: workMode === "actiuni" ? "selected" : "", onClick: () => setWorkMode("actiuni") }, "Situatie actiuni")
+        )
+      ),
+      workMode === "adauga" &&
+        h(
         "form",
         { className: "panel form-grid", ref: formRef, onSubmit: submit },
         h(
@@ -1960,7 +1976,8 @@
           form.id && h("button", { type: "button", onClick: () => setForm(emptyForm()) }, "Renunta")
         )
       ),
-      h(
+      workMode === "actiuni" &&
+        h(
         "form",
         { id: "cs-action-form", className: "panel form-grid", onSubmit: submitAction },
         h(
@@ -2043,7 +2060,8 @@
           actionForm.id && h("button", { type: "button", onClick: () => setActionForm(emptyActionForm()) }, "Renunta")
         )
       ),
-      uniqueActions.length > 0 &&
+      workMode === "actiuni" &&
+        uniqueActions.length > 0 &&
         h(
           "div",
           { className: "panel compact-grid" },
@@ -2069,7 +2087,8 @@
             selectedAction && onDeleteAction && h("button", { className: "danger", type: "button", onClick: () => onDeleteAction(selectedAction.id) }, "Sterge actiunea")
           )
         ),
-      selectedAction &&
+      workMode === "actiuni" &&
+        selectedAction &&
         h(
           "div",
           { className: "metrics" },
@@ -2083,7 +2102,8 @@
           ),
           h("div", null, h("span", null, "Rest de incasat"), h("strong", { className: actionTotalOutstanding > 0 ? "arrears" : "" }, formatMoney(actionTotalOutstanding, selectedActionCurrency)), h("small", null, selectedAction.name))
         ),
-      selectedAction &&
+      workMode === "actiuni" &&
+        selectedAction &&
         h(
           "div",
           { className: "table-wrap wide" },
@@ -2141,11 +2161,13 @@
             )
           )
         ),
-      selectedAction &&
+      workMode === "actiuni" &&
+        selectedAction &&
         !visibleActionRows.length &&
         !visibleActionExternalRows.length &&
         h(EmptyState, { title: "Nu exista inregistrari in filtrul actiunii.", text: showOnlyDebtors ? "Debifeaza filtrul cu rest sau verifica participantii." : "Adauga participanti sau incasari la actiune." }),
-      h(
+      workMode === "lista" &&
+        h(
         "div",
         { className: "panel compact-grid" },
         h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) })),
@@ -2191,21 +2213,24 @@
         ),
         h(Field, { label: "Cauta ce vrei" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, actiune, observatii" }))
       ),
-      h(
+      workMode === "lista" &&
+        h(
         "div",
         { className: "metrics" },
         h("div", null, h("span", null, "Total lei"), h("strong", null, "Incasat = " + formatMoney(receivedLei, "lei")), h("strong", null, "Platit = " + formatMoney(paidLei, "lei"))),
         h("div", null, h("span", null, "Total euro"), h("strong", null, "Incasat = " + formatMoney(receivedEuro, "euro")), h("strong", null, "Platit = " + formatMoney(paidEuro, "euro"))),
         h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatDualAmount(filteredPayments, "cash")), h("strong", null, "Transfer: " + formatDualAmount(filteredPayments, "transfer")))
       ),
-      h(
+      workMode === "lista" &&
+        h(
         "div",
         { className: "metrics" },
         h("div", null, h("span", null, "Sold lei pana la luna"), h("strong", null, formatMoney(balanceLei, "lei")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedLei, "lei") + " / Platit total = " + formatMoney(balancePaidLei, "lei"))),
         h("div", null, h("span", null, "Sold euro pana la luna"), h("strong", null, formatMoney(balanceEuro, "euro")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedEuro, "euro") + " / Platit total = " + formatMoney(balancePaidEuro, "euro"))),
         h("div", null, h("span", null, "Perioada sold"), h("strong", null, "Pana in " + month), h("small", null, "Respecta filtrele de grupa, categorie, moneda si cautare. Tipul nu limiteaza soldul."))
       ),
-      h(
+      workMode === "lista" &&
+        h(
         "div",
         { className: "table-wrap wide" },
         h(
@@ -2243,7 +2268,9 @@
           )
         )
       ),
-      !filteredPayments.length && h(EmptyState, { title: "Nu exista alte incasari in filtrul curent.", text: "Adauga o incasare sau schimba luna, grupa ori categoria." })
+      workMode === "lista" &&
+        !filteredPayments.length &&
+        h(EmptyState, { title: "Nu exista alte incasari in filtrul curent.", text: "Adauga o incasare sau schimba luna, grupa ori categoria." })
     );
   }
 
