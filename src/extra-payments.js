@@ -1601,7 +1601,9 @@
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
     const visibleActionPayments = [...visibleActionRows, ...visibleActionExternalRows].flatMap((row) => row.payments || []);
     const visibleActionTotalDue = visibleActionRows.reduce((sum, row) => sum + row.amountDue, 0);
-    const visibleActionTotalReceived = visibleActionRows.reduce((sum, row) => sum + row.netReceived, 0) + visibleActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const visibleActionAthleteReceived = visibleActionRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const visibleActionPartnerReceived = visibleActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const visibleActionTotalReceived = visibleActionAthleteReceived + visibleActionPartnerReceived;
     const visibleActionTotalOutstanding = visibleActionRows.reduce((sum, row) => sum + row.outstanding, 0);
     const visibleActionCash = sumPayments(visibleActionPayments, selectedActionCurrency, "cash");
     const visibleActionTransfer = sumPayments(visibleActionPayments, selectedActionCurrency, "transfer");
@@ -2193,8 +2195,20 @@
           "div",
           { className: "panel compact-grid" },
           h("div", null, h("span", { className: "pill" }, "TOTAL"), h("strong", { style: { display: "block", marginTop: "8px" } }, selectedAction.name)),
-          h("div", null, h("span", null, "De achitat"), h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalDue, selectedActionCurrency))),
-          h("div", null, h("span", null, "Incasat"), h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalReceived, selectedActionCurrency))),
+          h(
+            "div",
+            null,
+            h("span", null, "De achitat"),
+            h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalDue, selectedActionCurrency)),
+            h("small", null, visibleActionRows.length + " sportivi")
+          ),
+          h(
+            "div",
+            null,
+            h("span", null, "Incasat"),
+            h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalReceived, selectedActionCurrency)),
+            h("small", null, "Sportivi " + formatMoney(visibleActionAthleteReceived, selectedActionCurrency) + " / parteneri " + formatMoney(visibleActionPartnerReceived, selectedActionCurrency))
+          ),
           h("div", null, h("span", null, "Rest"), h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
           h("div", null, h("span", null, "Cash / Transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
         ),
