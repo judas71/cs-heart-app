@@ -2200,14 +2200,14 @@
             null,
             h("span", null, "De achitat"),
             h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalDue, selectedActionCurrency)),
-            h("small", null, visibleActionRows.length + " sportivi")
+            h("span", { style: { display: "block", marginTop: "4px", color: "#526173", fontSize: "0.95rem" } }, visibleActionRows.length + " sportivi")
           ),
           h(
             "div",
             null,
             h("span", null, "Incasat"),
             h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalReceived, selectedActionCurrency)),
-            h("small", null, "Sportivi " + formatMoney(visibleActionAthleteReceived, selectedActionCurrency) + " / parteneri " + formatMoney(visibleActionPartnerReceived, selectedActionCurrency))
+            h("span", { style: { display: "block", marginTop: "4px", color: "#526173", fontSize: "0.95rem" } }, "Sportivi " + formatMoney(visibleActionAthleteReceived, selectedActionCurrency) + " / parteneri " + formatMoney(visibleActionPartnerReceived, selectedActionCurrency))
           ),
           h("div", null, h("span", null, "Rest"), h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
           h("div", null, h("span", null, "Cash / Transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
