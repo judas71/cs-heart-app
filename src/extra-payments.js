@@ -2184,21 +2184,19 @@
                   h("td", { "data-label": "Detalii" }, row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))))
                 )
               )
-            ),
-            h(
-              "tfoot",
-              null,
-              h(
-                "tr",
-                null,
-                h("td", { "data-label": "Total" }, h("strong", null, "TOTAL"), h("small", null, selectedAction.name)),
-                h("td", { "data-label": "De achitat" }, h("strong", null, formatMoney(visibleActionTotalDue, selectedActionCurrency))),
-                h("td", { "data-label": "Incasat" }, h("strong", null, formatMoney(visibleActionTotalReceived, selectedActionCurrency))),
-                h("td", { "data-label": "Rest" }, h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "" }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
-                h("td", { "data-label": "Detalii" }, h("strong", null, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
-              )
             )
           )
+        ),
+      workMode === "actiuni" &&
+        selectedAction &&
+        h(
+          "div",
+          { className: "panel compact-grid" },
+          h("div", null, h("span", { className: "pill" }, "TOTAL"), h("strong", { style: { display: "block", marginTop: "8px" } }, selectedAction.name)),
+          h("div", null, h("span", null, "De achitat"), h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalDue, selectedActionCurrency))),
+          h("div", null, h("span", null, "Incasat"), h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalReceived, selectedActionCurrency))),
+          h("div", null, h("span", null, "Rest"), h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
+          h("div", null, h("span", null, "Cash / Transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
         ),
       workMode === "actiuni" &&
         selectedAction &&
