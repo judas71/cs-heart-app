@@ -1599,6 +1599,12 @@
     const actionTotalExternalReceived = selectedActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
     const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0) + actionTotalExternalReceived;
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const visibleActionPayments = [...visibleActionRows, ...visibleActionExternalRows].flatMap((row) => row.payments || []);
+    const visibleActionTotalDue = visibleActionRows.reduce((sum, row) => sum + row.amountDue, 0);
+    const visibleActionTotalReceived = visibleActionRows.reduce((sum, row) => sum + row.netReceived, 0) + visibleActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
+    const visibleActionTotalOutstanding = visibleActionRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const visibleActionCash = sumPayments(visibleActionPayments, selectedActionCurrency, "cash");
+    const visibleActionTransfer = sumPayments(visibleActionPayments, selectedActionCurrency, "transfer");
 
     React.useEffect(() => {
       if (!uniqueActions.length && selectedActionId) {
@@ -2126,21 +2132,6 @@
         selectedAction &&
         h(
           "div",
-          { className: "metrics" },
-          h("div", null, h("span", null, "De achitat total"), h("strong", null, formatMoney(actionTotalDue, selectedActionCurrency)), h("small", null, selectedActionRows.length + " participanti")),
-          h(
-            "div",
-            null,
-            h("span", null, "Incasat total"),
-            h("strong", null, formatMoney(actionTotalReceived, selectedActionCurrency)),
-            h("small", null, "Sportivi " + formatMoney(actionTotalReceived - actionTotalExternalReceived, selectedActionCurrency) + (actionTotalExternalReceived > 0 ? " / parteneri " + formatMoney(actionTotalExternalReceived, selectedActionCurrency) : ""))
-          ),
-          h("div", null, h("span", null, "Rest de incasat"), h("strong", { className: actionTotalOutstanding > 0 ? "arrears" : "" }, formatMoney(actionTotalOutstanding, selectedActionCurrency)), h("small", null, selectedAction.name))
-        ),
-      workMode === "actiuni" &&
-        selectedAction &&
-        h(
-          "div",
           { className: "table-wrap wide" },
           h(
             "table",
@@ -2192,6 +2183,19 @@
                   h("td", { "data-label": "Rest" }, "-"),
                   h("td", { "data-label": "Detalii" }, row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))))
                 )
+              )
+            ),
+            h(
+              "tfoot",
+              null,
+              h(
+                "tr",
+                null,
+                h("td", { "data-label": "Total" }, h("strong", null, "TOTAL"), h("small", null, selectedAction.name)),
+                h("td", { "data-label": "De achitat" }, h("strong", null, formatMoney(visibleActionTotalDue, selectedActionCurrency))),
+                h("td", { "data-label": "Incasat" }, h("strong", null, formatMoney(visibleActionTotalReceived, selectedActionCurrency))),
+                h("td", { "data-label": "Rest" }, h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "" }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
+                h("td", { "data-label": "Detalii" }, h("strong", null, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
               )
             )
           )
