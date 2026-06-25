@@ -2263,14 +2263,22 @@
             null,
             h("span", null, "Sold actiune"),
             h("strong", { className: actionBalance < 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(actionBalance, selectedActionCurrency)),
-            h("small", null, "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / Platit " + formatMoney(actionPaidOut, selectedActionCurrency)),
-            actionOutgoingPreview.map((payment) =>
-              h(
-                "small",
-                { key: payment.id || payment.date + payment.amount + payment.category, style: { display: "block", marginTop: "3px" } },
-                formatDate(payment.date) + " - " + payerLabel(athletes, payment) + " - " + (payment.category || "plata") + " - " + formatPaymentAmount(payment)
-              )
-            ),
+            h("small", null, "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / Platit " + formatMoney(actionPaidOut, selectedActionCurrency))
+          ),
+          h(
+            "div",
+            null,
+            h("span", null, "Plati actiune"),
+            h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(actionPaidOut, selectedActionCurrency)),
+            actionOutgoingPreview.length
+              ? actionOutgoingPreview.map((payment) =>
+                  h(
+                    "small",
+                    { key: payment.id || payment.date + payment.amount + payment.category, style: { display: "block", marginTop: "3px" } },
+                    formatDate(payment.date) + " - " + payerLabel(athletes, payment) + " - " + (payment.category || "plata") + " - " + formatPaymentAmount(payment)
+                  )
+                )
+              : h("small", null, "Nu exista plati pe actiune"),
             actionOutgoingPayments.length > actionOutgoingPreview.length &&
               h("small", { style: { display: "block", marginTop: "3px" } }, "+" + (actionOutgoingPayments.length - actionOutgoingPreview.length) + " plati in lista")
           ),
