@@ -1260,8 +1260,13 @@
       return athlete.joinMonth <= month;
     });
     const listedAthleteIds = listedAthletes.map((athlete) => athlete.id);
-    const monthlyCollected = fees
-      .filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId))
+    const monthlyFeeRows = fees.filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId));
+    const monthlyCollected = monthlyFeeRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const monthlyCashCollected = monthlyFeeRows
+      .filter((fee) => fee.method === "cash")
+      .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const monthlyTransferCollected = monthlyFeeRows
+      .filter((fee) => fee.method === "transfer")
       .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const monthlyTaxPayments = (taxPayments || [])
       .filter((payment) => payment.month === month)
@@ -1415,6 +1420,7 @@
         "div",
         { className: "metrics" },
         h("div", null, h("span", null, "Total incasari luna"), h("strong", null, formatMoney(monthlyCollected))),
+        h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatMoney(monthlyCashCollected)), h("small", null, "Transfer: " + formatMoney(monthlyTransferCollected))),
         h("div", null, h("span", null, "De incasat total"), h("strong", null, formatMoney(monthlyOutstanding))),
         h(
           "div",
