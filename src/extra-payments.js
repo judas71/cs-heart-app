@@ -1658,6 +1658,11 @@
       .filter(isOutgoingPayment)
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const actionBalance = actionGrossReceived - actionPaidOut;
+    const actionOutgoingPayments = actionPayments
+      .filter((payment) => paymentCurrency(payment) === selectedActionCurrency)
+      .filter(isOutgoingPayment)
+      .sort(sortByDateDesc);
+    const actionOutgoingPreview = actionOutgoingPayments.slice(0, 3);
     const visibleActionPayments = [...visibleActionRows, ...visibleActionExternalRows].flatMap((row) => row.payments || []);
     const visibleActionTotalDue = visibleActionRows.reduce((sum, row) => sum + row.amountDue, 0);
     const visibleActionAthleteReceived = visibleActionRows.reduce((sum, row) => sum + row.netReceived, 0);
@@ -2258,7 +2263,16 @@
             null,
             h("span", null, "Sold actiune"),
             h("strong", { className: actionBalance < 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(actionBalance, selectedActionCurrency)),
-            h("small", null, "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / Platit " + formatMoney(actionPaidOut, selectedActionCurrency))
+            h("small", null, "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / Platit " + formatMoney(actionPaidOut, selectedActionCurrency)),
+            actionOutgoingPreview.map((payment) =>
+              h(
+                "small",
+                { key: payment.id || payment.date + payment.amount + payment.category, style: { display: "block", marginTop: "3px" } },
+                formatDate(payment.date) + " - " + payerLabel(athletes, payment) + " - " + (payment.category || "plata") + " - " + formatPaymentAmount(payment)
+              )
+            ),
+            actionOutgoingPayments.length > actionOutgoingPreview.length &&
+              h("small", { style: { display: "block", marginTop: "3px" } }, "+" + (actionOutgoingPayments.length - actionOutgoingPreview.length) + " plati in lista")
           ),
           h("div", null, h("span", null, "Rest"), h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
           h("div", null, h("span", null, "Cash / Transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
@@ -2407,6 +2421,14 @@
       .filter(isOutgoingPayment)
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const actionBalance = actionGrossReceived - actionPaidOut;
+    const actionOutgoingPayments = actionPayments
+      .filter((payment) => paymentCurrency(payment) === selectedActionCurrency)
+      .filter(isOutgoingPayment)
+      .sort(sortByDateDesc);
+    const actionOutgoingPreview = actionOutgoingPayments.slice(0, 2);
+    const actionOutgoingHint = actionOutgoingPreview.length
+      ? actionOutgoingPreview.map((payment) => payerLabel(athletes, payment) + " " + formatPaymentAmount(payment)).join(" / ")
+      : "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / platit " + formatMoney(actionPaidOut, selectedActionCurrency);
     const rows = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
@@ -2541,7 +2563,7 @@
           h(SummaryCard, { label: "Actiune", value: selectedAction.name, hint: `${selectedActionRows.length} participanti`, tone: "tone-blue" }),
           h(SummaryCard, { label: "De achitat", value: formatMoney(actionTotalDue, selectedActionCurrency), hint: "Suma totala", tone: "tone-amber" }),
           h(SummaryCard, { label: "Incasat", value: formatMoney(actionTotalReceived, selectedActionCurrency), hint: actionTotalExternalReceived > 0 ? "Include parteneri: " + formatMoney(actionTotalExternalReceived, selectedActionCurrency) : "Toate lunile de la data de inceput", tone: "tone-green" }),
-          h(SummaryCard, { label: "Sold actiune", value: formatMoney(actionBalance, selectedActionCurrency), hint: "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / platit " + formatMoney(actionPaidOut, selectedActionCurrency), tone: actionBalance < 0 ? "tone-red" : "tone-purple" }),
+          h(SummaryCard, { label: "Sold actiune", value: formatMoney(actionBalance, selectedActionCurrency), hint: actionOutgoingHint, tone: actionBalance < 0 ? "tone-red" : "tone-purple" }),
           h(SummaryCard, { label: "Rest", value: formatMoney(actionTotalOutstanding, selectedActionCurrency), hint: showOnlyDebtors ? "Doar restantierii sunt listati" : "Toti participantii", tone: actionTotalOutstanding > 0 ? "tone-red" : "tone-green" })
         ),
       h(
