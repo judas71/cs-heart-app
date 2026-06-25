@@ -818,6 +818,14 @@
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   }
 
+  function sumPaymentsByTypeAndMethod(rows, currency, type, method) {
+    return rows
+      .filter((payment) => paymentCurrency(payment) === currency)
+      .filter((payment) => paymentType(payment) === type)
+      .filter((payment) => !method || payment.method === method)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
   function sumOutgoingPayments(rows, currency) {
     return rows
       .filter((payment) => paymentCurrency(payment) === currency)
@@ -1669,8 +1677,8 @@
     const visibleActionPartnerReceived = visibleActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
     const visibleActionTotalReceived = visibleActionAthleteReceived + visibleActionPartnerReceived;
     const visibleActionTotalOutstanding = visibleActionRows.reduce((sum, row) => sum + row.outstanding, 0);
-    const visibleActionCash = sumPayments(visibleActionPayments, selectedActionCurrency, "cash");
-    const visibleActionTransfer = sumPayments(visibleActionPayments, selectedActionCurrency, "transfer");
+    const visibleActionCash = sumPaymentsByTypeAndMethod(visibleActionPayments, selectedActionCurrency, "incasare", "cash");
+    const visibleActionTransfer = sumPaymentsByTypeAndMethod(visibleActionPayments, selectedActionCurrency, "incasare", "transfer");
 
     React.useEffect(() => {
       if (!uniqueActions.length && selectedActionId) {
