@@ -838,6 +838,35 @@
       .trim();
   }
 
+  function cleanCategory(value) {
+    return String(value || "").trim() || "altele";
+  }
+
+  function categoryKey(value) {
+    return normalizeText(cleanCategory(value));
+  }
+
+  function sameCategory(first, second) {
+    return categoryKey(first) === categoryKey(second);
+  }
+
+  function getCategoryOptions(payments = [], actions = []) {
+    const seen = new Set();
+    const options = [];
+    const add = (value) => {
+      const clean = cleanCategory(value);
+      const key = categoryKey(clean);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      options.push(clean);
+    };
+
+    categories.forEach(add);
+    payments.forEach((payment) => add(payment.category));
+    actions.forEach((action) => add(action.category));
+    return options;
+  }
+
   function actionParticipantIds(action) {
     return Array.isArray(action.participantIds) ? action.participantIds : [];
   }
@@ -964,7 +993,7 @@
   function findActionByWrittenName(actions, value, category) {
     return actions.find(
       (action) =>
-        (!category || !action.category || action.category === "toate" || action.category === category) &&
+        (!category || !action.category || action.category === "toate" || sameCategory(action.category, category)) &&
         actionNameMatchesText(value, action)
     );
   }
@@ -990,7 +1019,7 @@
   function actionKey(action) {
     return [
       actionMatchText(action),
-      action.category || "toate",
+      categoryKey(action.category || "toate"),
       action.currency || "lei",
       action.startDate || ""
     ].join("|");
@@ -1060,7 +1089,7 @@
     if (!isBlankMarker(payment.notes)) return false;
     if (!actionParticipantIds(action).includes(athleteId)) return false;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
-    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
+    if (action.category && action.category !== "toate" && payment.category && !sameCategory(payment.category, action.category)) return false;
 
     const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
     const paymentDate = normalizeDateInput(payment.date) || payment.date || "";
@@ -1070,9 +1099,9 @@
   function paymentMatchesAction(payment, action, athleteId, allActions = []) {
     if (!payment || !action) return false;
     if (action.currency && paymentCurrency(payment) !== action.currency) return false;
-    if (action.category && action.category !== "toate" && payment.category && payment.category !== action.category) return false;
     if (action.id && payment.actionId === action.id) return true;
     if (Array.isArray(action.aliasIds) && action.aliasIds.includes(payment.actionId)) return true;
+    if (action.category && action.category !== "toate" && payment.category && !sameCategory(payment.category, action.category)) return false;
     if (!isBlankMarker(payment.actionName)) return actionTextMatchesKnownAction(payment.actionName, action, allActions);
 
     const actionStartDate = normalizeDateInput(action.startDate) || action.startDate || "";
@@ -1169,6 +1198,19 @@
 
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
+  }
+
+  function CategoryField({ label = "Categorie", id, value, onChange, options, required = false }) {
+    return h(
+      Field,
+      { label },
+      h(
+        React.Fragment,
+        null,
+        h("input", { list: id, value, onChange, placeholder: "Ex: taxa FRB, cazare, transport", required }),
+        h("datalist", { id }, options.map((item) => h("option", { key: item, value: item })))
+      )
+    );
   }
 
   function EmptyState({ title, text }) {
@@ -1591,6 +1633,7 @@
       ...(selectedAthlete && !activeAthletes.some((athlete) => athlete.id === selectedAthlete.id) ? [selectedAthlete] : [])
     ].sort(compareAthletesByName);
     const uniqueActions = getUniqueActions(otherActions);
+    const categoryOptions = getCategoryOptions(otherPayments, uniqueActions);
     const actionAthletes = (actionGroup === "toate" ? activeAthletes : activeAthletes.filter((athlete) => athlete.group === actionGroup)).sort(compareAthletesByName);
     const selectedPaymentAction = findActionById(uniqueActions, form.actionId) || findActionByWrittenName(uniqueActions, form.actionName, form.category);
     const hasLegacyPaymentAction = !selectedPaymentAction && !isBlankMarker(form.actionName);
@@ -1605,6 +1648,16 @@
     const actionTotalExternalReceived = selectedActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
     const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0) + actionTotalExternalReceived;
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const actionPayments = [...selectedActionRows, ...selectedActionExternalRows].flatMap((row) => row.payments || []);
+    const actionGrossReceived = actionPayments
+      .filter((payment) => paymentCurrency(payment) === selectedActionCurrency)
+      .filter((payment) => paymentType(payment) === "incasare")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const actionPaidOut = actionPayments
+      .filter((payment) => paymentCurrency(payment) === selectedActionCurrency)
+      .filter(isOutgoingPayment)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const actionBalance = actionGrossReceived - actionPaidOut;
     const visibleActionPayments = [...visibleActionRows, ...visibleActionExternalRows].flatMap((row) => row.payments || []);
     const visibleActionTotalDue = visibleActionRows.reduce((sum, row) => sum + row.amountDue, 0);
     const visibleActionAthleteReceived = visibleActionRows.reduce((sum, row) => sum + row.netReceived, 0);
@@ -1627,7 +1680,7 @@
 
     const filteredPayments = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
-      .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
@@ -1653,7 +1706,7 @@
 
     const balancePayments = otherPayments
       .filter((payment) => isSameOrBeforeMonth(payment.date, month))
-      .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
@@ -1775,6 +1828,7 @@
       const actionDraft = {
         ...actionForm,
         name,
+        category: cleanCategory(actionForm.category),
         startDate,
         amountDue,
         participantIds,
@@ -1831,7 +1885,7 @@
         date: paymentDate,
         actionId: linkedAction?.id || "",
         actionName: writtenActionName,
-        category: linkedAction?.category || form.category,
+        category: linkedAction?.category || cleanCategory(form.category),
         currency: linkedAction?.currency || form.currency,
         amount: Number(form.amount || 0),
         notes: String(form.notes || "").trim()
@@ -1968,15 +2022,7 @@
               )
           ),
         h(Field, { label: isFormPayment ? "Data platii" : "Data incasarii" }, h("input", { value: form.date, onChange: (event) => update("date", event.target.value), placeholder: "01.05.2026", required: true })),
-        h(
-          Field,
-          { label: "Categorie" },
-          h(
-            "select",
-            { value: form.category, onChange: (event) => update("category", event.target.value) },
-            categories.map((item) => h("option", { key: item, value: item }, item))
-          )
-        ),
+        h(CategoryField, { id: "cs-payment-category-options", value: form.category, onChange: (event) => update("category", event.target.value), options: categoryOptions, required: true }),
         h(
           Field,
           { label: "Tip" },
@@ -2036,15 +2082,7 @@
           h("p", { style: { margin: 0, color: "#66727a" } }, "Pentru turnee, cantonamente sau echipamente: setezi suma de achitat si vezi rapid cine mai are rest.")
         ),
         h(Field, { label: "Nume actiune" }, h("input", { value: actionForm.name, onChange: (event) => updateAction("name", event.target.value), placeholder: "Ex: Costinesti 2026", required: true })),
-        h(
-          Field,
-          { label: "Categorie" },
-          h(
-            "select",
-            { value: actionForm.category, onChange: (event) => updateAction("category", event.target.value) },
-            categories.map((item) => h("option", { key: item, value: item }, item))
-          )
-        ),
+        h(CategoryField, { id: "cs-action-category-options", value: actionForm.category, onChange: (event) => updateAction("category", event.target.value), options: categoryOptions, required: true }),
         h(Field, { label: "Data inceput" }, h("input", { value: actionForm.startDate, onChange: (event) => updateAction("startDate", event.target.value), placeholder: "01.05.2026", required: true })),
         h(Field, { label: "Suma de achitat / sportiv" }, h("input", { type: "number", min: "0", value: actionForm.amountDue, onChange: (event) => updateAction("amountDue", event.target.value), required: true })),
         h(
@@ -2215,6 +2253,13 @@
             h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalReceived, selectedActionCurrency)),
             h("span", { style: { display: "block", marginTop: "4px", color: "#526173", fontSize: "0.95rem" } }, "Sportivi " + formatMoney(visibleActionAthleteReceived, selectedActionCurrency) + " / parteneri " + formatMoney(visibleActionPartnerReceived, selectedActionCurrency))
           ),
+          h(
+            "div",
+            null,
+            h("span", null, "Sold actiune"),
+            h("strong", { className: actionBalance < 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(actionBalance, selectedActionCurrency)),
+            h("small", null, "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / Platit " + formatMoney(actionPaidOut, selectedActionCurrency))
+          ),
           h("div", null, h("span", null, "Rest"), h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
           h("div", null, h("span", null, "Cash / Transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
         ),
@@ -2245,7 +2290,7 @@
             "select",
             { value: category, onChange: (event) => setCategory(event.target.value) },
             h("option", { value: "toate" }, "Toate categoriile"),
-            categories.map((item) => h("option", { key: item, value: item }, item))
+            categoryOptions.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
         h(
@@ -2341,6 +2386,7 @@
     const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(false);
     const groups = getGroups(athletes);
     const uniqueActions = getUniqueActions(otherActions);
+    const categoryOptions = getCategoryOptions(otherPayments, uniqueActions);
     const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
     const selectedActionExternalRows = getActionExternalRows(athletes, otherPayments, selectedAction, uniqueActions);
@@ -2351,9 +2397,19 @@
     const actionTotalExternalReceived = selectedActionExternalRows.reduce((sum, row) => sum + row.netReceived, 0);
     const actionTotalReceived = selectedActionRows.reduce((sum, row) => sum + row.netReceived, 0) + actionTotalExternalReceived;
     const actionTotalOutstanding = selectedActionRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const actionPayments = [...selectedActionRows, ...selectedActionExternalRows].flatMap((row) => row.payments || []);
+    const actionGrossReceived = actionPayments
+      .filter((payment) => paymentCurrency(payment) === selectedActionCurrency)
+      .filter((payment) => paymentType(payment) === "incasare")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const actionPaidOut = actionPayments
+      .filter((payment) => paymentCurrency(payment) === selectedActionCurrency)
+      .filter(isOutgoingPayment)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const actionBalance = actionGrossReceived - actionPaidOut;
     const rows = otherPayments
       .filter((payment) => getMonth(payment.date) === month)
-      .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
@@ -2363,7 +2419,7 @@
       .sort(comparePaymentsByPayer(athletes));
     const balanceRows = otherPayments
       .filter((payment) => isSameOrBeforeMonth(payment.date, month))
-      .filter((payment) => category === "toate" || payment.category === category)
+      .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
@@ -2379,11 +2435,11 @@
     const balancePaidEuro = sumOutgoingPayments(balanceRows, "euro");
     const balanceLei = balanceReceivedLei - balancePaidLei;
     const balanceEuro = balanceReceivedEuro - balancePaidEuro;
-    const categoryTotals = categories
+    const categoryTotals = categoryOptions
       .map((item) => ({
         category: item,
-        totalLei: sumPayments(rows.filter((payment) => payment.category === item), "lei"),
-        totalEuro: sumPayments(rows.filter((payment) => payment.category === item), "euro")
+        totalLei: sumPayments(rows.filter((payment) => sameCategory(payment.category, item)), "lei"),
+        totalEuro: sumPayments(rows.filter((payment) => sameCategory(payment.category, item)), "euro")
       }))
       .filter((item) => item.totalLei !== 0 || item.totalEuro !== 0);
 
@@ -2423,7 +2479,7 @@
             "select",
             { value: category, onChange: (event) => setCategory(event.target.value) },
             h("option", { value: "toate" }, "Toate categoriile"),
-            categories.map((item) => h("option", { key: item, value: item }, item))
+            categoryOptions.map((item) => h("option", { key: item, value: item }, item))
           )
         ),
         h(
@@ -2485,6 +2541,7 @@
           h(SummaryCard, { label: "Actiune", value: selectedAction.name, hint: `${selectedActionRows.length} participanti`, tone: "tone-blue" }),
           h(SummaryCard, { label: "De achitat", value: formatMoney(actionTotalDue, selectedActionCurrency), hint: "Suma totala", tone: "tone-amber" }),
           h(SummaryCard, { label: "Incasat", value: formatMoney(actionTotalReceived, selectedActionCurrency), hint: actionTotalExternalReceived > 0 ? "Include parteneri: " + formatMoney(actionTotalExternalReceived, selectedActionCurrency) : "Toate lunile de la data de inceput", tone: "tone-green" }),
+          h(SummaryCard, { label: "Sold actiune", value: formatMoney(actionBalance, selectedActionCurrency), hint: "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / platit " + formatMoney(actionPaidOut, selectedActionCurrency), tone: actionBalance < 0 ? "tone-red" : "tone-purple" }),
           h(SummaryCard, { label: "Rest", value: formatMoney(actionTotalOutstanding, selectedActionCurrency), hint: showOnlyDebtors ? "Doar restantierii sunt listati" : "Toti participantii", tone: actionTotalOutstanding > 0 ? "tone-red" : "tone-green" })
         ),
       h(
