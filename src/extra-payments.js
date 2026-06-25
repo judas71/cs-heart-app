@@ -2290,8 +2290,7 @@
             actionOutgoingPayments.length > actionOutgoingPreview.length &&
               h("small", { style: { display: "block", marginTop: "3px" } }, "+" + (actionOutgoingPayments.length - actionOutgoingPreview.length) + " plati in lista")
           ),
-          h("div", null, h("span", null, "Rest"), h("strong", { className: visibleActionTotalOutstanding > 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalOutstanding, selectedActionCurrency))),
-          h("div", null, h("span", null, "Cash / Transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
+          h("div", null, h("span", null, "Incasari cash/transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
         ),
       workMode === "actiuni" &&
         selectedAction &&
