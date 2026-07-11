@@ -864,6 +864,11 @@
     return formatMoney(sumPayments(rows, "lei", method), "lei") + " / " + formatMoney(sumPayments(rows, "euro", method), "euro");
   }
 
+  function formatDualMoney(lei, euro) {
+    const euroAmount = Number(euro || 0);
+    return formatMoney(lei, "lei") + (euroAmount ? " / " + formatMoney(euroAmount, "euro") : "");
+  }
+
   function normalizeText(value) {
     return String(value || "")
       .normalize("NFD")
@@ -2499,6 +2504,11 @@
     const paidLei = sumOutgoingPayments(rows, "lei");
     const receivedEuro = sumPaymentsByType(rows, "euro", "incasare");
     const paidEuro = sumOutgoingPayments(rows, "euro");
+    const outgoingRows = rows.filter(isOutgoingPayment).sort(sortByDateDesc);
+    const outgoingCashLei = sumPaymentsByTypeAndMethod(outgoingRows, "lei", "cheltuiala", "cash") + sumPaymentsByTypeAndMethod(outgoingRows, "lei", "retur", "cash") + sumPaymentsByTypeAndMethod(outgoingRows, "lei", "avans", "cash");
+    const outgoingTransferLei = sumPaymentsByTypeAndMethod(outgoingRows, "lei", "cheltuiala", "transfer") + sumPaymentsByTypeAndMethod(outgoingRows, "lei", "retur", "transfer") + sumPaymentsByTypeAndMethod(outgoingRows, "lei", "avans", "transfer");
+    const outgoingCashEuro = sumPaymentsByTypeAndMethod(outgoingRows, "euro", "cheltuiala", "cash") + sumPaymentsByTypeAndMethod(outgoingRows, "euro", "retur", "cash") + sumPaymentsByTypeAndMethod(outgoingRows, "euro", "avans", "cash");
+    const outgoingTransferEuro = sumPaymentsByTypeAndMethod(outgoingRows, "euro", "cheltuiala", "transfer") + sumPaymentsByTypeAndMethod(outgoingRows, "euro", "retur", "transfer") + sumPaymentsByTypeAndMethod(outgoingRows, "euro", "avans", "transfer");
     const balanceReceivedLei = sumPaymentsByType(balanceRows, "lei", "incasare");
     const balancePaidLei = sumOutgoingPayments(balanceRows, "lei");
     const balanceReceivedEuro = sumPaymentsByType(balanceRows, "euro", "incasare");
@@ -2583,6 +2593,13 @@
         h(SummaryCard, { label: "Cash", value: formatDualAmount(rows, "cash"), hint: "Doar filtrul ales", tone: "tone-amber" }),
         h(SummaryCard, { label: "Transfer", value: formatDualAmount(rows, "transfer"), hint: "Doar filtrul ales", tone: "tone-purple" })
       ),
+      h(
+        "div",
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Plati efectuate", value: formatDualMoney(paidLei, paidEuro), hint: `${outgoingRows.length} inregistrari`, tone: "tone-red" }),
+        h(SummaryCard, { label: "Plati cash", value: formatDualMoney(outgoingCashLei, outgoingCashEuro), hint: "Doar plati cash", tone: "tone-amber" }),
+        h(SummaryCard, { label: "Plati transfer", value: formatDualMoney(outgoingTransferLei, outgoingTransferEuro), hint: "Doar plati prin transfer", tone: "tone-purple" })
+      ),
       uniqueActions.length > 0 &&
         h(
           "div",
@@ -2658,8 +2675,27 @@
                   negative: row.netReceived < 0
                 })
               )
-            )
-          ),
+          )
+        ),
+        h(
+          DetailSection,
+          { title: "Plati efectuate", meta: `${outgoingRows.length} plati / ${formatDualMoney(paidLei, paidEuro)}`, open: true },
+          outgoingRows.length
+            ? h(
+                "ul",
+                { className: "cs-report-list" },
+                outgoingRows.map((payment) =>
+                  h(ReportItem, {
+                    key: payment.id,
+                    title: payerLabel(athletes, payment),
+                    subtitle: formatDate(payment.date) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + (payment.method || "-") + " / operat de " + (payment.updatedByEmail || "-"),
+                    amount: formatPaymentAmount(payment),
+                    negative: true
+                  })
+                )
+              )
+            : h(EmptyReportLine, { text: "Nu exista plati in filtrul ales." })
+        ),
         h(
           DetailSection,
           { title: "Pe categorii", meta: `${categoryTotals.length} categorii`, open: true },
@@ -2784,7 +2820,7 @@
       h(
         "div",
         { className: "cs-report-summary" },
-        h(SummaryCard, { label: "Incasari taxe", value: formatMoney(taxIncome), hint: `${monthlyFees.length} plati`, tone: "tone-green" }),
+        h(SummaryCard, { label: "Incasari taxe", value: formatMoney(taxIncome), hint: `${monthlyFees.length} sportivi cu taxa achitata`, tone: "tone-green" }),
         h(SummaryCard, { label: "Alte incasari", value: formatMoney(otherIncomeLei, "lei"), hint: otherIncomeEuro ? formatMoney(otherIncomeEuro, "euro") : "Doar incasari, fara plati", tone: "tone-blue" }),
         h(SummaryCard, { label: "Plati", value: formatMoney(totalPaymentsLei), hint: "Salarii/chirii + plati/retururi din alte incasari", tone: "tone-red" }),
         h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") : "Incasari - plati", tone: finalBalanceLei < 0 ? "tone-red" : "tone-purple" })
@@ -2803,7 +2839,7 @@
                   h(ReportItem, {
                     key: row.group,
                     title: row.group,
-                    subtitle: `${row.count} plati`,
+                    subtitle: `${row.count} sportivi cu taxa achitata`,
                     amount: formatMoney(row.total)
                   })
                 )
