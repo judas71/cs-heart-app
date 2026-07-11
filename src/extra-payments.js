@@ -2333,8 +2333,8 @@
         h(
         "div",
         { className: "panel compact-grid" },
-        h(Field, { label: "De la" }, h("input", { type: "date", value: dateFrom, onChange: (event) => setDateFrom(event.target.value) })),
-        h(Field, { label: "Pana la" }, h("input", { type: "date", value: dateTo, onChange: (event) => setDateTo(event.target.value) })),
+        h(Field, { label: "De la" }, h("input", { value: formatDate(dateFrom), onChange: (event) => setDateFrom(event.target.value), placeholder: "01.05.2026" })),
+        h(Field, { label: "Pana la" }, h("input", { value: formatDate(dateTo), onChange: (event) => setDateTo(event.target.value), placeholder: "31.07.2026" })),
         h(
           Field,
           { label: "Grupa" },
