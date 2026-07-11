@@ -354,7 +354,7 @@
                 h(
                   "tr",
                   null,
-                  ["Luna", "Datorat", "Platit", "Data platii", "Metoda", "Status", "Operat de", "Modificat la"].map((head) => h("th", { key: head }, head))
+                  ["Luna", "Taxa lunii", "Platit", "Data platii", "Metoda", "Status", "Operat de", "Modificat la"].map((head) => h("th", { key: head }, head))
                 )
               ),
               h(
@@ -365,7 +365,7 @@
                     "tr",
                     { key: fee.id || `${fee.athleteId}-${fee.month}` },
                     h("td", { "data-label": "Luna" }, fee.month || "-"),
-                    h("td", { "data-label": "Datorat" }, formatMoney(fee.amountDue)),
+                    h("td", { "data-label": "Taxa lunii" }, formatMoney(fee.amountDue)),
                     h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(fee.amountPaid))),
                     h("td", { "data-label": "Data platii" }, formatDate(fee.paymentDate)),
                     h("td", { "data-label": "Metoda" }, fee.method || "-"),

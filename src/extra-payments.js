@@ -584,18 +584,9 @@
     return fee && fee.amountDue !== undefined && fee.amountDue !== null && fee.amountDue !== "";
   }
 
-  function getLastKnownFeeBeforeMonth(fees, athleteId, month) {
-    return [...fees]
-      .filter((fee) => fee.athleteId === athleteId && fee.month < month && hasAmountDue(fee))
-      .sort((first, second) => String(second.month || "").localeCompare(String(first.month || "")))[0];
-  }
-
   function getDefaultAmountDue(fees, athlete, month) {
-    const lastKnownFee = getLastKnownFeeBeforeMonth(fees, athlete.id, month);
-    const lastKnownDue = hasAmountDue(lastKnownFee) ? Number(lastKnownFee.amountDue) : null;
     const normalDue = athlete.feeDue !== undefined && athlete.feeDue !== null && athlete.feeDue !== "" ? Number(athlete.feeDue) : 200;
 
-    if (lastKnownDue === 0) return 0;
     return normalDue;
   }
 
@@ -1643,7 +1634,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Sportiv", "Status", "Datorat", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Observatii"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Observatii"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -1671,7 +1662,7 @@
                   { "data-label": "Status" },
                   h("span", { className: "pill " + getFeeStatusTone(automaticStatus) }, automaticStatus)
                 ),
-                h("td", { "data-label": "Datorat" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
+                h("td", { "data-label": "Taxa lunii" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
                 h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
                 h("td", { "data-label": "Total" }, h("strong", null, formatMoney(totalToPay)), creditAfterMonth > 0 && h("small", null, "Avans ramas: " + formatMoney(creditAfterMonth))),
                 h("td", { "data-label": "Platit" }, h("input", { type: "number", min: "0", value: Number(fee.amountPaid || 0) === 0 ? "" : fee.amountPaid, onChange: (event) => updateFee(athlete.id, "amountPaid", event.target.value === "" ? 0 : Number(event.target.value)) })),
