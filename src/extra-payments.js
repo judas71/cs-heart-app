@@ -407,6 +407,33 @@
     return Boolean(itemMonth) && itemMonth <= month;
   }
 
+  function getMonthEndDate(month) {
+    const parts = String(month || currentMonth()).split("-").map(Number);
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return today();
+
+    return new Date(Date.UTC(parts[0], parts[1], 0)).toISOString().slice(0, 10);
+  }
+
+  function dateRangeBounds(startDate, endDate) {
+    const start = normalizeDateInput(startDate);
+    const end = normalizeDateInput(endDate);
+    if (start && end && start > end) return { start: end, end: start };
+    return { start, end };
+  }
+
+  function isDateInRange(value, startDate, endDate) {
+    const date = normalizeDateInput(value);
+    if (!date) return false;
+    if (startDate && date < startDate) return false;
+    if (endDate && date > endDate) return false;
+    return true;
+  }
+
+  function isSameOrBeforeDate(value, endDate) {
+    const date = normalizeDateInput(value);
+    return Boolean(date && endDate && date <= endDate);
+  }
+
   function today() {
     return new Date().toISOString().slice(0, 10);
   }
@@ -1616,7 +1643,9 @@
   }
 
   function OtherPaymentsView({ athletes, otherPayments = [], otherActions = [], onSavePayment, onDeletePayment, onSaveAction, onDeleteAction }) {
-    const [month, setMonth] = React.useState(currentMonth());
+    const initialMonth = currentMonth();
+    const [dateFrom, setDateFrom] = React.useState(initialMonth + "-01");
+    const [dateTo, setDateTo] = React.useState(getMonthEndDate(initialMonth));
     const [group, setGroup] = React.useState("toate");
     const [category, setCategory] = React.useState("toate");
     const [typeFilter, setTypeFilter] = React.useState("toate");
@@ -1691,8 +1720,11 @@
       }
     }, [uniqueActions, selectedActionId]);
 
+    const period = dateRangeBounds(dateFrom, dateTo);
+    const periodEndForBalance = period.end || period.start || today();
+    const periodLabel = (period.start ? formatDate(period.start) : "inceput") + " - " + (period.end ? formatDate(period.end) : "azi");
     const filteredPayments = otherPayments
-      .filter((payment) => getMonth(payment.date) === month)
+      .filter((payment) => isDateInRange(payment.date, period.start, period.end))
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
@@ -1718,7 +1750,7 @@
       .sort(comparePaymentsByPayer(athletes));
 
     const balancePayments = otherPayments
-      .filter((payment) => isSameOrBeforeMonth(payment.date, month))
+      .filter((payment) => isSameOrBeforeDate(payment.date, periodEndForBalance))
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
@@ -2301,7 +2333,8 @@
         h(
         "div",
         { className: "panel compact-grid" },
-        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) })),
+        h(Field, { label: "De la" }, h("input", { type: "date", value: dateFrom, onChange: (event) => setDateFrom(event.target.value) })),
+        h(Field, { label: "Pana la" }, h("input", { type: "date", value: dateTo, onChange: (event) => setDateTo(event.target.value) })),
         h(
           Field,
           { label: "Grupa" },
@@ -2356,9 +2389,9 @@
         h(
         "div",
         { className: "metrics" },
-        h("div", null, h("span", null, "Sold lei pana la luna"), h("strong", null, formatMoney(balanceLei, "lei")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedLei, "lei") + " / Platit total = " + formatMoney(balancePaidLei, "lei"))),
-        h("div", null, h("span", null, "Sold euro pana la luna"), h("strong", null, formatMoney(balanceEuro, "euro")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedEuro, "euro") + " / Platit total = " + formatMoney(balancePaidEuro, "euro"))),
-        h("div", null, h("span", null, "Perioada sold"), h("strong", null, "Pana in " + month), h("small", null, "Respecta filtrele de grupa, categorie, moneda si cautare. Tipul nu limiteaza soldul."))
+        h("div", null, h("span", null, "Sold lei pana la data"), h("strong", null, formatMoney(balanceLei, "lei")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedLei, "lei") + " / Platit total = " + formatMoney(balancePaidLei, "lei"))),
+        h("div", null, h("span", null, "Sold euro pana la data"), h("strong", null, formatMoney(balanceEuro, "euro")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedEuro, "euro") + " / Platit total = " + formatMoney(balancePaidEuro, "euro"))),
+        h("div", null, h("span", null, "Perioada cautare"), h("strong", null, periodLabel), h("small", null, "Soldul este calculat pana la data finala si respecta filtrele alese."))
       ),
       workMode === "lista" &&
         h(
@@ -2401,7 +2434,7 @@
       ),
       workMode === "lista" &&
         !filteredPayments.length &&
-        h(EmptyState, { title: "Nu exista alte incasari in filtrul curent.", text: "Adauga o incasare sau schimba luna, grupa ori categoria." })
+        h(EmptyState, { title: "Nu exista alte incasari in filtrul curent.", text: "Adauga o incasare sau schimba intervalul, grupa ori categoria." })
     );
   }
 
