@@ -592,7 +592,11 @@
 
   function getDefaultAmountDue(fees, athlete, month) {
     const lastKnownFee = getLastKnownFeeBeforeMonth(fees, athlete.id, month);
-    return Number(lastKnownFee?.amountDue ?? athlete.feeDue ?? 200);
+    const lastKnownDue = hasAmountDue(lastKnownFee) ? Number(lastKnownFee.amountDue) : null;
+    const normalDue = athlete.feeDue !== undefined && athlete.feeDue !== null && athlete.feeDue !== "" ? Number(athlete.feeDue) : 200;
+
+    if (lastKnownDue === 0) return 0;
+    return normalDue;
   }
 
   function getMonthlyDue(athlete, fee, fees, month) {
