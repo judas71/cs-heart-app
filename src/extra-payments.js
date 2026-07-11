@@ -2821,16 +2821,32 @@
     const monthlyFees = fees.filter((fee) => fee.month === month && Number(fee.amountPaid || 0) > 0);
     const monthlyOtherPayments = (otherPayments || []).filter((payment) => getMonth(payment.date) === month);
     const monthlyTaxPayments = (taxPayments || []).filter((payment) => payment.month === month);
+    const previousFees = fees.filter((fee) => fee.month && fee.month < month && Number(fee.amountPaid || 0) > 0);
+    const previousOtherPayments = (otherPayments || []).filter((payment) => {
+      const paymentMonth = getMonth(payment.date);
+      return Boolean(paymentMonth && paymentMonth < month);
+    });
+    const previousTaxPayments = (taxPayments || []).filter((payment) => payment.month && payment.month < month);
     const taxIncome = monthlyFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const taxPaymentsTotal = monthlyTaxPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const otherIncomeLei = sumPaymentsByType(monthlyOtherPayments, "lei", "incasare");
     const otherIncomeEuro = sumPaymentsByType(monthlyOtherPayments, "euro", "incasare");
     const otherOutgoingLei = sumOutgoingPayments(monthlyOtherPayments, "lei");
     const otherOutgoingEuro = sumOutgoingPayments(monthlyOtherPayments, "euro");
+    const previousTaxIncome = previousFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const previousTaxPaymentsTotal = previousTaxPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const previousOtherIncomeLei = sumPaymentsByType(previousOtherPayments, "lei", "incasare");
+    const previousOtherIncomeEuro = sumPaymentsByType(previousOtherPayments, "euro", "incasare");
+    const previousOtherOutgoingLei = sumOutgoingPayments(previousOtherPayments, "lei");
+    const previousOtherOutgoingEuro = sumOutgoingPayments(previousOtherPayments, "euro");
     const totalIncomeLei = taxIncome + otherIncomeLei;
     const totalPaymentsLei = taxPaymentsTotal + otherOutgoingLei;
-    const finalBalanceLei = totalIncomeLei - totalPaymentsLei;
-    const finalBalanceEuro = otherIncomeEuro - otherOutgoingEuro;
+    const monthBalanceLei = totalIncomeLei - totalPaymentsLei;
+    const monthBalanceEuro = otherIncomeEuro - otherOutgoingEuro;
+    const previousBalanceLei = previousTaxIncome + previousOtherIncomeLei - previousTaxPaymentsTotal - previousOtherOutgoingLei;
+    const previousBalanceEuro = previousOtherIncomeEuro - previousOtherOutgoingEuro;
+    const finalBalanceLei = previousBalanceLei + monthBalanceLei;
+    const finalBalanceEuro = previousBalanceEuro + monthBalanceEuro;
     const groupTotals = [...monthlyFees.reduce((map, fee) => {
       const athlete = findAthlete(athletes, fee.athleteId);
       const group = athlete?.group || "Fara grupa";
@@ -2880,7 +2896,8 @@
         h(SummaryCard, { label: "Incasari taxe", value: formatMoney(taxIncome), hint: `${monthlyFees.length} sportivi cu taxa achitata`, tone: "tone-green" }),
         h(SummaryCard, { label: "Alte incasari", value: formatMoney(otherIncomeLei, "lei"), hint: otherIncomeEuro ? formatMoney(otherIncomeEuro, "euro") : "Doar incasari, fara plati", tone: "tone-blue" }),
         h(SummaryCard, { label: "Plati", value: formatMoney(totalPaymentsLei), hint: "Salarii/chirii + plati/retururi din alte incasari", tone: "tone-red" }),
-        h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") : "Incasari - plati", tone: finalBalanceLei < 0 ? "tone-red" : "tone-purple" })
+        h(SummaryCard, { label: "Sold anterior", value: formatMoney(previousBalanceLei), hint: previousBalanceEuro ? "Euro: " + formatMoney(previousBalanceEuro, "euro") : "Pana inainte de luna aleasa", tone: previousBalanceLei < 0 ? "tone-red" : "tone-amber" }),
+        h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: (finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") + " / " : "") + "Luna curenta: " + formatMoney(monthBalanceLei), tone: finalBalanceLei < 0 ? "tone-red" : "tone-purple" })
       ),
       h(
         "div",
