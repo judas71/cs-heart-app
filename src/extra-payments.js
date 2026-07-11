@@ -565,6 +565,17 @@
     return months;
   }
 
+  function getFirstKnownFeeMonthBefore(fees, athleteId, month) {
+    return [...fees]
+      .filter((fee) => fee.athleteId === athleteId && fee.month && fee.month < month)
+      .map((fee) => fee.month)
+      .sort((first, second) => String(first || "").localeCompare(String(second || "")))[0];
+  }
+
+  function getFeeBalanceStartMonth(fees, athlete, month) {
+    return athlete.joinMonth || getFirstKnownFeeMonthBefore(fees, athlete.id, month) || month;
+  }
+
   function getFeeForMonth(fees, athleteId, month) {
     return fees.find((fee) => fee.athleteId === athleteId && fee.month === month);
   }
@@ -589,7 +600,7 @@
   }
 
   function getPreviousBalance(fees, athlete, month) {
-    return getMonthRange(athlete.joinMonth, month).reduce((balance, itemMonth) => {
+    return getMonthRange(getFeeBalanceStartMonth(fees, athlete, month), month).reduce((balance, itemMonth) => {
       const fee = getFeeForMonth(fees, athlete.id, itemMonth);
       const due = getMonthlyDue(athlete, fee, fees, itemMonth);
       const paid = Number(fee?.amountPaid || 0);
@@ -1346,6 +1357,16 @@
 
   function EmptyReportLine({ text }) {
     return h("p", { className: "cs-report-empty" }, text);
+  }
+
+  function feeBalanceDetails(row) {
+    const previousText = row.previousBalance > 0
+      ? "Rest anterior: " + formatMoney(row.previousBalance)
+      : row.previousBalance < 0
+        ? "Avans anterior: " + formatMoney(Math.abs(row.previousBalance))
+        : "Fara rest anterior";
+
+    return previousText + " / Taxa luna: " + formatMoney(row.amountDue) + " / Platit: " + formatMoney(row.amountPaid);
   }
 
   function BalanceCell({ previousBalance }) {
@@ -3000,19 +3021,25 @@
       .map((athlete) => {
         const fee = getFeeForMonth(fees, athlete.id, month);
         const previousBalance = getPreviousBalance(fees, athlete, month);
-        const outstanding = getOutstandingAmount(fee, previousBalance, getDefaultAmountDue(fees, athlete, month));
+        const fallbackDue = getDefaultAmountDue(fees, athlete, month);
+        const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+        const amountPaid = Number(fee?.amountPaid || 0);
+        const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
 
-        return { athlete, outstanding };
+        return { athlete, outstanding, previousBalance, amountDue, amountPaid };
       })
       .filter((row) => row.outstanding > 0);
     const creditRows = athletesInFilter
       .map((athlete) => {
         const fee = getFeeForMonth(fees, athlete.id, month);
         const previousBalance = getPreviousBalance(fees, athlete, month);
-        const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, getDefaultAmountDue(fees, athlete, month));
+        const fallbackDue = getDefaultAmountDue(fees, athlete, month);
+        const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+        const amountPaid = Number(fee?.amountPaid || 0);
+        const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
         const credit = Math.max(-balanceAfterMonth, 0);
 
-        return { athlete, credit };
+        return { athlete, credit, previousBalance, amountDue, amountPaid };
       })
       .filter((row) => row.credit > 0);
     const collectedFees = fees.filter(
@@ -3082,11 +3109,12 @@
               ? h(
                   "ul",
                   { className: "cs-report-list" },
-                  debtorRows.map(({ athlete, outstanding }) =>
+                  debtorRows.map((row) =>
                     h(ReportItem, {
-                      key: athlete.id,
-                      title: athleteName(athlete),
-                      amount: formatMoney(outstanding)
+                      key: row.athlete.id,
+                      title: athleteName(row.athlete),
+                      subtitle: feeBalanceDetails(row),
+                      amount: formatMoney(row.outstanding)
                     })
                   )
                 )
@@ -3100,11 +3128,12 @@
               ? h(
                   "ul",
                   { className: "cs-report-list" },
-                  creditRows.map(({ athlete, credit }) =>
+                  creditRows.map((row) =>
                     h(ReportItem, {
-                      key: athlete.id,
-                      title: athleteName(athlete),
-                      amount: formatMoney(credit)
+                      key: row.athlete.id,
+                      title: athleteName(row.athlete),
+                      subtitle: feeBalanceDetails(row),
+                      amount: formatMoney(row.credit)
                     })
                   )
                 )
