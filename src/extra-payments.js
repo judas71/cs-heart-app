@@ -117,11 +117,43 @@
         display: grid;
         gap: 8px;
       }
+      .cs-report-item.expandable {
+        padding: 0;
+      }
+      .cs-report-item.expandable details {
+        padding: 10px 12px;
+      }
+      .cs-report-item.expandable summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      .cs-report-item.expandable summary::-webkit-details-marker {
+        display: none;
+      }
       .cs-report-item-main {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         gap: 12px;
+      }
+      .cs-report-item.expandable .cs-report-item-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 24px;
+        align-items: center;
+      }
+      .cs-report-item.expandable .cs-report-item-main::after {
+        content: "+";
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: #eef3f6;
+        color: #172026;
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+      }
+      .cs-report-item.expandable details[open] .cs-report-item-main::after {
+        content: "-";
       }
       .cs-report-item-title {
         color: var(--text, #172026);
@@ -146,6 +178,10 @@
         flex-wrap: wrap;
         gap: 5px 10px;
         line-height: 1.5;
+      }
+      .cs-report-item.expandable .cs-report-item-extra {
+        display: grid;
+        margin-top: 10px;
       }
       .cs-report-empty {
         margin: 0;
@@ -1287,6 +1323,24 @@
         amount && h("strong", { className: `cs-report-amount ${negative ? "negative" : ""}` }, amount)
       ),
       children && h("div", { className: "cs-report-item-extra" }, children)
+    );
+  }
+
+  function ExpandableReportItem({ title, subtitle, amount, children }) {
+    return h(
+      "li",
+      { className: "cs-report-item expandable" },
+      h(
+        "details",
+        null,
+        h(
+          "summary",
+          { className: "cs-report-item-main" },
+          h("span", { className: "cs-report-item-title" }, title, subtitle && h("small", null, subtitle)),
+          amount && h("strong", { className: "cs-report-amount" }, amount)
+        ),
+        children && h("div", { className: "cs-report-item-extra" }, children)
+      )
     );
   }
 
@@ -2780,13 +2834,16 @@
     const groupTotals = [...monthlyFees.reduce((map, fee) => {
       const athlete = findAthlete(athletes, fee.athleteId);
       const group = athlete?.group || "Fara grupa";
-      const current = map.get(group) || { group, count: 0, total: 0 };
+      const current = map.get(group) || { group, count: 0, total: 0, rows: [] };
 
       current.count += 1;
       current.total += Number(fee.amountPaid || 0);
+      current.rows.push({ athlete, fee });
       map.set(group, current);
       return map;
-    }, new Map()).values()].sort((first, second) => compareText(first.group, second.group));
+    }, new Map()).values()]
+      .map((row) => ({ ...row, rows: row.rows.sort((first, second) => compareText(first.athlete ? athleteName(first.athlete) : "Sportiv necunoscut", second.athlete ? athleteName(second.athlete) : "Sportiv necunoscut")) }))
+      .sort((first, second) => compareText(first.group, second.group));
     const otherCategoryTotals = [...monthlyOtherPayments
       .filter((payment) => paymentType(payment) === "incasare")
       .reduce((map, payment) => {
@@ -2836,12 +2893,27 @@
                 "ul",
                 { className: "cs-report-list" },
                 groupTotals.map((row) =>
-                  h(ReportItem, {
-                    key: row.group,
-                    title: row.group,
-                    subtitle: `${row.count} sportivi cu taxa achitata`,
-                    amount: formatMoney(row.total)
-                  })
+                  h(
+                    ExpandableReportItem,
+                    {
+                      key: row.group,
+                      title: row.group,
+                      subtitle: `${row.count} sportivi cu taxa achitata`,
+                      amount: formatMoney(row.total)
+                    },
+                    h(
+                      "ul",
+                      { className: "cs-report-list" },
+                      row.rows.map(({ athlete, fee }) =>
+                        h(ReportItem, {
+                          key: fee.id || `${row.group}-${fee.athleteId}-${fee.month}-${fee.amountPaid}-${fee.method}`,
+                          title: athlete ? athleteName(athlete) : "Sportiv necunoscut",
+                          subtitle: (fee.paymentDate ? "Data platii: " + formatDate(fee.paymentDate) : "Fara data de plata") + (fee.method ? " / " + fee.method : ""),
+                          amount: formatMoney(fee.amountPaid)
+                        })
+                      )
+                    )
+                  )
                 )
               )
             : h(EmptyReportLine, { text: "Nu exista taxe incasate in luna aleasa." })
