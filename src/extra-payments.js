@@ -421,6 +421,11 @@
     return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
   }
 
+  function formatMonthLabel(value) {
+    const parts = String(value || "").split("-");
+    return parts.length === 2 ? `${parts[1]}.${parts[0]}` : value || "-";
+  }
+
   function normalizeDateInput(value) {
     const text = String(value || "").trim();
     const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -716,6 +721,56 @@
     ];
   }
 
+  function getTaxFeeReceiptRows(athlete, fee, previousBalance, fallbackDue) {
+    const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+    const amountPaid = Number(fee?.amountPaid || 0);
+    const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
+    const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+    const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
+    const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
+    const previousText = previousBalance > 0
+      ? formatMoney(previousBalance)
+      : previousBalance < 0
+        ? "Avans " + formatMoney(Math.abs(previousBalance))
+        : "0 lei";
+
+    return [
+      ["Data platii", formatDate(fee.paymentDate || today())],
+      ["Sportiv", athleteName(athlete)],
+      ["Grupa", athlete.group || "-"],
+      ["Luna", formatMonthLabel(fee.month)],
+      ["Taxa lunii", formatMoney(amountDue)],
+      ["Rest/avans anterior", previousText],
+      ["Total calculat", formatMoney(totalToPay)],
+      ["Suma", formatMoney(amountPaid)],
+      ["Rest ramas", creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding)],
+      ["Metoda", fee.method || "-"],
+      ["Operat de", operatorLabel(fee.updatedByEmail || fee.updatedBy)],
+      ["Observatii", fee.notes || "-"]
+    ];
+  }
+
+  function taxFeeReceiptMessage(athlete, fee, previousBalance, fallbackDue) {
+    const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
+    const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
+    const remainingText = creditAfterMonth > 0
+      ? "Avans " + formatMoney(creditAfterMonth)
+      : formatMoney(getOutstandingAmount(fee, previousBalance, fallbackDue));
+
+    return [
+      "CS HEART - Confirmare plata taxa",
+      "Sportiv: " + athleteName(athlete),
+      "Grupa: " + (athlete.group || "-"),
+      "Luna: " + formatMonthLabel(fee.month),
+      "Data platii: " + formatDate(fee.paymentDate || today()),
+      "Suma achitata: " + formatMoney(fee.amountPaid),
+      "Metoda: " + (fee.method || "-"),
+      "Rest ramas: " + remainingText,
+      "Operat de: " + operatorLabel(fee.updatedByEmail || fee.updatedBy),
+      "Confirmare generata din aplicatia CS HEART."
+    ].join("\n");
+  }
+
   function printPaymentReceipt(athletes, payment) {
     const receiptWindow = window.open("", "_blank", "width=720,height=900");
 
@@ -795,6 +850,74 @@
     setTimeout(() => receiptWindow.print(), 250);
   }
 
+  function printTaxFeeReceipt(athlete, fee, previousBalance, fallbackDue) {
+    const receiptWindow = window.open("", "_blank", "width=720,height=900");
+
+    if (!receiptWindow) {
+      alert("Browserul a blocat fereastra de imprimare.");
+      return;
+    }
+
+    const rows = getTaxFeeReceiptRows(athlete, fee, previousBalance, fallbackDue);
+
+    receiptWindow.document.write(`<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8">
+    <title>CS HEART - Confirmare plata taxa</title>
+    <style>
+      * { box-sizing: border-box; }
+      @page { size: A4; margin: 8mm 10mm; }
+      body { margin: 0; color: #172026; font-family: Arial, sans-serif; background: #f4f6f8; }
+      .page { width: min(680px, 100%); margin: 0 auto; padding: 14px 24px; }
+      .receipt { background: #fff; border: 1px solid #d9e0e5; border-radius: 8px; padding: 18px 20px; }
+      .top { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #172026; padding-bottom: 10px; margin-bottom: 12px; }
+      .brand-wrap { display: flex; align-items: center; gap: 10px; }
+      .logo { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; background: #fff; }
+      .brand { font-size: 18px; font-weight: 800; letter-spacing: 0; }
+      .title { margin-top: 3px; color: #66727a; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid #e5eaee; vertical-align: top; }
+      th { width: 34%; color: #66727a; font-size: 11px; text-transform: uppercase; }
+      td { font-size: 14px; font-weight: 700; }
+      .amount td { font-size: 17px; color: #c5162e; }
+      .note { margin-top: 12px; color: #66727a; font-size: 10px; line-height: 1.35; }
+      @media print {
+        body { background: #fff; }
+        .page { width: 100%; padding: 0; }
+        .receipt { break-inside: avoid; page-break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="receipt">
+        <div class="top">
+          <div class="brand-wrap">
+            <img class="logo" src="./icon.png" alt="CS HEART" onerror="this.style.display='none'">
+            <div>
+              <div class="brand">CS HEART</div>
+              <div class="title">Confirmare plata taxa</div>
+            </div>
+          </div>
+        </div>
+        <table>
+          <tbody>
+            ${rows
+              .map(([label, value]) => `<tr class="${label === "Suma" ? "amount" : ""}"><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`)
+              .join("")}
+          </tbody>
+        </table>
+        <p class="note">Confirmare pentru evidenta interna a cotizatiei CS HEART, generata la solicitarea platitorului.</p>
+      </section>
+    </main>
+  </body>
+</html>`);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+    setTimeout(() => receiptWindow.print(), 250);
+  }
+
   function ReceiptPreview({ athletes, payment, onClose, onPrint }) {
     if (!payment) return null;
 
@@ -863,6 +986,69 @@
               h("div", { className: "cs-receipt-line" }, "Semnatura primitor")
             )
           )
+        )
+      )
+    );
+  }
+
+  function TaxFeeReceiptPreview({ data, onClose, onPrint, onShare }) {
+    if (!data) return null;
+
+    const { athlete, fee, previousBalance, fallbackDue } = data;
+    const rows = getTaxFeeReceiptRows(athlete, fee, previousBalance, fallbackDue);
+    const confirmationCount = Number(fee.confirmationCount || 0);
+
+    return h(
+      "div",
+      { className: "cs-print-overlay" },
+      h(
+        "div",
+        { className: "cs-print-dialog" },
+        h(
+          "div",
+          { className: "cs-print-actions" },
+          h("strong", null, "Previzualizare confirmare taxa"),
+          h(
+            "div",
+            { className: "row-actions" },
+            h("button", { className: "primary", type: "button", onClick: onShare }, "Distribuie / copiaza"),
+            h("button", { type: "button", onClick: onPrint }, "Tipareste"),
+            h("button", { type: "button", onClick: onClose }, "Inchide")
+          )
+        ),
+        confirmationCount > 0 &&
+          h(
+            "div",
+            { className: "cs-print-warning" },
+            "Atentie: aceasta confirmare a mai fost generata",
+            confirmationCount ? " (" + confirmationCount + " ori)" : "",
+            "."
+          ),
+        h(
+          "section",
+          { className: "cs-receipt-preview" },
+          h(
+            "div",
+            { className: "cs-receipt-top" },
+            h(
+              "div",
+              { className: "cs-receipt-brand-wrap" },
+              h("img", { className: "cs-receipt-logo", src: "./icon.png", alt: "CS HEART", onError: (event) => { event.currentTarget.style.display = "none"; } }),
+              h("div", null, h("div", { className: "cs-receipt-brand" }, "CS HEART"), h("div", { className: "cs-receipt-title" }, "Confirmare plata taxa"))
+            )
+          ),
+          h(
+            "table",
+            { className: "cs-receipt-table" },
+            h(
+              "tbody",
+              null,
+              rows.map(([label, value]) =>
+                h("tr", { key: label, className: label === "Suma" ? "amount" : "" }, h("th", null, label), h("td", null, value))
+              )
+            )
+          ),
+          h("p", { className: "cs-receipt-note" }, "Confirmare pentru evidenta interna a cotizatiei CS HEART, generata la solicitarea platitorului.")
         )
       )
     );
@@ -1413,6 +1599,7 @@
     const [group, setGroup] = React.useState("toate");
     const [showTaxPaymentForm, setShowTaxPaymentForm] = React.useState(false);
     const [taxPaymentForm, setTaxPaymentForm] = React.useState(() => emptyTaxPaymentForm(monthNow));
+    const [taxReceiptPreview, setTaxReceiptPreview] = React.useState(null);
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!athlete.active) return false;
@@ -1500,6 +1687,51 @@
         notes: payment.notes || ""
       });
       setShowTaxPaymentForm(true);
+    }
+
+    function openTaxReceipt(athlete, fee, previousBalance, fallbackDue) {
+      if (Number(fee.amountPaid || 0) <= 0) return;
+      setTaxReceiptPreview({ athlete, fee, previousBalance, fallbackDue });
+    }
+
+    function markTaxReceiptGenerated(fee) {
+      const markedFee = {
+        ...fee,
+        confirmationCount: Number(fee.confirmationCount || 0) + 1,
+        confirmationGeneratedAt: new Date().toISOString()
+      };
+
+      onSaveFee(markedFee);
+      setTaxReceiptPreview((current) => current ? { ...current, fee: markedFee } : current);
+      return markedFee;
+    }
+
+    function printTaxReceipt() {
+      if (!taxReceiptPreview) return;
+      const markedFee = markTaxReceiptGenerated(taxReceiptPreview.fee);
+      printTaxFeeReceipt(taxReceiptPreview.athlete, markedFee, taxReceiptPreview.previousBalance, taxReceiptPreview.fallbackDue);
+    }
+
+    async function shareTaxReceipt() {
+      if (!taxReceiptPreview) return;
+
+      const message = taxFeeReceiptMessage(taxReceiptPreview.athlete, taxReceiptPreview.fee, taxReceiptPreview.previousBalance, taxReceiptPreview.fallbackDue);
+
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "CS HEART - Confirmare plata taxa", text: message });
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(message);
+          alert("Textul confirmarii a fost copiat. Il poti lipi in WhatsApp.");
+        } else {
+          window.prompt("Copiaza mesajul pentru WhatsApp:", message);
+        }
+        markTaxReceiptGenerated(taxReceiptPreview.fee);
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          alert("Nu am putut distribui confirmarea. Incearca din nou sau foloseste Tipareste.");
+        }
+      }
     }
 
     const monthlyOutstanding = listedAthletes.reduce((sum, athlete) => {
@@ -1644,7 +1876,7 @@
         h(
           "table",
           null,
-            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Observatii"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Observatii", "Confirmare"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -1686,12 +1918,29 @@
                     paymentMethods.map((method) => h("option", { key: method, value: method }, method))
                   )
                 ),
-                h("td", { "data-label": "Observatii" }, h("input", { value: fee.notes, onChange: (event) => updateFee(athlete.id, "notes", event.target.value), placeholder: "Optional" }))
+                h("td", { "data-label": "Observatii" }, h("input", { value: fee.notes, onChange: (event) => updateFee(athlete.id, "notes", event.target.value), placeholder: "Optional" })),
+                h(
+                  "td",
+                  { "data-label": "Confirmare", className: "row-actions" },
+                  Number(fee.amountPaid || 0) > 0 &&
+                    h(
+                      "button",
+                      { type: "button", onClick: () => openTaxReceipt(athlete, fee, previousBalance, fallbackDue) },
+                      Number(fee.confirmationCount || 0) > 0 ? "Retrimite" : "Confirmare"
+                    )
+                )
               );
             })
           )
         )
-      )
+      ),
+      taxReceiptPreview &&
+        h(TaxFeeReceiptPreview, {
+          data: taxReceiptPreview,
+          onClose: () => setTaxReceiptPreview(null),
+          onPrint: printTaxReceipt,
+          onShare: shareTaxReceipt
+        })
     );
   }
 
