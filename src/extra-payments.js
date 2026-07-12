@@ -771,6 +771,18 @@
     ].join("\n");
   }
 
+  function taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue) {
+    const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+
+    return [
+      "CS HEART - Reamintire taxă",
+      "Bună ziua!",
+      "Vă reamintesc că pentru " + athleteName(athlete) + ", luna " + formatMonthLabel(fee.month) + ", figurează de achitat suma de " + formatMoney(outstanding) + ".",
+      "Mulțumesc!",
+      "CS HEART"
+    ].join("\n");
+  }
+
   function printPaymentReceipt(athletes, payment) {
     const receiptWindow = window.open("", "_blank", "width=720,height=900");
 
@@ -1706,6 +1718,17 @@
       return markedFee;
     }
 
+    function markTaxReminderGenerated(fee) {
+      const markedFee = {
+        ...fee,
+        reminderCount: Number(fee.reminderCount || 0) + 1,
+        reminderGeneratedAt: new Date().toISOString()
+      };
+
+      onSaveFee(markedFee);
+      return markedFee;
+    }
+
     function printTaxReceipt() {
       if (!taxReceiptPreview) return;
       const markedFee = markTaxReceiptGenerated(taxReceiptPreview.fee);
@@ -1730,6 +1753,26 @@
       } catch (error) {
         if (error?.name !== "AbortError") {
           alert("Nu am putut distribui confirmarea. Incearca din nou sau foloseste Tipareste.");
+        }
+      }
+    }
+
+    async function shareTaxReminder(athlete, fee, previousBalance, fallbackDue) {
+      const message = taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue);
+
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "CS HEART - Reamintire taxă", text: message });
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(message);
+          alert("Textul reamintirii a fost copiat. Il poti lipi in WhatsApp.");
+        } else {
+          window.prompt("Copiaza mesajul pentru WhatsApp:", message);
+        }
+        markTaxReminderGenerated(fee);
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          alert("Nu am putut distribui reamintirea. Incearca din nou.");
         }
       }
     }
@@ -1876,7 +1919,7 @@
         h(
           "table",
           null,
-            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Confirmare"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Mesaj"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -1920,13 +1963,19 @@
                 ),
                 h(
                   "td",
-                  { "data-label": "Confirmare", className: "row-actions" },
-                  Number(fee.amountPaid || 0) > 0 &&
-                    h(
-                      "button",
-                      { type: "button", onClick: () => openTaxReceipt(athlete, fee, previousBalance, fallbackDue) },
-                      Number(fee.confirmationCount || 0) > 0 ? "Retrimite" : "Confirmare"
-                    )
+                  { "data-label": "Mesaj", className: "row-actions" },
+                  Number(fee.amountPaid || 0) > 0
+                    ? h(
+                        "button",
+                        { type: "button", onClick: () => openTaxReceipt(athlete, fee, previousBalance, fallbackDue) },
+                        Number(fee.confirmationCount || 0) > 0 ? "Retrimite" : "Confirmare"
+                      )
+                    : outstanding > 0 &&
+                      h(
+                        "button",
+                        { type: "button", onClick: () => shareTaxReminder(athlete, fee, previousBalance, fallbackDue) },
+                        Number(fee.reminderCount || 0) > 0 ? "Reamintește" : "Amintește"
+                      )
                 )
               );
             })
