@@ -3354,8 +3354,79 @@
     );
   }
 
+  function PaymentsMadeReport({ athletes = [], otherPayments = [], taxPayments = [], dateFrom, dateTo }) {
+    const period = dateRangeBounds(dateFrom, dateTo);
+    const taxRows = (taxPayments || [])
+      .map((payment) => ({
+        id: "tax-" + (payment.id || payment.date || payment.month),
+        date: payment.date || getMonthEndDate(payment.month),
+        source: "Taxe",
+        title: taxPaymentTypeLabel(payment.paymentType || "-"),
+        subtitle: "Taxe / " + (payment.method || "-") + " / " + (payment.notes || "-") + " / operat de " + (payment.updatedByEmail || "-"),
+        amount: Number(payment.amount || 0),
+        currency: "lei",
+        method: payment.method || "-"
+      }))
+      .filter((row) => isDateInRange(row.date, period.start, period.end));
+    const otherRows = (otherPayments || [])
+      .filter(isOutgoingPayment)
+      .filter((payment) => isDateInRange(payment.date, period.start, period.end))
+      .map((payment) => ({
+        id: "other-" + (payment.id || payment.date || payment.amount),
+        date: payment.date,
+        source: "Alte incasari",
+        title: payerLabel(athletes, payment),
+        subtitle: "Alte incasari / " + paymentTypeLabel(payment) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + (payment.method || "-") + " / operat de " + (payment.updatedByEmail || "-"),
+        amount: Number(payment.amount || 0),
+        currency: paymentCurrency(payment),
+        method: payment.method || "-"
+      }));
+    const rows = [...taxRows, ...otherRows].sort(sortByDateDesc);
+    const paidLei = rows.filter((row) => row.currency === "lei").reduce((sum, row) => sum + row.amount, 0);
+    const paidEuro = rows.filter((row) => row.currency === "euro").reduce((sum, row) => sum + row.amount, 0);
+    const cashLei = rows.filter((row) => row.currency === "lei" && row.method === "cash").reduce((sum, row) => sum + row.amount, 0);
+    const cashEuro = rows.filter((row) => row.currency === "euro" && row.method === "cash").reduce((sum, row) => sum + row.amount, 0);
+    const transferLei = rows.filter((row) => row.currency === "lei" && row.method === "transfer").reduce((sum, row) => sum + row.amount, 0);
+    const transferEuro = rows.filter((row) => row.currency === "euro" && row.method === "transfer").reduce((sum, row) => sum + row.amount, 0);
+
+    return h(
+      "section",
+      { className: "stack" },
+      h("h2", null, "Plati efectuate"),
+      h(
+        "div",
+        { className: "cs-report-summary" },
+        h(SummaryCard, { label: "Total plati", value: formatDualMoney(paidLei, paidEuro), hint: `${rows.length} inregistrari`, tone: "tone-red" }),
+        h(SummaryCard, { label: "Cash", value: formatDualMoney(cashLei, cashEuro), hint: "Plati cash in interval", tone: "tone-amber" }),
+        h(SummaryCard, { label: "Transfer", value: formatDualMoney(transferLei, transferEuro), hint: "Plati prin transfer in interval", tone: "tone-purple" })
+      ),
+      h(
+        DetailSection,
+        { title: "Lista platilor", meta: `${rows.length} plati / ${formatDualMoney(paidLei, paidEuro)}`, open: true },
+        rows.length
+          ? h(
+              "ul",
+              { className: "cs-report-list" },
+              rows.map((row) =>
+                h(ReportItem, {
+                  key: row.id,
+                  title: row.title,
+                  subtitle: formatDate(row.date) + " / " + row.source + " / " + row.subtitle,
+                  amount: "- " + formatMoney(row.amount, row.currency),
+                  negative: true
+                })
+              )
+            )
+          : h(EmptyReportLine, { text: "Nu exista plati in intervalul ales." })
+      )
+    );
+  }
+
   function ReportsView(props) {
     const [section, setSection] = React.useState("balanta");
+    const initialMonth = currentMonth();
+    const [paymentDateFrom, setPaymentDateFrom] = React.useState(initialMonth + "-01");
+    const [paymentDateTo, setPaymentDateTo] = React.useState(today());
 
     return h(
       "div",
@@ -3374,15 +3445,19 @@
             h("option", { value: "prezenta" }, "Prezenta"),
             h("option", { value: "vizeMedicale" }, "Vize medicale"),
             h("option", { value: "alteIncasari" }, "Alte incasari"),
+            h("option", { value: "platiEfectuate" }, "Plati efectuate"),
             h("option", { value: "tot" }, "Tot")
           )
-        )
+        ),
+        section === "platiEfectuate" && h(Field, { label: "De la" }, h("input", { value: formatDate(paymentDateFrom), onChange: (event) => setPaymentDateFrom(event.target.value), placeholder: "01.07.2026" })),
+        section === "platiEfectuate" && h(Field, { label: "Pana la" }, h("input", { value: formatDate(paymentDateTo), onChange: (event) => setPaymentDateTo(event.target.value), placeholder: "31.07.2026" }))
       ),
       (section === "balanta" || section === "tot") && h(MonthlyBalanceReport, props),
       (section === "taxe" || section === "tot") && h(TaxReportsView, props),
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
       (section === "vizeMedicale" || section === "tot") && h(MedicalVisaReportsView, props),
-      (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props)
+      (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props),
+      section === "platiEfectuate" && h(PaymentsMadeReport, { ...props, dateFrom: paymentDateFrom, dateTo: paymentDateTo })
     );
   }
 
