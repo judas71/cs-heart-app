@@ -1876,7 +1876,7 @@
         h(
           "table",
           null,
-            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Observatii", "Confirmare"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Confirmare"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -1918,7 +1918,6 @@
                     paymentMethods.map((method) => h("option", { key: method, value: method }, method))
                   )
                 ),
-                h("td", { "data-label": "Observatii" }, h("input", { value: fee.notes, onChange: (event) => updateFee(athlete.id, "notes", event.target.value), placeholder: "Optional" })),
                 h(
                   "td",
                   { "data-label": "Confirmare", className: "row-actions" },
