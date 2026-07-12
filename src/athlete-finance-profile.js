@@ -5,6 +5,16 @@
     return `${athlete.lastName} ${athlete.firstName}`;
   }
 
+  function operatorLabel(value) {
+    const text = String(value || "").trim();
+    const key = text.toLowerCase().replace(/\s+/g, "");
+
+    if (!text) return "-";
+    if (key.includes("liviu.vera") || key.includes("liviu")) return "Liviu";
+    if (key.includes("alina")) return "Alina";
+    return text;
+  }
+
   function compareText(first, second) {
     return String(first || "").trim().localeCompare(String(second || "").trim(), "ro-RO", { sensitivity: "base", numeric: true });
   }
@@ -370,7 +380,7 @@
                     h("td", { "data-label": "Data platii" }, formatDate(fee.paymentDate)),
                     h("td", { "data-label": "Metoda" }, fee.method || "-"),
                     h("td", { "data-label": "Status" }, fee.status || "-"),
-                    h("td", { "data-label": "Operat de" }, fee.updatedByEmail || fee.updatedBy || "-"),
+                    h("td", { "data-label": "Operat de" }, operatorLabel(fee.updatedByEmail || fee.updatedBy)),
                     h("td", { "data-label": "Modificat la" }, formatDateTime(fee.updatedAt))
                   )
                 )
@@ -400,7 +410,7 @@
                     h("td", { "data-label": "Suma" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
                     h("td", { "data-label": "Metoda" }, payment.method || "-"),
                     h("td", { "data-label": "Observatii" }, payment.notes || "-"),
-                    h("td", { "data-label": "Operat de" }, payment.updatedByEmail || "-")
+                    h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail))
                   )
                 )
               )

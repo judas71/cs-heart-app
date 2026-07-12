@@ -375,6 +375,16 @@
     return `${athlete.lastName || ""} ${athlete.firstName || ""}`.replace(/\s+/g, " ").trim();
   }
 
+  function operatorLabel(value) {
+    const text = String(value || "").trim();
+    const key = text.toLowerCase().replace(/\s+/g, "");
+
+    if (!text) return "-";
+    if (key.includes("liviu.vera") || key.includes("liviu")) return "Liviu";
+    if (key.includes("alina")) return "Alina";
+    return text;
+  }
+
   function compareText(first, second) {
     return String(first || "").trim().localeCompare(String(second || "").trim(), "ro-RO", { sensitivity: "base", numeric: true });
   }
@@ -1616,7 +1626,7 @@
                   h("td", { "data-label": "Suma" }, h("strong", { className: "arrears" }, "- " + formatMoney(payment.amount))),
                   h("td", { "data-label": "Metoda" }, payment.method || "-"),
                   h("td", { "data-label": "Observatii" }, payment.notes || "-"),
-                  h("td", { "data-label": "Operat de" }, payment.updatedByEmail || "-"),
+                  h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail)),
                   h(
                     "td",
                     { className: "row-actions" },
@@ -2494,7 +2504,7 @@
                 h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
                 h("td", { "data-label": "Metoda" }, payment.method || "-"),
                 h("td", { "data-label": "Observatii" }, payment.notes || "-"),
-                h("td", { "data-label": "Operat de" }, payment.updatedByEmail || "-"),
+                h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail)),
                 h(
                   "td",
                   { className: "row-actions" },
@@ -2758,7 +2768,7 @@
                   h(ReportItem, {
                     key: payment.id,
                     title: payerLabel(athletes, payment),
-                    subtitle: formatDate(payment.date) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + (payment.method || "-") + " / operat de " + (payment.updatedByEmail || "-"),
+                    subtitle: formatDate(payment.date) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + (payment.method || "-") + " / operat de " + operatorLabel(payment.updatedByEmail),
                     amount: formatPaymentAmount(payment),
                     negative: true
                   })
@@ -3362,7 +3372,7 @@
         date: payment.date || getMonthEndDate(payment.month),
         source: "Taxe",
         title: taxPaymentTypeLabel(payment.paymentType || "-"),
-        subtitle: "Taxe / " + (payment.method || "-") + " / " + (payment.notes || "-") + " / operat de " + (payment.updatedByEmail || "-"),
+        subtitle: "Taxe / " + (payment.method || "-") + " / " + (payment.notes || "-") + " / operat de " + operatorLabel(payment.updatedByEmail),
         amount: Number(payment.amount || 0),
         currency: "lei",
         method: payment.method || "-"
@@ -3376,7 +3386,7 @@
         date: payment.date,
         source: "Alte incasari",
         title: payerLabel(athletes, payment),
-        subtitle: "Alte incasari / " + paymentTypeLabel(payment) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + (payment.method || "-") + " / operat de " + (payment.updatedByEmail || "-"),
+        subtitle: "Alte incasari / " + paymentTypeLabel(payment) + " / " + (payment.category || "-") + " / " + (payment.actionName || "fara actiune") + " / " + (payment.method || "-") + " / operat de " + operatorLabel(payment.updatedByEmail),
         amount: Number(payment.amount || 0),
         currency: paymentCurrency(payment),
         method: payment.method || "-"
