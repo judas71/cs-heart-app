@@ -245,6 +245,25 @@
         padding: 10px 12px;
         font-weight: 800;
       }
+      .cs-message-preview {
+        border: 1px solid var(--line, #d9e0e5);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
+        padding: 14px;
+        display: grid;
+        gap: 8px;
+      }
+      .cs-message-preview label {
+        color: var(--muted, #66727a);
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+      .cs-message-preview textarea {
+        min-height: 190px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
       .cs-receipt-preview {
         background: #fff;
         border: 1px solid var(--line, #d9e0e5);
@@ -1066,6 +1085,53 @@
     );
   }
 
+  function TaxFeeReminderPreview({ data, onClose, onShare }) {
+    if (!data) return null;
+
+    const { athlete, fee, previousBalance, fallbackDue } = data;
+    const [message, setMessage] = React.useState(() => taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue));
+    const reminderCount = Number(fee.reminderCount || 0);
+
+    return h(
+      "div",
+      { className: "cs-print-overlay" },
+      h(
+        "div",
+        { className: "cs-print-dialog" },
+        h(
+          "div",
+          { className: "cs-print-actions" },
+          h("strong", null, "Previzualizare reamintire taxa"),
+          h(
+            "div",
+            { className: "row-actions" },
+            h("button", { className: "primary", type: "button", onClick: () => onShare(message) }, "Distribuie / copiaza"),
+            h("button", { type: "button", onClick: onClose }, "Inchide")
+          )
+        ),
+        reminderCount > 0 &&
+          h(
+            "div",
+            { className: "cs-print-warning" },
+            "Atentie: aceasta reamintire a mai fost generata",
+            reminderCount ? " (" + reminderCount + " ori)" : "",
+            "."
+          ),
+        h(
+          "section",
+          { className: "cs-message-preview" },
+          h("label", { htmlFor: "tax-reminder-message" }, "Mesaj pentru WhatsApp"),
+          h("textarea", {
+            id: "tax-reminder-message",
+            value: message,
+            onChange: (event) => setMessage(event.target.value)
+          }),
+          h("small", null, "Poti modifica textul inainte sa il trimiti.")
+        )
+      )
+    );
+  }
+
   function comparePaymentsByPayer(athletes) {
     return (first, second) =>
       compareText(payerLabel(athletes, first), payerLabel(athletes, second)) ||
@@ -1612,6 +1678,7 @@
     const [showTaxPaymentForm, setShowTaxPaymentForm] = React.useState(false);
     const [taxPaymentForm, setTaxPaymentForm] = React.useState(() => emptyTaxPaymentForm(monthNow));
     const [taxReceiptPreview, setTaxReceiptPreview] = React.useState(null);
+    const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!athlete.active) return false;
@@ -1706,6 +1773,11 @@
       setTaxReceiptPreview({ athlete, fee, previousBalance, fallbackDue });
     }
 
+    function openTaxReminder(athlete, fee, previousBalance, fallbackDue) {
+      if (getOutstandingAmount(fee, previousBalance, fallbackDue) <= 0) return;
+      setTaxReminderPreview({ athlete, fee, previousBalance, fallbackDue });
+    }
+
     function markTaxReceiptGenerated(fee) {
       const markedFee = {
         ...fee,
@@ -1757,19 +1829,23 @@
       }
     }
 
-    async function shareTaxReminder(athlete, fee, previousBalance, fallbackDue) {
-      const message = taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue);
+    async function shareTaxReminder(message) {
+      if (!taxReminderPreview) return;
+
+      const text = String(message || "").trim();
+      if (!text) return;
 
       try {
         if (navigator.share) {
-          await navigator.share({ title: "CS HEART - Reamintire taxă", text: message });
+          await navigator.share({ title: "CS HEART - Reamintire taxă", text });
         } else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(message);
+          await navigator.clipboard.writeText(text);
           alert("Textul reamintirii a fost copiat. Il poti lipi in WhatsApp.");
         } else {
-          window.prompt("Copiaza mesajul pentru WhatsApp:", message);
+          window.prompt("Copiaza mesajul pentru WhatsApp:", text);
         }
-        markTaxReminderGenerated(fee);
+        const markedFee = markTaxReminderGenerated(taxReminderPreview.fee);
+        setTaxReminderPreview((current) => current ? { ...current, fee: markedFee } : current);
       } catch (error) {
         if (error?.name !== "AbortError") {
           alert("Nu am putut distribui reamintirea. Incearca din nou.");
@@ -1973,7 +2049,7 @@
                     : outstanding > 0 &&
                       h(
                         "button",
-                        { type: "button", onClick: () => shareTaxReminder(athlete, fee, previousBalance, fallbackDue) },
+                        { type: "button", onClick: () => openTaxReminder(athlete, fee, previousBalance, fallbackDue) },
                         Number(fee.reminderCount || 0) > 0 ? "Reamintește" : "Amintește"
                       )
                 )
@@ -1988,6 +2064,12 @@
           onClose: () => setTaxReceiptPreview(null),
           onPrint: printTaxReceipt,
           onShare: shareTaxReceipt
+        }),
+      taxReminderPreview &&
+        h(TaxFeeReminderPreview, {
+          data: taxReminderPreview,
+          onClose: () => setTaxReminderPreview(null),
+          onShare: shareTaxReminder
         })
     );
   }
