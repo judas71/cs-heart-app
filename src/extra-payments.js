@@ -3004,7 +3004,7 @@
   function TaxReportsView({ athletes, fees = [] }) {
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
-    const [reportType, setReportType] = React.useState("toate");
+    const [reportType, setReportType] = React.useState("situatie");
     const groups = getGroups(athletes);
     const athletesInFilter = athletes.filter(
       (athlete) =>
@@ -3012,31 +3012,21 @@
         (group === "toate" || athlete.group === group) &&
         (!athlete.joinMonth || athlete.joinMonth <= month)
     ).sort(compareAthletesByName);
-    const debtorRows = athletesInFilter
-      .map((athlete) => {
-        const fee = getFeeForMonth(fees, athlete.id, month);
-        const previousBalance = getPreviousBalance(fees, athlete, month);
-        const fallbackDue = getDefaultAmountDue(fees, athlete, month);
-        const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
-        const amountPaid = Number(fee?.amountPaid || 0);
-        const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+    const feeRows = athletesInFilter.map((athlete) => {
+      const fee = getFeeForMonth(fees, athlete.id, month);
+      const previousBalance = getPreviousBalance(fees, athlete, month);
+      const fallbackDue = getDefaultAmountDue(fees, athlete, month);
+      const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+      const amountPaid = Number(fee?.amountPaid || 0);
+      const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
+      const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+      const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
+      const credit = Math.max(-balanceAfterMonth, 0);
 
-        return { athlete, outstanding, previousBalance, amountDue, amountPaid };
-      })
-      .filter((row) => row.outstanding > 0);
-    const creditRows = athletesInFilter
-      .map((athlete) => {
-        const fee = getFeeForMonth(fees, athlete.id, month);
-        const previousBalance = getPreviousBalance(fees, athlete, month);
-        const fallbackDue = getDefaultAmountDue(fees, athlete, month);
-        const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
-        const amountPaid = Number(fee?.amountPaid || 0);
-        const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
-        const credit = Math.max(-balanceAfterMonth, 0);
-
-        return { athlete, credit, previousBalance, amountDue, amountPaid };
-      })
-      .filter((row) => row.credit > 0);
+      return { athlete, outstanding, previousBalance, amountDue, amountPaid, totalToPay, credit };
+    });
+    const debtorRows = feeRows.filter((row) => row.outstanding > 0);
+    const creditRows = feeRows.filter((row) => row.credit > 0);
     const collectedFees = fees.filter(
       (fee) =>
         fee.month === month &&
@@ -3049,6 +3039,7 @@
     const totalCash = cashRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const totalTransfer = transferRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
     const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim()).sort(compareAthletesByName);
+    const totalToPay = feeRows.reduce((sum, row) => sum + row.totalToPay, 0);
     const totalOutstanding = debtorRows.reduce((sum, row) => sum + row.outstanding, 0);
     const totalCredit = creditRows.reduce((sum, row) => sum + row.credit, 0);
 
@@ -3076,6 +3067,7 @@
           h(
             "select",
             { value: reportType, onChange: (event) => setReportType(event.target.value) },
+            h("option", { value: "situatie" }, "Situatie sportivi"),
             h("option", { value: "toate" }, "Toate taxele"),
             h("option", { value: "restantieri" }, "Restantieri"),
             h("option", { value: "avansuri" }, "Avansuri"),
@@ -3089,6 +3081,7 @@
         "div",
         { className: "cs-report-summary" },
         h(SummaryCard, { label: "Incasari taxe", value: formatMoney(totalCollected), hint: "Cash: " + formatMoney(totalCash) + " / Transfer: " + formatMoney(totalTransfer), tone: "tone-green" }),
+        h(SummaryCard, { label: "Total calculat", value: formatMoney(totalToPay), hint: "Rest anterior + taxa lunii", tone: "tone-amber" }),
         h(SummaryCard, { label: "Restante", value: formatMoney(totalOutstanding), hint: `${debtorRows.length} sportivi`, tone: "tone-red" }),
         h(SummaryCard, { label: "Avansuri", value: formatMoney(totalCredit), hint: `${creditRows.length} sportivi`, tone: "tone-blue" }),
         h(SummaryCard, { label: "Observatii", value: observationRows.length, hint: "Sportivi cu observatii", tone: "tone-amber" })
@@ -3096,6 +3089,26 @@
       h(
         "div",
         { className: "cs-report-sections" },
+        (reportType === "situatie" || reportType === "toate") &&
+          h(
+            DetailSection,
+            { title: "Situatie taxe sportivi", meta: `${feeRows.length} sportivi / rest ${formatMoney(totalOutstanding)}`, open: reportType === "situatie" },
+            feeRows.length
+              ? h(
+                  "ul",
+                  { className: "cs-report-list" },
+                  feeRows.map((row) =>
+                    h(ReportItem, {
+                      key: row.athlete.id,
+                      title: athleteName(row.athlete),
+                      subtitle: feeBalanceDetails(row) + " / Total calculat: " + formatMoney(row.totalToPay),
+                      amount: row.outstanding > 0 ? formatMoney(row.outstanding) : row.credit > 0 ? "Avans " + formatMoney(row.credit) : "0 lei",
+                      negative: row.outstanding > 0
+                    })
+                  )
+                )
+              : h(EmptyReportLine, { text: "Nu exista sportivi in filtrul ales." })
+          ),
         (reportType === "restantieri" || reportType === "toate") &&
           h(
             DetailSection,
