@@ -740,6 +740,22 @@
     ];
   }
 
+  function paymentReceiptMessage(athletes, payment) {
+    const actionText = payment.actionName ? "\nActiune: " + payment.actionName : "";
+
+    return [
+      "CS HEART - Confirmare incasare",
+      "Data: " + formatDate(payment.date),
+      "De la: " + payerLabel(athletes, payment),
+      "Categorie: " + (payment.category || "-") + actionText,
+      "Tip: " + paymentTypeLabel(payment),
+      "Suma: " + formatPaymentAmount(payment),
+      "Metoda: " + (payment.method || "-"),
+      payment.notes ? "Observatii: " + payment.notes : "",
+      "Confirmare generata din aplicatia CS HEART."
+    ].filter(Boolean).join("\n");
+  }
+
   function getTaxFeeReceiptRows(athlete, fee, previousBalance, fallbackDue) {
     const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
     const amountPaid = Number(fee?.amountPaid || 0);
@@ -949,12 +965,15 @@
     setTimeout(() => receiptWindow.print(), 250);
   }
 
-  function ReceiptPreview({ athletes, payment, onClose, onPrint }) {
+  function ReceiptPreview({ athletes, payment, onClose, onPrint, onShare }) {
     if (!payment) return null;
 
     const rows = getPaymentReceiptRows(athletes, payment);
     const printCount = Number(payment.printCount || 0);
+    const shareCount = Number(payment.shareCount || 0);
     const wasPrinted = printCount > 0 || Boolean(payment.printedAt);
+    const wasShared = shareCount > 0 || Boolean(payment.sharedAt);
+    const [shareMessage, setShareMessage] = React.useState(() => paymentReceiptMessage(athletes, payment));
 
     return h(
       "div",
@@ -969,6 +988,7 @@
           h(
             "div",
             { className: "row-actions" },
+            h("button", { className: "primary", type: "button", onClick: () => onShare(shareMessage) }, "WhatsApp / copiaza"),
             h("button", { className: "primary", onClick: onPrint }, "Tipareste"),
             h("button", { type: "button", onClick: onClose }, "Inchide")
           )
@@ -979,6 +999,14 @@
             { className: "cs-print-warning" },
             "Atentie: aceasta confirmare a mai fost tiparita",
             printCount ? " (" + printCount + " ori)" : "",
+            "."
+          ),
+        wasShared &&
+          h(
+            "div",
+            { className: "cs-print-warning" },
+            "Atentie: aceasta confirmare a mai fost distribuita",
+            shareCount ? " (" + shareCount + " ori)" : "",
             "."
           ),
         h(
@@ -1017,6 +1045,17 @@
               h("div", { className: "cs-receipt-line" }, "Semnatura primitor")
             )
           )
+        ),
+        h(
+          "section",
+          { className: "cs-message-preview" },
+          h("label", { htmlFor: "other-payment-message" }, "Mesaj pentru WhatsApp"),
+          h("textarea", {
+            id: "other-payment-message",
+            value: shareMessage,
+            onChange: (event) => setShareMessage(event.target.value)
+          }),
+          h("small", null, "Poti modifica textul inainte sa il trimiti.")
         )
       )
     );
@@ -2472,10 +2511,48 @@
       printPaymentReceipt(athletes, markedPayment);
     }
 
+    async function sharePaymentReceipt(message) {
+      if (!printPreviewPayment) return;
+
+      const text = String(message || "").trim();
+      if (!text) return;
+
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "CS HEART - Confirmare incasare", text });
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          alert("Textul confirmarii a fost copiat. Il poti lipi in WhatsApp.");
+        } else {
+          window.prompt("Copiaza mesajul pentru WhatsApp:", text);
+        }
+
+        const markedPayment = {
+          ...printPreviewPayment,
+          sharedAt: new Date().toISOString(),
+          shareCount: Number(printPreviewPayment.shareCount || 0) + 1
+        };
+
+        onSavePayment(markedPayment);
+        setPrintPreviewPayment(markedPayment);
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          alert("Nu am putut distribui confirmarea. Incearca din nou.");
+        }
+      }
+    }
+
     return h(
       "section",
       { className: "stack" },
-      h(ReceiptPreview, { athletes, payment: printPreviewPayment, onClose: () => setPrintPreviewPayment(null), onPrint: confirmPrint }),
+      h(ReceiptPreview, {
+        key: printPreviewPayment?.id || "empty-receipt",
+        athletes,
+        payment: printPreviewPayment,
+        onClose: () => setPrintPreviewPayment(null),
+        onPrint: confirmPrint,
+        onShare: sharePaymentReceipt
+      }),
       h(
         "div",
         { className: "panel" },
@@ -2888,7 +2965,12 @@
                   "td",
                   { className: "row-actions" },
                   h("button", { onClick: () => edit(payment) }, "Editeaza"),
-                  ["incasare", "avans"].includes(paymentType(payment)) && h("button", { onClick: () => printPreview(payment) }, Number(payment.printCount || 0) > 0 || payment.printedAt ? "Reimprima" : "Imprima"),
+                  ["incasare", "avans"].includes(paymentType(payment)) &&
+                    h(
+                      "button",
+                      { onClick: () => printPreview(payment) },
+                      Number(payment.printCount || 0) > 0 || payment.printedAt || Number(payment.shareCount || 0) > 0 || payment.sharedAt ? "Retrimite" : "Confirmare"
+                    ),
                   h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
                 )
               );
