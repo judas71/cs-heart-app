@@ -1699,6 +1699,7 @@
       date: today(),
       paymentType: "salariu",
       athleteId: "",
+      recipient: "",
       amount: "",
       method: "transfer",
       notes: ""
@@ -1708,6 +1709,10 @@
   function taxPaymentTypeLabel(type) {
     if (type === "chirie") return "chirii";
     return type;
+  }
+
+  function taxPaymentRecipient(payment) {
+    return String(payment?.recipient || "").trim();
   }
 
   function FeesView({ athletes, fees, taxPayments = [], onSaveFee, onSaveTaxPayment, onDeleteTaxPayment }) {
@@ -1787,6 +1792,7 @@
         month,
         athleteId: "",
         amount: Number(taxPaymentForm.amount || 0),
+        recipient: String(taxPaymentForm.recipient || "").trim(),
         notes: String(taxPaymentForm.notes || "").trim()
       });
       setTaxPaymentForm(emptyTaxPaymentForm(month));
@@ -1800,6 +1806,7 @@
         date: payment.date || today(),
         paymentType: payment.paymentType || "salariu",
         athleteId: payment.athleteId || "",
+        recipient: payment.recipient || "",
         amount: payment.amount || "",
         method: payment.method || "transfer",
         notes: payment.notes || ""
@@ -1950,6 +1957,7 @@
             )
           ),
           h(Field, { label: "Data platii" }, h("input", { type: "date", value: taxPaymentForm.date, onChange: (event) => updateTaxPayment("date", event.target.value), required: true })),
+          h(Field, { label: "Catre" }, h("input", { value: taxPaymentForm.recipient, onChange: (event) => updateTaxPayment("recipient", event.target.value), placeholder: "Ex: Alina, Liviu, proprietar sala" })),
           h(Field, { label: "Suma" }, h("input", { type: "number", min: "0", value: taxPaymentForm.amount, onChange: (event) => updateTaxPayment("amount", event.target.value), required: true })),
           h(
             Field,
@@ -2003,7 +2011,7 @@
           h(
             "table",
             null,
-            h("thead", null, h("tr", null, ["Data", "Tip", "Suma", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Data", "Tip", "Catre", "Suma", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
             h(
               "tbody",
               null,
@@ -2013,6 +2021,7 @@
                   { key: payment.id },
                   h("td", { "data-label": "Data" }, formatDate(payment.date)),
                   h("td", { "data-label": "Tip" }, taxPaymentTypeLabel(payment.paymentType || "-")),
+                  h("td", { "data-label": "Catre" }, taxPaymentRecipient(payment) || "-"),
                   h("td", { "data-label": "Suma" }, h("strong", { className: "arrears" }, "- " + formatMoney(payment.amount))),
                   h("td", { "data-label": "Metoda" }, payment.method || "-"),
                   h("td", { "data-label": "Observatii" }, payment.notes || "-"),
@@ -3360,12 +3369,7 @@
         map.set(category, current);
         return map;
       }, new Map()).values()].sort((first, second) => compareText(first.category, second.category));
-    const taxPaymentTotals = taxPaymentTypes.map((type) => ({
-      type,
-      total: monthlyTaxPayments
-        .filter((payment) => payment.paymentType === type)
-        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
-    })).filter((item) => item.total > 0);
+    const taxPaymentRows = [...monthlyTaxPayments].sort((first, second) => sortByDateDesc(first, second));
     const otherOutgoingRows = monthlyOtherPayments.filter(isOutgoingPayment);
 
     return h(
@@ -3425,16 +3429,16 @@
         h(
           DetailSection,
           { title: "Plati", meta: `${monthlyTaxPayments.length + otherOutgoingRows.length} inregistrari / ${formatMoney(totalPaymentsLei)}`, open: true },
-          taxPaymentTotals.length || otherOutgoingRows.length
+          taxPaymentRows.length || otherOutgoingRows.length
             ? h(
                 "ul",
                 { className: "cs-report-list" },
-                taxPaymentTotals.map((row) =>
+                taxPaymentRows.map((payment) =>
                   h(ReportItem, {
-                    key: row.type,
-                    title: taxPaymentTypeLabel(row.type),
-                    subtitle: "Din taxele lunare",
-                    amount: "- " + formatMoney(row.total),
+                    key: payment.id || payment.date + payment.amount + payment.paymentType,
+                    title: taxPaymentRecipient(payment) || taxPaymentTypeLabel(payment.paymentType || "-"),
+                    subtitle: taxPaymentTypeLabel(payment.paymentType || "-") + " / " + formatDate(payment.date || getMonthEndDate(payment.month)) + " / " + (payment.method || "-") + (payment.notes ? " / " + payment.notes : ""),
+                    amount: "- " + formatMoney(payment.amount),
                     negative: true
                   })
                 ),
@@ -3832,8 +3836,8 @@
         id: "tax-" + (payment.id || payment.date || payment.month),
         date: payment.date || getMonthEndDate(payment.month),
         source: "Taxe",
-        title: taxPaymentTypeLabel(payment.paymentType || "-"),
-        subtitle: "Taxe / " + (payment.method || "-") + " / " + (payment.notes || "-") + " / operat de " + operatorLabel(payment.updatedByEmail),
+        title: taxPaymentRecipient(payment) || taxPaymentTypeLabel(payment.paymentType || "-"),
+        subtitle: "Taxe / " + taxPaymentTypeLabel(payment.paymentType || "-") + " / " + (payment.method || "-") + (payment.notes ? " / " + payment.notes : "") + " / operat de " + operatorLabel(payment.updatedByEmail),
         amount: Number(payment.amount || 0),
         currency: "lei",
         method: payment.method || "-"
