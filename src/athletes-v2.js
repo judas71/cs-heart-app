@@ -135,11 +135,24 @@
     );
   }
 
-  function StatusPill({ tone, children }) {
+  function StatusPill({ tone, children, onClick, actionLabel }) {
+    if (onClick) {
+      return h(
+        "button",
+        {
+          className: `pill athlete-v2-status-action ${tone || ""}`,
+          type: "button",
+          onClick,
+          "aria-label": actionLabel
+        },
+        children
+      );
+    }
+
     return h("span", { className: `pill ${tone || ""}` }, children);
   }
 
-  function AthleteCard({ athlete, trainings, fees, onEdit, onProfile }) {
+  function AthleteCard({ athlete, trainings, fees, onEdit, onProfile, onTaxes }) {
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
     const medicalValid = hasValidMedicalVisa(athlete);
@@ -161,9 +174,33 @@
       h(
         "div",
         { className: "athlete-v2-statuses" },
-        h(StatusPill, { tone: isActiveAthlete(athlete) ? "ok" : "muted" }, isActiveAthlete(athlete) ? "Activ" : "Inactiv"),
-        h(StatusPill, { tone: medicalValid ? "ok" : "warn" }, medicalValid ? "Viză valabilă" : "Fără viză"),
-        h(StatusPill, { tone: outstanding > 0 ? "danger-soft" : "ok" }, outstanding > 0 ? `Restanță ${formatMoney(outstanding)}` : "Taxe la zi")
+        h(
+          StatusPill,
+          {
+            tone: isActiveAthlete(athlete) ? "ok" : "muted",
+            onClick: onEdit,
+            actionLabel: `${isActiveAthlete(athlete) ? "Activ" : "Inactiv"} — modifică statusul sportivului`
+          },
+          isActiveAthlete(athlete) ? "Activ" : "Inactiv"
+        ),
+        h(
+          StatusPill,
+          {
+            tone: medicalValid ? "ok" : "warn",
+            onClick: onEdit,
+            actionLabel: `${medicalValid ? "Viză valabilă" : "Fără viză"} — actualizează viza medicală`
+          },
+          medicalValid ? "Viză valabilă" : "Fără viză"
+        ),
+        h(
+          StatusPill,
+          {
+            tone: outstanding > 0 ? "danger-soft" : "ok",
+            onClick: onTaxes,
+            actionLabel: `${outstanding > 0 ? `Restanță ${formatMoney(outstanding)}` : "Taxe la zi"} — deschide taxele`
+          },
+          outstanding > 0 ? `Restanță ${formatMoney(outstanding)}` : "Taxe la zi"
+        )
       ),
       h(
         "div",
@@ -363,7 +400,8 @@
                       trainings: effectiveTrainings,
                       fees,
                       onEdit: () => { setEditingId(athlete.id); setProfileId(null); setAdding(false); },
-                      onProfile: () => { setProfileId(profileId === athlete.id ? null : athlete.id); setEditingId(null); setAdding(false); }
+                      onProfile: () => { setProfileId(profileId === athlete.id ? null : athlete.id); setEditingId(null); setAdding(false); },
+                      onTaxes: () => onNavigate("taxe")
                     })
                   )
                 )
