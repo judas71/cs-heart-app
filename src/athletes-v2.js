@@ -117,6 +117,14 @@
     return ["avans", "cheltuiala", "retur"].includes(paymentType(payment));
   }
 
+  function feePaymentStatus(fee) {
+    const paid = Number(fee.amountPaid || 0);
+    const due = Number(fee.amountDue || 0);
+    if (paid <= 0) return "Neplătită";
+    if (due > 0 && paid < due) return "Parțial plătită";
+    return "Plătită";
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -298,7 +306,7 @@
                     h("td", { "data-label": "Luna" }, fee.month || "-"),
                     h("td", { "data-label": "Încasat" }, h("strong", null, formatMoney(fee.amountPaid))),
                     h("td", { "data-label": "Metoda" }, fee.method || "-"),
-                    h("td", { "data-label": "Status" }, fee.status || "-"),
+                    h("td", { "data-label": "Status" }, feePaymentStatus(fee)),
                     h("td", { "data-label": "Observații" }, fee.notes || "-")
                   )
                 )
