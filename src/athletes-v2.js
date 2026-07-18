@@ -57,25 +57,25 @@
 
   function getOutstanding(athlete, fees) {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const athleteFees = fees.filter((fee) => fee.athleteId === athlete.id && fee.month <= currentMonth);
-    const recordedMonths = new Set(athleteFees.map((fee) => fee.month));
+    if (!athlete.joinMonth || athlete.joinMonth > currentMonth) return 0;
 
-    let total = athleteFees.reduce((sum, fee) => {
-      const due = Number(fee.amountDue ?? athlete.feeDue ?? 200);
-      const paid = Number(fee.amountPaid || 0);
-      return sum + Math.max(due - paid, 0);
-    }, 0);
+    const [startYear, startMonth] = athlete.joinMonth.split("-").map(Number);
+    const [endYear, endMonth] = currentMonth.split("-").map(Number);
+    const cursor = new Date(Date.UTC(startYear, startMonth - 1, 1));
+    const end = new Date(Date.UTC(endYear, endMonth - 1, 1));
+    let balance = 0;
 
-    if (
-      isActiveAthlete(athlete) &&
-      athlete.joinMonth &&
-      athlete.joinMonth <= currentMonth &&
-      !recordedMonths.has(currentMonth)
-    ) {
-      total += Number(athlete.feeDue ?? 200);
+    while (cursor <= end) {
+      const month = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`;
+      const fee = fees.find((item) => item.athleteId === athlete.id && item.month === month);
+      const due = Number(fee?.amountDue ?? athlete.feeDue ?? 200);
+      const paid = Number(fee?.amountPaid || 0);
+
+      balance += due - paid;
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
     }
 
-    return total;
+    return Math.max(balance, 0);
   }
 
   function formatMoney(value) {
