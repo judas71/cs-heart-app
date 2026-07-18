@@ -220,12 +220,38 @@ button.athletes-v2-metric.selected small {
   margin-top: 16px;
 }
 
-.athlete-v2-profile-grid > div {
+.athlete-v2-profile-grid > div,
+.athlete-v2-profile-grid > button {
   display: grid;
   gap: 4px;
   border-radius: 8px;
   background: var(--surface-soft);
   padding: 12px;
+}
+
+.athlete-v2-profile-grid > button {
+  width: 100%;
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+}
+
+.athlete-v2-profile-grid > button:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.athlete-v2-profile-action small {
+  color: var(--primary);
+  font-weight: 800;
+  margin-top: 5px;
+}
+
+.athlete-v2-profile-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .athlete-v2-profile-grid span,
@@ -271,6 +297,19 @@ button.athletes-v2-metric.selected small {
   }
 
   .athlete-v2-actions button {
+    flex: 1;
+  }
+
+  .athlete-v2-profile-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .athlete-v2-profile-head-actions {
+    width: 100%;
+  }
+
+  .athlete-v2-profile-head-actions button {
     flex: 1;
   }
 }
