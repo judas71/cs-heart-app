@@ -22,6 +22,7 @@
 
   function getMedicalExpiry(athlete) {
     return (
+      athlete.medicalVisaTo ||
       athlete.medicalVisaExpiry ||
       athlete.medicalExpiry ||
       athlete.medicalValidUntil ||
@@ -29,6 +30,10 @@
       athlete.visaMedicalaPanaLa ||
       ""
     );
+  }
+
+  function isActiveAthlete(athlete) {
+    return athlete.active !== false;
   }
 
   function hasValidMedicalVisa(athlete) {
@@ -62,7 +67,7 @@
     }, 0);
 
     if (
-      athlete.active &&
+      isActiveAthlete(athlete) &&
       athlete.joinMonth &&
       athlete.joinMonth <= currentMonth &&
       !recordedMonths.has(currentMonth)
@@ -89,9 +94,11 @@
         group: "",
         parentPhone: "",
         active: true,
+        feeDue: 200,
         notes: "",
         joinMonth: new Date().toISOString().slice(0, 7),
-        medicalVisaExpiry: ""
+        medicalVisaFrom: "",
+        medicalVisaTo: ""
       }
     );
 
@@ -107,7 +114,7 @@
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         group: form.group.trim(),
-        medicalVisaExpiry: form.medicalVisaExpiry || getMedicalExpiry(form)
+        feeDue: Number(form.feeDue || 0)
       });
     }
 
@@ -118,8 +125,10 @@
       h(Field, { label: "Prenume" }, h("input", { value: form.firstName || "", onChange: (e) => update("firstName", e.target.value), required: true })),
       h(Field, { label: "Grupa" }, h("input", { value: form.group || "", onChange: (e) => update("group", e.target.value), placeholder: "U14", required: true })),
       h(Field, { label: "Telefon părinte" }, h("input", { value: form.parentPhone || "", onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
+      h(Field, { label: "Taxă lunară" }, h("input", { type: "number", min: "0", step: "1", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value), inputMode: "numeric" })),
       h(Field, { label: "Luna înscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
-      h(Field, { label: "Viză medicală valabilă până la" }, h("input", { type: "date", value: form.medicalVisaExpiry || getMedicalExpiry(form), onChange: (e) => update("medicalVisaExpiry", e.target.value) })),
+      h(Field, { label: "Viză medicală de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
+      h(Field, { label: "Viză medicală până la" }, h("input", { type: "date", value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (e) => update("medicalVisaTo", e.target.value) })),
       h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
       h(Field, { label: "Observații" }, h("textarea", { value: form.notes || "", onChange: (e) => update("notes", e.target.value), rows: 3 })),
       h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salvează"), h("button", { type: "button", onClick: onCancel }, "Anulează"))
@@ -152,7 +161,7 @@
       h(
         "div",
         { className: "athlete-v2-statuses" },
-        h(StatusPill, { tone: athlete.active ? "ok" : "muted" }, athlete.active ? "Activ" : "Inactiv"),
+        h(StatusPill, { tone: isActiveAthlete(athlete) ? "ok" : "muted" }, isActiveAthlete(athlete) ? "Activ" : "Inactiv"),
         h(StatusPill, { tone: medicalValid ? "ok" : "warn" }, medicalValid ? "Viză valabilă" : "Fără viză"),
         h(StatusPill, { tone: outstanding > 0 ? "danger-soft" : "ok" }, outstanding > 0 ? `Restanță ${formatMoney(outstanding)}` : "Taxe la zi")
       ),
@@ -211,10 +220,10 @@
         : window.CSHeartStorage?.loadState?.().trainings || [];
 
     function matchesStatus(athlete) {
-      if (statusFilter === "active") return athlete.active;
-      if (statusFilter === "inactive") return !athlete.active;
-      if (statusFilter === "medical") return athlete.active && !hasValidMedicalVisa(athlete);
-      if (statusFilter === "overdue") return athlete.active && getOutstanding(athlete, fees) > 0;
+      if (statusFilter === "active") return isActiveAthlete(athlete);
+      if (statusFilter === "inactive") return !isActiveAthlete(athlete);
+      if (statusFilter === "medical") return isActiveAthlete(athlete) && !hasValidMedicalVisa(athlete);
+      if (statusFilter === "overdue") return isActiveAthlete(athlete) && getOutstanding(athlete, fees) > 0;
       return true;
     }
 
@@ -224,10 +233,10 @@
       .filter((athlete) => `${athleteName(athlete)} ${athlete.group || ""}`.toLocaleLowerCase("ro").includes(query.toLocaleLowerCase("ro")));
 
     const metrics = [
-      { id: "active", label: "Activi", value: athletes.filter((athlete) => athlete.active).length, detail: "în loturile curente" },
-      { id: "inactive", label: "Inactivi", value: athletes.filter((athlete) => !athlete.active).length, detail: "păstrați în arhivă" },
-      { id: "medical", label: "Fără viză", value: athletes.filter((athlete) => athlete.active && !hasValidMedicalVisa(athlete)).length, detail: "necesită actualizare" },
-      { id: "overdue", label: "Restanțieri", value: athletes.filter((athlete) => athlete.active && getOutstanding(athlete, fees) > 0).length, detail: "au taxe restante" }
+      { id: "active", label: "Activi", value: athletes.filter(isActiveAthlete).length, detail: "în loturile curente" },
+      { id: "inactive", label: "Inactivi", value: athletes.filter((athlete) => !isActiveAthlete(athlete)).length, detail: "păstrați în arhivă" },
+      { id: "medical", label: "Fără viză", value: athletes.filter((athlete) => isActiveAthlete(athlete) && !hasValidMedicalVisa(athlete)).length, detail: "necesită actualizare" },
+      { id: "overdue", label: "Restanțieri", value: athletes.filter((athlete) => isActiveAthlete(athlete) && getOutstanding(athlete, fees) > 0).length, detail: "au taxe restante" }
     ];
 
     const profileAthlete = athletes.find((athlete) => athlete.id === profileId);
@@ -330,4 +339,8 @@
   }
 
   window.AthletesView = AthletesViewV2;
+  window.CSHeartComponents = {
+    ...window.CSHeartComponents,
+    AthletesView: AthletesViewV2
+  };
 })();
