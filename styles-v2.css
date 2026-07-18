@@ -226,6 +226,14 @@ button.athlete-v2-status-action:focus-visible {
   outline: none;
 }
 
+.athletes-v2-form {
+  scroll-margin-top: 72px;
+}
+
+.athletes-v2-form:focus {
+  outline: none;
+}
+
 .athlete-v2-profile-head h2 {
   margin-bottom: 0;
   font-size: 1.3rem;
