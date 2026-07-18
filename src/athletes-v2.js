@@ -129,7 +129,7 @@
     return h("label", { className: "field" }, h("span", null, label), children);
   }
 
-  function AthleteFormV2({ initialValue, onSave, onCancel }) {
+  function AthleteFormV2({ initialValue, onSave, onCancel, formRef }) {
     const [form, setForm] = React.useState(
       initialValue || {
         firstName: "",
@@ -163,7 +163,7 @@
 
     return h(
       "form",
-      { className: "panel form-grid athletes-v2-form", onSubmit: submit },
+      { className: "panel form-grid athletes-v2-form", onSubmit: submit, ref: formRef, tabIndex: -1 },
       h(Field, { label: "Nume" }, h("input", { value: form.lastName || "", onChange: (e) => update("lastName", e.target.value), required: true })),
       h(Field, { label: "Prenume" }, h("input", { value: form.firstName || "", onChange: (e) => update("firstName", e.target.value), required: true })),
       h(Field, { label: "Grupa" }, h("input", { value: form.group || "", onChange: (e) => update("group", e.target.value), placeholder: "U14", required: true })),
@@ -403,6 +403,7 @@
     const [statusFilter, setStatusFilter] = React.useState("active");
     const [groupFilter, setGroupFilter] = React.useState("toate");
     const profileRef = React.useRef(null);
+    const formRef = React.useRef(null);
     const groups = getGroups(athletes);
     const effectiveTrainings =
       trainings.length > 0
@@ -441,6 +442,17 @@
 
       return () => window.cancelAnimationFrame(frame);
     }, [profileId]);
+
+    React.useEffect(() => {
+      if ((!editingId && !isAdding) || !formRef.current) return;
+
+      const frame = window.requestAnimationFrame(() => {
+        formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        formRef.current?.focus({ preventScroll: true });
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }, [editingId, isAdding]);
 
     function openProfile(athleteId) {
       setEditingId(null);
@@ -485,6 +497,7 @@
       ),
       isAdding &&
         h(AthleteFormV2, {
+          formRef,
           onSave: (athlete) => {
             onAdd(athlete);
             setAdding(false);
@@ -493,6 +506,7 @@
         }),
       editingId &&
         h(AthleteFormV2, {
+          formRef,
           initialValue: athletes.find((athlete) => athlete.id === editingId),
           onSave: (updated) => {
             onUpdate(editingId, updated);
