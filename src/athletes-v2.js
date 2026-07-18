@@ -45,10 +45,15 @@
   }
 
   function getAttendance(athleteId, trainings) {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const entries = trainings
-      .filter((training) => training.attendance && training.attendance[athleteId])
-      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-      .slice(0, 12);
+      .filter(
+        (training) =>
+          String(training.date || "").startsWith(currentMonth) &&
+          training.attendance &&
+          training.attendance[athleteId]
+      );
 
     if (!entries.length) return null;
     const present = entries.filter((training) => training.attendance[athleteId] === "prezent").length;
@@ -205,7 +210,7 @@
       h(
         "div",
         { className: "athlete-v2-summary" },
-        h("span", null, "Prezență"),
+        h("span", null, "Prezență luna curentă"),
         h("strong", null, attendance === null ? "Fără date" : `${attendance}%`)
       ),
       h(
@@ -243,7 +248,7 @@
         h(
           "button",
           { className: "athlete-v2-profile-action", type: "button", onClick: () => onNavigate("prezenta") },
-          h("span", null, "Prezență recentă"),
+          h("span", null, "Prezență luna curentă"),
           h("strong", null, attendance === null ? "Fără date" : `${attendance}%`),
           h("small", null, "Deschide prezența →")
         ),
