@@ -219,6 +219,11 @@ button.athlete-v2-status-action:focus-visible {
 
 .athlete-v2-profile {
   border-left: 4px solid var(--primary);
+  scroll-margin-top: 72px;
+}
+
+.athlete-v2-profile:focus {
+  outline: none;
 }
 
 .athlete-v2-profile-head h2 {
