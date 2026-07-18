@@ -217,14 +217,14 @@
     );
   }
 
-  function AthleteProfile({ athlete, trainings, fees, onClose, onEdit, onNavigate }) {
+  function AthleteProfile({ athlete, trainings, fees, onClose, onEdit, onNavigate, profileRef }) {
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
     const expiry = getMedicalExpiry(athlete);
 
     return h(
       "div",
-      { className: "panel athlete-v2-profile" },
+      { className: "panel athlete-v2-profile", ref: profileRef, tabIndex: -1 },
       h(
         "div",
         { className: "athlete-v2-profile-head" },
@@ -273,6 +273,7 @@
     const [query, setQuery] = React.useState("");
     const [statusFilter, setStatusFilter] = React.useState("active");
     const [groupFilter, setGroupFilter] = React.useState("toate");
+    const profileRef = React.useRef(null);
     const groups = getGroups(athletes);
     const effectiveTrainings =
       trainings.length > 0
@@ -300,6 +301,30 @@
     ];
 
     const profileAthlete = athletes.find((athlete) => athlete.id === profileId);
+
+    React.useEffect(() => {
+      if (!profileId || !profileRef.current) return;
+
+      const frame = window.requestAnimationFrame(() => {
+        profileRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        profileRef.current?.focus({ preventScroll: true });
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }, [profileId]);
+
+    function openProfile(athleteId) {
+      setEditingId(null);
+      setAdding(false);
+
+      if (profileId === athleteId && profileRef.current) {
+        profileRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        profileRef.current.focus({ preventScroll: true });
+        return;
+      }
+
+      setProfileId(athleteId);
+    }
 
     return h(
       "section",
@@ -357,7 +382,8 @@
             setProfileId(null);
             setAdding(false);
           },
-          onNavigate
+          onNavigate,
+          profileRef
         }),
       h(
         "div",
@@ -400,8 +426,8 @@
                       trainings: effectiveTrainings,
                       fees,
                       onEdit: () => { setEditingId(athlete.id); setProfileId(null); setAdding(false); },
-                      onProfile: () => { setProfileId(profileId === athlete.id ? null : athlete.id); setEditingId(null); setAdding(false); },
-                      onTaxes: () => onNavigate("taxe")
+                      onProfile: () => openProfile(athlete.id),
+                      onTaxes: () => openProfile(athlete.id)
                     })
                   )
                 )
