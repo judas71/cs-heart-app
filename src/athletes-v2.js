@@ -205,6 +205,10 @@
     const [statusFilter, setStatusFilter] = React.useState("active");
     const [groupFilter, setGroupFilter] = React.useState("toate");
     const groups = getGroups(athletes);
+    const effectiveTrainings =
+      trainings.length > 0
+        ? trainings
+        : window.CSHeartStorage?.loadState?.().trainings || [];
 
     function matchesStatus(athlete) {
       if (statusFilter === "active") return athlete.active;
@@ -273,7 +277,7 @@
           },
           onCancel: () => setEditingId(null)
         }),
-      profileAthlete && h(AthleteProfile, { athlete: profileAthlete, trainings, fees, onClose: () => setProfileId(null) }),
+      profileAthlete && h(AthleteProfile, { athlete: profileAthlete, trainings: effectiveTrainings, fees, onClose: () => setProfileId(null) }),
       h(
         "div",
         { className: "athletes-v2-filterbar" },
@@ -312,7 +316,7 @@
                     h(AthleteCard, {
                       key: athlete.id,
                       athlete,
-                      trainings,
+                      trainings: effectiveTrainings,
                       fees,
                       onEdit: () => { setEditingId(athlete.id); setProfileId(null); setAdding(false); },
                       onProfile: () => { setProfileId(profileId === athlete.id ? null : athlete.id); setEditingId(null); setAdding(false); }
