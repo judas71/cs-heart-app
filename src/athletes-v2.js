@@ -180,7 +180,7 @@
     );
   }
 
-  function AthleteProfile({ athlete, trainings, fees, onClose }) {
+  function AthleteProfile({ athlete, trainings, fees, onClose, onEdit, onNavigate }) {
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
     const expiry = getMedicalExpiry(athlete);
@@ -192,21 +192,44 @@
         "div",
         { className: "athlete-v2-profile-head" },
         h("div", null, h("p", { className: "eyebrow" }, athlete.group), h("h2", null, athleteName(athlete))),
-        h("button", { onClick: onClose }, "Închide")
+        h(
+          "div",
+          { className: "athlete-v2-profile-head-actions" },
+          h("button", { className: "primary", onClick: onEdit }, "Editează sportivul"),
+          h("button", { onClick: onClose }, "Închide")
+        )
       ),
       h(
         "div",
         { className: "athlete-v2-profile-grid" },
         h("div", null, h("span", null, "Telefon părinte"), h("strong", null, athlete.parentPhone || "Necompletat")),
-        h("div", null, h("span", null, "Prezență recentă"), h("strong", null, attendance === null ? "Fără date" : `${attendance}%`)),
-        h("div", null, h("span", null, "Situație taxe"), h("strong", null, outstanding > 0 ? formatMoney(outstanding) : "La zi")),
-        h("div", null, h("span", null, "Viză medicală"), h("strong", null, expiry || "Neînregistrată"))
+        h(
+          "button",
+          { className: "athlete-v2-profile-action", type: "button", onClick: () => onNavigate("prezenta") },
+          h("span", null, "Prezență recentă"),
+          h("strong", null, attendance === null ? "Fără date" : `${attendance}%`),
+          h("small", null, "Deschide prezența →")
+        ),
+        h(
+          "button",
+          { className: "athlete-v2-profile-action", type: "button", onClick: () => onNavigate("taxe") },
+          h("span", null, "Situație taxe"),
+          h("strong", null, outstanding > 0 ? formatMoney(outstanding) : "La zi"),
+          h("small", null, "Deschide taxele →")
+        ),
+        h(
+          "button",
+          { className: "athlete-v2-profile-action", type: "button", onClick: onEdit },
+          h("span", null, "Viză medicală"),
+          h("strong", null, expiry || "Neînregistrată"),
+          h("small", null, "Actualizează viza →")
+        )
       ),
       athlete.notes && h("div", { className: "athlete-v2-notes" }, h("span", null, "Observații"), h("p", null, athlete.notes))
     );
   }
 
-  function AthletesViewV2({ athletes, trainings = [], fees = [], onAdd, onUpdate }) {
+  function AthletesViewV2({ athletes, trainings = [], fees = [], onAdd, onUpdate, onNavigate = () => {} }) {
     const [editingId, setEditingId] = React.useState(null);
     const [profileId, setProfileId] = React.useState(null);
     const [isAdding, setAdding] = React.useState(false);
@@ -286,7 +309,19 @@
           },
           onCancel: () => setEditingId(null)
         }),
-      profileAthlete && h(AthleteProfile, { athlete: profileAthlete, trainings: effectiveTrainings, fees, onClose: () => setProfileId(null) }),
+      profileAthlete &&
+        h(AthleteProfile, {
+          athlete: profileAthlete,
+          trainings: effectiveTrainings,
+          fees,
+          onClose: () => setProfileId(null),
+          onEdit: () => {
+            setEditingId(profileAthlete.id);
+            setProfileId(null);
+            setAdding(false);
+          },
+          onNavigate
+        }),
       h(
         "div",
         { className: "athletes-v2-filterbar" },
