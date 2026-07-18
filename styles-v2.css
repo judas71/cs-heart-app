@@ -287,13 +287,57 @@ button.athlete-v2-status-action:focus-visible {
   margin: 5px 0 0;
 }
 
+.athlete-v2-payments {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.athlete-v2-payments-head h3,
+.athlete-v2-payments h4 {
+  margin: 0;
+}
+
+.athlete-v2-payments-head p,
+.athlete-v2-payment-empty {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.athlete-v2-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.athlete-v2-payment-summary > div {
+  display: grid;
+  gap: 5px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.athlete-v2-payment-summary span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.athlete-v2-payment-summary strong {
+  font-size: 1.05rem;
+}
+
 @media (max-width: 860px) {
   .athletes-v2-hero {
     grid-template-columns: 1fr;
   }
 
   .athletes-v2-metrics,
-  .athlete-v2-profile-grid {
+  .athlete-v2-profile-grid,
+  .athlete-v2-payment-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -301,7 +345,8 @@ button.athlete-v2-status-action:focus-visible {
 @media (max-width: 640px) {
   .athletes-v2-metrics,
   .athletes-v2-grid,
-  .athlete-v2-profile-grid {
+  .athlete-v2-profile-grid,
+  .athlete-v2-payment-summary {
     grid-template-columns: 1fr;
   }
 
