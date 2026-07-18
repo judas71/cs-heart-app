@@ -1,0 +1,276 @@
+.athletes-v2 {
+  --v2-card: #ffffff;
+  --v2-soft: #f8fafb;
+  --v2-green: #166534;
+  --v2-green-bg: #dcfce7;
+  --v2-yellow: #92400e;
+  --v2-yellow-bg: #fef3c7;
+  --v2-red-bg: #fff1f2;
+}
+
+.athletes-v2-hero {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.athletes-v2-hero h2 {
+  margin-bottom: 4px;
+  font-size: clamp(1.55rem, 3vw, 2.1rem);
+}
+
+.athletes-v2-hero p:last-child {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.athletes-v2-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+button.athletes-v2-metric {
+  display: grid;
+  gap: 4px;
+  min-height: 118px;
+  border-color: var(--line);
+  background: var(--v2-card);
+  padding: 15px;
+  text-align: left;
+}
+
+button.athletes-v2-metric span,
+button.athletes-v2-metric small {
+  color: var(--muted);
+}
+
+button.athletes-v2-metric strong {
+  font-size: 1.75rem;
+}
+
+button.athletes-v2-metric.selected {
+  border-color: var(--text);
+  background: var(--text);
+  color: #fff;
+}
+
+button.athletes-v2-metric.selected span,
+button.athletes-v2-metric.selected small {
+  color: #dce4e8;
+}
+
+.athletes-v2-filterbar,
+.athletes-v2-group-head,
+.athlete-v2-profile-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.athletes-v2-group-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.athletes-v2-group-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.athletes-v2-group-filters button span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.athletes-v2-group-filters button.selected {
+  border-color: var(--primary);
+  background: #fff1f2;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.athletes-v2-result-count,
+.athletes-v2-group-head span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.athletes-v2-group {
+  display: grid;
+  gap: 10px;
+}
+
+.athletes-v2-group-head {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 7px;
+}
+
+.athletes-v2-group-head h2 {
+  margin: 0;
+}
+
+.athletes-v2-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.athlete-v2-card {
+  display: grid;
+  gap: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--v2-card);
+  box-shadow: var(--shadow);
+  padding: 15px;
+}
+
+.athlete-v2-card-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.athlete-v2-avatar {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffe4e6;
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+.athlete-v2-identity {
+  display: grid;
+  min-width: 0;
+}
+
+.athlete-v2-identity strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.athlete-v2-identity span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.athlete-v2-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill.warn {
+  background: var(--v2-yellow-bg);
+  color: var(--v2-yellow);
+}
+
+.pill.danger-soft {
+  background: var(--v2-red-bg);
+  color: var(--danger);
+}
+
+.athlete-v2-summary,
+.athlete-v2-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.athlete-v2-summary {
+  border-top: 1px solid var(--line);
+  padding-top: 11px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.athlete-v2-summary strong {
+  color: var(--text);
+}
+
+.athlete-v2-actions {
+  justify-content: flex-end;
+}
+
+.athlete-v2-profile {
+  border-left: 4px solid var(--primary);
+}
+
+.athlete-v2-profile-head h2 {
+  margin-bottom: 0;
+  font-size: 1.3rem;
+}
+
+.athlete-v2-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.athlete-v2-profile-grid > div {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.athlete-v2-profile-grid span,
+.athlete-v2-notes span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.athlete-v2-notes {
+  margin-top: 14px;
+}
+
+.athlete-v2-notes p {
+  margin: 5px 0 0;
+}
+
+@media (max-width: 860px) {
+  .athletes-v2-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .athletes-v2-metrics,
+  .athlete-v2-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .athletes-v2-metrics,
+  .athletes-v2-grid,
+  .athlete-v2-profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  button.athletes-v2-metric {
+    min-height: 96px;
+  }
+
+  .athletes-v2-filterbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .athlete-v2-actions button {
+    flex: 1;
+  }
+}
