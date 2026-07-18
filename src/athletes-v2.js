@@ -87,6 +87,36 @@
     return `${Number(value || 0).toLocaleString("ro-RO")} lei`;
   }
 
+  function formatCurrency(value, currency = "lei") {
+    return `${Number(value || 0).toLocaleString("ro-RO")} ${currency === "euro" ? "euro" : "lei"}`;
+  }
+
+  function formatDate(value) {
+    if (!value) return "-";
+    const parts = String(value).split("-");
+    return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
+  }
+
+  function paymentCurrency(payment) {
+    return payment.currency || "lei";
+  }
+
+  function paymentType(payment) {
+    return !payment.paymentType || payment.paymentType === "plata" ? "incasare" : payment.paymentType;
+  }
+
+  function paymentTypeLabel(payment) {
+    const type = paymentType(payment);
+    if (type === "cheltuiala") return "Plată";
+    if (type === "retur") return "Retur de sume";
+    if (type === "avans") return "Avans";
+    return "Încasare";
+  }
+
+  function isOutgoingPayment(payment) {
+    return ["avans", "cheltuiala", "retur"].includes(paymentType(payment));
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -222,7 +252,92 @@
     );
   }
 
-  function AthleteProfile({ athlete, trainings, fees, onClose, onEdit, onNavigate, profileRef }) {
+  function PaymentHistoryV2({ athlete, fees, otherPayments = [] }) {
+    const feeRows = fees
+      .filter((fee) => fee.athleteId === athlete.id && (Number(fee.amountPaid || 0) > 0 || fee.paymentDate))
+      .sort((a, b) => String(b.paymentDate || b.month || "").localeCompare(String(a.paymentDate || a.month || "")));
+    const otherRows = otherPayments
+      .filter((payment) => payment.athleteId === athlete.id)
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const feeTotal = feeRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const otherIncomingLei = otherRows
+      .filter((payment) => paymentCurrency(payment) === "lei" && !isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherIncomingEuro = otherRows
+      .filter((payment) => paymentCurrency(payment) === "euro" && !isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+    return h(
+      "section",
+      { className: "athlete-v2-payments" },
+      h("div", { className: "athlete-v2-payments-head" }, h("div", null, h("h3", null, "Istoric încasări"), h("p", null, `Toate operațiunile pentru ${athleteName(athlete)}`))),
+      h(
+        "div",
+        { className: "athlete-v2-payment-summary" },
+        h("div", null, h("span", null, "Taxe încasate"), h("strong", null, formatMoney(feeTotal))),
+        h("div", null, h("span", null, "Alte încasări lei"), h("strong", null, formatMoney(otherIncomingLei))),
+        h("div", null, h("span", null, "Alte încasări euro"), h("strong", null, formatCurrency(otherIncomingEuro, "euro")))
+      ),
+      h("h4", null, "Taxe lunare"),
+      feeRows.length
+        ? h(
+            "div",
+            { className: "table-wrap wide" },
+            h(
+              "table",
+              null,
+              h("thead", null, h("tr", null, ["Data", "Luna", "Încasat", "Metoda", "Status", "Observații"].map((head) => h("th", { key: head }, head)))),
+              h(
+                "tbody",
+                null,
+                feeRows.map((fee) =>
+                  h(
+                    "tr",
+                    { key: fee.id || `${fee.athleteId}-${fee.month}` },
+                    h("td", { "data-label": "Data" }, formatDate(fee.paymentDate)),
+                    h("td", { "data-label": "Luna" }, fee.month || "-"),
+                    h("td", { "data-label": "Încasat" }, h("strong", null, formatMoney(fee.amountPaid))),
+                    h("td", { "data-label": "Metoda" }, fee.method || "-"),
+                    h("td", { "data-label": "Status" }, fee.status || "-"),
+                    h("td", { "data-label": "Observații" }, fee.notes || "-")
+                  )
+                )
+              )
+            )
+          )
+        : h("p", { className: "athlete-v2-payment-empty" }, "Nu există taxe încasate pentru acest sportiv."),
+      h("h4", null, "Alte încasări / plăți"),
+      otherRows.length
+        ? h(
+            "div",
+            { className: "table-wrap wide" },
+            h(
+              "table",
+              null,
+              h("thead", null, h("tr", null, ["Data", "Categorie", "Tip", "Sumă", "Metoda", "Observații"].map((head) => h("th", { key: head }, head)))),
+              h(
+                "tbody",
+                null,
+                otherRows.map((payment) =>
+                  h(
+                    "tr",
+                    { key: payment.id || `${payment.date}-${payment.category}-${payment.amount}` },
+                    h("td", { "data-label": "Data" }, formatDate(payment.date)),
+                    h("td", { "data-label": "Categorie" }, payment.category || "-"),
+                    h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
+                    h("td", { "data-label": "Sumă" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, `${isOutgoingPayment(payment) ? "- " : ""}${formatCurrency(payment.amount, paymentCurrency(payment))}`)),
+                    h("td", { "data-label": "Metoda" }, payment.method || "-"),
+                    h("td", { "data-label": "Observații" }, payment.notes || "-")
+                  )
+                )
+              )
+            )
+          )
+        : h("p", { className: "athlete-v2-payment-empty" }, "Nu există alte încasări sau plăți pentru acest sportiv.")
+    );
+  }
+
+  function AthleteProfile({ athlete, trainings, fees, otherPayments, onClose, onEdit, onNavigate, profileRef }) {
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
     const expiry = getMedicalExpiry(athlete);
@@ -267,11 +382,12 @@
           h("small", null, "Actualizează viza →")
         )
       ),
-      athlete.notes && h("div", { className: "athlete-v2-notes" }, h("span", null, "Observații"), h("p", null, athlete.notes))
+      athlete.notes && h("div", { className: "athlete-v2-notes" }, h("span", null, "Observații"), h("p", null, athlete.notes)),
+      h(PaymentHistoryV2, { athlete, fees, otherPayments })
     );
   }
 
-  function AthletesViewV2({ athletes, trainings = [], fees = [], onAdd, onUpdate, onNavigate = () => {} }) {
+  function AthletesViewV2({ athletes, trainings = [], fees = [], otherPayments = [], onAdd, onUpdate, onNavigate = () => {} }) {
     const [editingId, setEditingId] = React.useState(null);
     const [profileId, setProfileId] = React.useState(null);
     const [isAdding, setAdding] = React.useState(false);
@@ -381,6 +497,7 @@
           athlete: profileAthlete,
           trainings: effectiveTrainings,
           fees,
+          otherPayments,
           onClose: () => setProfileId(null),
           onEdit: () => {
             setEditingId(profileAthlete.id);
