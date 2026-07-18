@@ -1,0 +1,539 @@
+(function () {
+  const h = React.createElement;
+
+  function athleteName(athlete) {
+    return `${athlete.lastName} ${athlete.firstName}`;
+  }
+
+  function operatorLabel(value) {
+    const text = String(value || "").trim();
+    const key = text.toLowerCase().replace(/\s+/g, "");
+
+    if (!text) return "-";
+    if (key.includes("liviu.vera") || key.includes("liviu")) return "Liviu";
+    if (key.includes("alina")) return "Alina";
+    return text;
+  }
+
+  function compareText(first, second) {
+    return String(first || "").trim().localeCompare(String(second || "").trim(), "ro-RO", { sensitivity: "base", numeric: true });
+  }
+
+  function compareAthletesByName(first, second) {
+    return compareText(athleteName(first), athleteName(second));
+  }
+
+  function formatMoney(value, currency = "lei") {
+    return `${Number(value || 0).toLocaleString("ro-RO")} ${currency === "euro" ? "euro" : "lei"}`;
+  }
+
+  function paymentCurrency(payment) {
+    return payment.currency || "lei";
+  }
+
+  function paymentType(payment) {
+    return !payment.paymentType || payment.paymentType === "plata" ? "incasare" : payment.paymentType;
+  }
+
+  function paymentTypeLabel(type) {
+    const value = typeof type === "string" ? type : paymentType(type);
+    if (value === "cheltuiala") return "plata";
+    if (value === "retur") return "retur de sume";
+    return value;
+  }
+
+  function isOutgoingPayment(payment) {
+    return ["avans", "cheltuiala", "retur"].includes(paymentType(payment));
+  }
+
+  function formatPaymentAmount(payment) {
+    const prefix = isOutgoingPayment(payment) ? "- " : "";
+    return prefix + formatMoney(payment.amount, paymentCurrency(payment));
+  }
+
+  function getGroups(athletes) {
+    return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort();
+  }
+
+  function formatDate(value) {
+    if (!value) return "-";
+    const parts = String(value).split("-");
+
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    return value;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "-";
+
+    try {
+      return new Date(value).toLocaleString("ro-RO");
+    } catch (error) {
+      return value;
+    }
+  }
+
+  function medicalVisaPart(label, value) {
+    const formatted = formatDate(value);
+
+    if (formatted === "-") return null;
+
+    return h(
+      "span",
+      { style: { display: "inline-flex", gap: "5px", marginRight: "18px", whiteSpace: "nowrap" } },
+      label + " -",
+      h("span", { style: { color: "#c5162e", fontWeight: 900 } }, formatted)
+    );
+  }
+
+  function MedicalVisaValue({ athlete }) {
+    const from = medicalVisaPart("de la", athlete.medicalVisaFrom);
+    const to = medicalVisaPart("pana la", athlete.medicalVisaTo);
+
+    if (!from && !to) return "-";
+
+    return h(
+      "span",
+      { style: { display: "flex", flexWrap: "wrap", gap: "6px 0" } },
+      from,
+      to
+    );
+  }
+
+  function equipmentValue(value) {
+    return String(value || "").trim() || "-";
+  }
+
+  function EquipmentFormSection({ form, update }) {
+    const groupStyle = {
+      border: "1px solid #d9e0e5",
+      borderRadius: "8px",
+      padding: "10px",
+      display: "grid",
+      gap: "8px",
+      background: "#fff"
+    };
+
+    const gridStyle = {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+      gap: "10px"
+    };
+    const shortInputStyle = { maxWidth: "90px" };
+
+    return h(
+      "div",
+      { style: { gridColumn: "1 / -1", borderTop: "1px solid #d9e0e5", paddingTop: "12px", display: "grid", gap: "10px" } },
+      h("strong", null, "Echipamente primite"),
+      h(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" } },
+        h(
+          "div",
+          { style: groupStyle },
+          h("strong", null, "Echipament joc"),
+          h(
+            "div",
+            { style: gridStyle },
+            h(Field, { label: "Culoare deschisa" }, h("input", { value: form.equipmentGameLightColor || form.equipmentGameColor || "", onChange: (e) => update("equipmentGameLightColor", e.target.value), placeholder: "alb" })),
+            h(Field, { label: "Culoare inchisa" }, h("input", { value: form.equipmentGameDarkColor || "", onChange: (e) => update("equipmentGameDarkColor", e.target.value), placeholder: "rosu" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentGameSize || "", onChange: (e) => update("equipmentGameSize", e.target.value), placeholder: "M", maxLength: 3, style: shortInputStyle })),
+            h(Field, { label: "Numar" }, h("input", { value: form.equipmentGameNumber || "", onChange: (e) => update("equipmentGameNumber", e.target.value), placeholder: "acelasi pe ambele", inputMode: "numeric", style: shortInputStyle }))
+          )
+        ),
+        h(
+          "div",
+          { style: groupStyle },
+          h("strong", null, "Trening"),
+          h(
+            "div",
+            { style: gridStyle },
+            h(Field, { label: "Culoare" }, h("input", { value: form.equipmentTracksuitColor || "", onChange: (e) => update("equipmentTracksuitColor", e.target.value), placeholder: "negru" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentTracksuitSize || "", onChange: (e) => update("equipmentTracksuitSize", e.target.value), placeholder: "S / 140" }))
+          )
+        ),
+        h(
+          "div",
+          { style: groupStyle },
+          h("strong", null, "Tricou"),
+          h(
+            "div",
+            { style: gridStyle },
+            h(Field, { label: "Culoare" }, h("input", { value: form.equipmentShirtColor || "", onChange: (e) => update("equipmentShirtColor", e.target.value), placeholder: "alb" })),
+            h(Field, { label: "Marime" }, h("input", { value: form.equipmentShirtSize || "", onChange: (e) => update("equipmentShirtSize", e.target.value), placeholder: "12 ani" }))
+          )
+        )
+      )
+    );
+  }
+
+  function EquipmentSummary({ athlete }) {
+    const cardStyle = {
+      border: "1px solid #d9e0e5",
+      borderRadius: "8px",
+      padding: "10px 12px",
+      background: "#fff",
+      display: "grid",
+      gap: "6px"
+    };
+    const lineStyle = { display: "flex", justifyContent: "space-between", gap: "12px" };
+    const valueStyle = { fontWeight: 900, color: "#172026", textAlign: "right" };
+
+    function line(label, value) {
+      return h("div", { style: lineStyle }, h("span", null, label), h("strong", { style: valueStyle }, equipmentValue(value)));
+    }
+
+    return h(
+      "div",
+      { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginTop: "8px" } },
+      h(
+        "div",
+        { style: cardStyle },
+        h("strong", null, "Echipament joc"),
+        line("Culoare deschisa", athlete.equipmentGameLightColor || athlete.equipmentGameColor),
+        line("Culoare inchisa", athlete.equipmentGameDarkColor),
+        line("Marime", athlete.equipmentGameSize),
+        line("Numar", athlete.equipmentGameNumber)
+      ),
+      h(
+        "div",
+        { style: cardStyle },
+        h("strong", null, "Trening"),
+        line("Culoare", athlete.equipmentTracksuitColor),
+        line("Marime", athlete.equipmentTracksuitSize)
+      ),
+      h(
+        "div",
+        { style: cardStyle },
+        h("strong", null, "Tricou"),
+        line("Culoare", athlete.equipmentShirtColor),
+        line("Marime", athlete.equipmentShirtSize)
+      ),
+      athlete.equipmentNotes &&
+        h(
+          "div",
+          { style: cardStyle },
+          h("strong", null, "Alte detalii"),
+          h("p", { style: { margin: 0, whiteSpace: "pre-wrap" } }, athlete.equipmentNotes)
+        )
+    );
+  }
+
+  function Field({ label, children }) {
+    return h("label", { className: "field" }, h("span", null, label), children);
+  }
+
+  function EmptyState({ title, text }) {
+    return h("div", { className: "empty-state" }, h("strong", null, title), h("p", null, text));
+  }
+
+  function StatusPill({ children, tone }) {
+    return h("span", { className: `pill ${tone || ""}` }, children);
+  }
+
+  function isActiveAthlete(athlete) {
+    return athlete.active !== false;
+  }
+
+  function AthleteForm({ initialValue, onSave, onCancel }) {
+    const [form, setForm] = React.useState(
+      initialValue || {
+        firstName: "",
+        lastName: "",
+        group: "",
+        feeDue: 200,
+        active: true,
+        notes: "",
+        equipmentNotes: "",
+        equipmentGameColor: "",
+        equipmentGameLightColor: "",
+        equipmentGameDarkColor: "",
+        equipmentGameSize: "",
+        equipmentGameNumber: "",
+        equipmentTracksuitColor: "",
+        equipmentTracksuitSize: "",
+        equipmentShirtColor: "",
+        equipmentShirtSize: "",
+        medicalVisaFrom: "",
+        medicalVisaTo: "",
+        joinMonth: new Date().toISOString().slice(0, 7)
+      }
+    );
+
+    function update(field, value) {
+      setForm((current) => ({ ...current, [field]: value }));
+    }
+
+    function submit(event) {
+      event.preventDefault();
+      if (!form.firstName.trim() || !form.lastName.trim() || !form.group.trim()) return;
+
+      onSave({
+        ...form,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        group: form.group.trim(),
+        feeDue: Number(form.feeDue === "" || form.feeDue === undefined || form.feeDue === null ? 200 : form.feeDue)
+      });
+    }
+
+    return h(
+      "form",
+      { className: "panel form-grid", onSubmit: submit },
+      h(Field, { label: "Nume" }, h("input", { value: form.lastName, onChange: (e) => update("lastName", e.target.value), required: true })),
+      h(Field, { label: "Prenume" }, h("input", { value: form.firstName, onChange: (e) => update("firstName", e.target.value), required: true })),
+      h(Field, { label: "Grupa" }, h("input", { value: form.group, onChange: (e) => update("group", e.target.value), placeholder: "U10", required: true })),
+      h(Field, { label: "Taxa lunara" }, h("input", { type: "number", min: "0", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value === "" ? "" : Number(e.target.value)) })),
+      h(Field, { label: "Observatii" }, h("textarea", { value: form.notes, onChange: (e) => update("notes", e.target.value), rows: 2 })),
+      h(Field, { label: "Luna inscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
+      h(Field, { label: "Viza medicala de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
+      h(Field, { label: "Viza medicala pana la" }, h("input", { type: "date", value: form.medicalVisaTo || "", onChange: (e) => update("medicalVisaTo", e.target.value) })),
+      h(EquipmentFormSection, { form, update }),
+      h(
+        Field,
+        { label: "Status" },
+        h(
+          "select",
+          { value: isActiveAthlete(form) ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") },
+          h("option", { value: "active" }, "Activ"),
+          h("option", { value: "inactive" }, "Arhivat")
+        )
+      ),
+      h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salveaza"), h("button", { type: "button", onClick: onCancel }, "Anuleaza"))
+    );
+  }
+
+  function PaymentHistory({ athlete, fees, otherPayments = [] }) {
+    const rows = fees
+      .filter((fee) => fee.athleteId === athlete.id && (Number(fee.amountPaid || 0) > 0 || fee.paymentDate))
+      .sort((a, b) => String(b.month || "").localeCompare(String(a.month || "")));
+    const totalPaid = rows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const otherRows = otherPayments
+      .filter((payment) => payment.athleteId === athlete.id)
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const otherReceivedLei = otherRows
+      .filter((payment) => paymentCurrency(payment) === "lei" && !isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherPaidLei = otherRows
+      .filter((payment) => paymentCurrency(payment) === "lei" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherReceivedEuro = otherRows
+      .filter((payment) => paymentCurrency(payment) === "euro" && !isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const otherPaidEuro = otherRows
+      .filter((payment) => paymentCurrency(payment) === "euro" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+    return h(
+      "div",
+      { className: "report-block", style: { boxShadow: "none", marginTop: "8px" } },
+      h("h2", null, "Fisa incasari: " + athleteName(athlete)),
+      h(
+        "div",
+        { className: "metrics", style: { marginBottom: "14px" } },
+        h("div", null, h("span", null, "Total incasat"), h("strong", null, formatMoney(totalPaid))),
+        h("div", null, h("span", null, "Plati gasite"), h("strong", null, rows.length)),
+        h("div", null, h("span", null, "Viza medicala"), h("strong", null, h(MedicalVisaValue, { athlete })))
+      ),
+      h(
+        "div",
+        { className: "metrics", style: { marginBottom: "14px" } },
+        h("div", null, h("span", null, "Alte incasari lei"), h("strong", null, formatMoney(otherReceivedLei)), h("small", null, "Platit/retur: " + formatMoney(otherPaidLei))),
+        h("div", null, h("span", null, "Alte incasari euro"), h("strong", null, formatMoney(otherReceivedEuro, "euro")), h("small", null, "Platit/retur: " + formatMoney(otherPaidEuro, "euro"))),
+        h("div", null, h("span", null, "Operatiuni extra"), h("strong", null, otherRows.length), h("small", null, "Incasari, avansuri, plati si retururi"))
+      ),
+      h(
+        "div",
+        { className: "panel", style: { marginBottom: "14px", padding: "12px 14px" } },
+        h("strong", null, "Echipamente primite"),
+        h(EquipmentSummary, { athlete })
+      ),
+      rows.length
+        ? h(
+            "div",
+            { className: "table-wrap wide" },
+            h(
+              "table",
+              null,
+              h(
+                "thead",
+                null,
+                h(
+                  "tr",
+                  null,
+                  ["Luna", "Taxa lunii", "Platit", "Data platii", "Metoda", "Status", "Operat de", "Modificat la"].map((head) => h("th", { key: head }, head))
+                )
+              ),
+              h(
+                "tbody",
+                null,
+                rows.map((fee) =>
+                  h(
+                    "tr",
+                    { key: fee.id || `${fee.athleteId}-${fee.month}` },
+                    h("td", { "data-label": "Luna" }, fee.month || "-"),
+                    h("td", { "data-label": "Taxa lunii" }, formatMoney(fee.amountDue)),
+                    h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(fee.amountPaid))),
+                    h("td", { "data-label": "Data platii" }, formatDate(fee.paymentDate)),
+                    h("td", { "data-label": "Metoda" }, fee.method || "-"),
+                    h("td", { "data-label": "Status" }, fee.status || "-"),
+                    h("td", { "data-label": "Operat de" }, operatorLabel(fee.updatedByEmail || fee.updatedBy)),
+                    h("td", { "data-label": "Modificat la" }, formatDateTime(fee.updatedAt))
+                  )
+                )
+              )
+            )
+          )
+        : h("p", null, "Nu exista plati inregistrate pentru acest sportiv."),
+      h("h2", { style: { marginTop: "18px" } }, "Alte incasari / plati"),
+      otherRows.length
+        ? h(
+            "div",
+            { className: "table-wrap wide" },
+            h(
+              "table",
+              null,
+              h("thead", null, h("tr", null, ["Data", "Categorie", "Tip", "Suma", "Metoda", "Observatii", "Operat de"].map((head) => h("th", { key: head }, head)))),
+              h(
+                "tbody",
+                null,
+                otherRows.map((payment) =>
+                  h(
+                    "tr",
+                    { key: payment.id || `${payment.date}-${payment.category}-${payment.amount}` },
+                    h("td", { "data-label": "Data" }, formatDate(payment.date)),
+                    h("td", { "data-label": "Categorie" }, payment.category || "-"),
+                    h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
+                    h("td", { "data-label": "Suma" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
+                    h("td", { "data-label": "Metoda" }, payment.method || "-"),
+                    h("td", { "data-label": "Observatii" }, payment.notes || "-"),
+                    h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail))
+                  )
+                )
+              )
+            )
+          )
+        : h("p", null, "Nu exista alte incasari pentru acest sportiv."),
+      h("small", null, "Pentru platile vechi, utilizatorul apare doar dupa ce plata este modificata din nou.")
+    );
+  }
+
+  function AthletesView({ athletes, fees = [], otherPayments = [], taxPayments = [], onAdd, onUpdate, onDelete }) {
+    const [editingId, setEditingId] = React.useState(null);
+    const [profileId, setProfileId] = React.useState(null);
+    const [isAdding, setAdding] = React.useState(false);
+    const [query, setQuery] = React.useState("");
+    const [groupFilter, setGroupFilter] = React.useState("toate");
+    const [statusFilter, setStatusFilter] = React.useState("active");
+    const groups = getGroups(athletes);
+    const filtered = athletes
+      .filter((athlete) => groupFilter === "toate" || athlete.group === groupFilter)
+      .filter((athlete) => {
+        const active = isActiveAthlete(athlete);
+        if (statusFilter === "active") return active;
+        if (statusFilter === "archived") return !active;
+        return true;
+      })
+      .filter((athlete) => athleteName(athlete).toLowerCase().includes(query.toLowerCase()))
+      .sort(compareAthletesByName);
+
+    function toggleArchive(athlete) {
+      const active = isActiveAthlete(athlete);
+
+      onUpdate(athlete.id, { ...athlete, active: !active });
+      setEditingId(null);
+      if (active) setProfileId(null);
+    }
+
+    return h(
+      "section",
+      { className: "stack" },
+      h(
+        "div",
+        { className: "toolbar" },
+        h(
+          "div",
+          { className: "filters" },
+          h("input", { value: query, onChange: (e) => setQuery(e.target.value), placeholder: "Cauta sportiv" }),
+          h(
+            "select",
+            { value: groupFilter, onChange: (e) => setGroupFilter(e.target.value) },
+            h("option", { value: "toate" }, "Toate grupele"),
+            groups.map((group) => h("option", { key: group, value: group }, group))
+          ),
+          h(
+            "select",
+            { value: statusFilter, onChange: (e) => setStatusFilter(e.target.value) },
+            h("option", { value: "active" }, "Doar activi"),
+            h("option", { value: "archived" }, "Arhivati"),
+            h("option", { value: "all" }, "Toti")
+          )
+        ),
+        h("button", { className: "primary", onClick: () => setAdding(true) }, "Adauga sportiv")
+      ),
+      isAdding &&
+        h(AthleteForm, {
+          onSave: (athlete) => {
+            onAdd(athlete);
+            setAdding(false);
+          },
+          onCancel: () => setAdding(false)
+        }),
+      h(
+        "div",
+        { className: "table-wrap" },
+        h(
+          "table",
+          null,
+          h("thead", null, h("tr", null, ["Nr. crt.", "Sportiv", "Grupa", "Taxa", "Observatii", "Status", ""].map((head) => h("th", { key: head }, head)))),
+          h(
+            "tbody",
+            null,
+            filtered.map((athlete, index) =>
+              editingId === athlete.id
+                ? h(
+                    "tr",
+                    { key: athlete.id },
+                    h("td", { colSpan: 7 }, h(AthleteForm, { initialValue: athlete, onSave: (updated) => { onUpdate(athlete.id, updated); setEditingId(null); }, onCancel: () => setEditingId(null) }))
+                  )
+                : h(
+                    React.Fragment,
+                    { key: athlete.id },
+                    h(
+                      "tr",
+                      null,
+                      h("td", { "data-label": "Nr. crt." }, index + 1),
+                      h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(athlete))),
+                      h("td", { "data-label": "Grupa" }, athlete.group),
+                      h("td", { "data-label": "Taxa" }, formatMoney(athlete.feeDue ?? 200)),
+                      h("td", { "data-label": "Observatii" }, athlete.notes || "-"),
+                      h("td", { "data-label": "Status" }, h(StatusPill, { tone: isActiveAthlete(athlete) ? "ok" : "muted" }, isActiveAthlete(athlete) ? "Activ" : "Arhivat")),
+                      h(
+                        "td",
+                        { className: "row-actions" },
+                        h("button", { onClick: () => setEditingId(athlete.id) }, "Editeaza"),
+                        h("button", { onClick: () => setProfileId(profileId === athlete.id ? null : athlete.id) }, "Fisa"),
+                        h("button", { className: isActiveAthlete(athlete) ? "danger" : "primary", onClick: () => toggleArchive(athlete) }, isActiveAthlete(athlete) ? "Arhiveaza" : "Reactiveaza"),
+                        h("button", { onClick: () => onDelete(athlete.id) }, "Sterge")
+                      )
+                    ),
+                    profileId === athlete.id &&
+                      h("tr", null, h("td", { colSpan: 7 }, h(PaymentHistory, { athlete, fees, otherPayments }), h("button", { onClick: () => setProfileId(null), style: { marginTop: "10px" } }, "Inchide fisa")))
+                  )
+            )
+          )
+        )
+      ),
+      !filtered.length && h(EmptyState, { title: "Nu exista sportivi in filtrul curent.", text: "Schimba grupa, cauta alt nume sau adauga un sportiv nou." })
+    );
+  }
+
+  window.AthletesView = AthletesView;
+  window.CSHeartComponents = {
+    ...window.CSHeartComponents,
+    AthletesView
+  };
+})();
