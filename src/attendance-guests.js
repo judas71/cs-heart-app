@@ -12,7 +12,7 @@
   }
 
   function athleteName(athlete) {
-    return `${athlete.lastName} ${athlete.firstName}`;
+    return `${athlete.lastName || ""} ${athlete.firstName || ""}`.replace(/\s+/g, " ").trim();
   }
 
   function compareAthletes(first, second) {
@@ -65,7 +65,6 @@
 
     return Object.keys(training.attendance || {}).some((athleteId) => {
       const athlete = athletes.find((item) => item.id === athleteId);
-
       return athlete && athlete.group !== training.group;
     });
   }
@@ -109,11 +108,13 @@
     const [date, setDate] = React.useState(new Date().toISOString().slice(0, 10));
     const [mode, setMode] = React.useState("grupa");
     const [group, setGroup] = React.useState(groups[0] || "");
+    const [screen, setScreen] = React.useState("marcare");
     const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
-    const activeAthletes = athletes.filter((athlete) => athlete.active).sort(compareAthletes);
+    const [attendance, setAttendance] = React.useState({});
+    const [savedNotice, setSavedNotice] = React.useState(false);
+    const activeAthletes = athletes.filter((athlete) => athlete.active !== false).sort(compareAthletes);
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
     const selectedTraining = findTraining(trainings, date, mode, group, activeAthletes);
-    const [attendance, setAttendance] = React.useState({});
     const attendanceIds = new Set(Object.keys(attendance));
     const shownAthletes =
       mode === "grupa"
@@ -125,45 +126,66 @@
     const selectedAvailableIds = selectedAthleteIds.filter((athleteId) =>
       availableAthletes.some((athlete) => athlete.id === athleteId)
     );
+    const counts = countStatuses(attendance);
+    const markedCount = shownAthletes.filter((athlete) => attendanceStatuses.includes(attendance[athlete.id])).length;
+    const unmarkedCount = Math.max(shownAthletes.length - markedCount, 0);
+    const historyRows = [...trainings]
+      .filter((training) => Object.keys(training.attendance || {}).length > 0)
+      .sort((first, second) => {
+        const byDate = String(second.date || "").localeCompare(String(first.date || ""));
+        if (byDate !== 0) return byDate;
+        return String(first.group || "").localeCompare(String(second.group || ""), "ro");
+      });
 
     React.useEffect(() => {
       const savedAttendance = selectedTraining?.attendance || {};
       const next = {};
 
-      if (mode === "grupa") {
-        groupAthletes.forEach((athlete) => {
-          next[athlete.id] = savedAttendance[athlete.id] || "prezent";
-        });
-
-        Object.keys(savedAttendance).forEach((athleteId) => {
-          const athlete = activeAthletes.find((item) => item.id === athleteId);
-
-          if (athlete && athlete.group !== group) {
-            next[athleteId] = savedAttendance[athleteId] || "prezent";
-          }
-        });
-      } else {
-        Object.keys(savedAttendance).forEach((athleteId) => {
-          if (activeAthletes.some((athlete) => athlete.id === athleteId)) {
-            next[athleteId] = savedAttendance[athleteId] || "prezent";
-          }
-        });
-      }
+      Object.keys(savedAttendance).forEach((athleteId) => {
+        if (activeAthletes.some((athlete) => athlete.id === athleteId)) {
+          next[athleteId] = savedAttendance[athleteId];
+        }
+      });
 
       setAttendance(next);
       setSelectedAthleteIds([]);
+      setSavedNotice(false);
     }, [date, group, mode, selectedTraining?.id, athletes.length]);
 
-    const historyRows = [...trainings]
-      .filter((training) => training.date === date && Object.keys(training.attendance || {}).length > 0)
-      .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
+    function updateAttendance(athleteId, status) {
+      setAttendance((current) => ({
+        ...current,
+        [athleteId]: current[athleteId] === status ? "" : status
+      }));
+      setSavedNotice(false);
+    }
 
-    function save(nextAttendance) {
+    function markAllPresent() {
+      if (!shownAthletes.length) return;
+      const next = { ...attendance };
+      shownAthletes.forEach((athlete) => {
+        next[athlete.id] = "prezent";
+      });
+      setAttendance(next);
+      setSavedNotice(false);
+    }
+
+    function clearAllMarks() {
+      const next = { ...attendance };
+      shownAthletes.forEach((athlete) => {
+        next[athlete.id] = "";
+      });
+      setAttendance(next);
+      setSavedNotice(false);
+    }
+
+    function saveTraining() {
+      if (!shownAthletes.length || unmarkedCount > 0) return;
+
       const cleanedAttendance = Object.fromEntries(
-        Object.entries(nextAttendance).filter(([, status]) => attendanceStatuses.includes(status))
+        Object.entries(attendance).filter(([, status]) => attendanceStatuses.includes(status))
       );
 
-      setAttendance(cleanedAttendance);
       onSaveTraining({
         id: selectedTraining?.id,
         date,
@@ -171,15 +193,8 @@
         type: trainingRecordType(mode),
         attendance: cleanedAttendance
       });
-    }
-
-    function confirmTraining() {
-      if (!shownAthletes.length) return;
-      save(attendance);
-    }
-
-    function updateAttendance(athleteId, status) {
-      save({ ...attendance, [athleteId]: status });
+      setAttendance(cleanedAttendance);
+      setSavedNotice(true);
     }
 
     function toggleSelectedAthlete(athleteId) {
@@ -201,24 +216,25 @@
 
       const nextAttendance = { ...attendance };
       selectedAvailableIds.forEach((athleteId) => {
-        nextAttendance[athleteId] = nextAttendance[athleteId] || "prezent";
+        nextAttendance[athleteId] = nextAttendance[athleteId] || "";
       });
-
-      save(nextAttendance);
+      setAttendance(nextAttendance);
       setSelectedAthleteIds([]);
+      setSavedNotice(false);
     }
 
     function removeAthlete(athleteId) {
       const nextAttendance = { ...attendance };
-
       delete nextAttendance[athleteId];
-      save(nextAttendance);
+      setAttendance(nextAttendance);
+      setSavedNotice(false);
     }
 
     function openHistory(training) {
       const type = displayTrainingType(training, activeAthletes);
 
       setDate(training.date);
+      setScreen("marcare");
 
       if (type === "Individual") {
         setMode("individual");
@@ -239,184 +255,248 @@
 
       const ok = confirm("Stergi aceasta prezenta/antrenament?");
       if (!ok) return;
-
       onDeleteTraining(training);
     }
 
     return h(
       "section",
-      { className: "stack" },
+      { className: "stack attendance-v2" },
       h(
         "div",
-        { className: "panel compact-grid" },
-        h(Field, { label: "Data antrenamentului" }, h("input", { type: "date", value: date, onChange: (event) => setDate(event.target.value) })),
-        h(
-          Field,
-          { label: "Tip antrenament" },
-          h(
-            "select",
-            { value: mode, onChange: (event) => setMode(event.target.value) },
-            trainingModes.map(([value, label]) => h("option", { key: value, value }, label))
-          )
-        ),
-        mode === "grupa" &&
-          h(
-            Field,
-            { label: "Grupa" },
-            h(
-              "select",
-              { value: group, onChange: (event) => setGroup(event.target.value) },
-              groups.map((item) => h("option", { key: item, value: item }, item))
-            )
-          ),
-        h("button", { type: "button", className: "primary align-end", onClick: confirmTraining, disabled: !shownAthletes.length }, "Confirma prezenta")
-      ),
-      canPickAthletes &&
+        { className: "attendance-v2-hero" },
         h(
           "div",
-          { className: "panel stack" },
+          { className: "attendance-v2-hero-copy" },
+          h("p", { className: "eyebrow" }, "Prezenta"),
+          h("h2", null, screen === "marcare" ? "Antrenamentul de azi" : "Istoric antrenamente"),
           h(
-            "div",
-            { className: "toolbar" },
-            h("strong", null, mode === "mixt" ? "Alege sportivii pentru antrenamentul mixt" : "Alege sportivii pentru antrenamentul individual"),
-            h(
-              "div",
-              { className: "row-actions" },
-              h("button", { type: "button", onClick: selectAllAvailable, disabled: !availableAthletes.length }, "Selecteaza toti"),
-              h("button", { type: "button", onClick: clearSelectedAthletes, disabled: !selectedAvailableIds.length }, "Goleste"),
-              h(
-                "button",
-                { type: "button", className: "primary", onClick: addSelectedAthletes, disabled: !selectedAvailableIds.length },
-                "Adauga selectatii" + (selectedAvailableIds.length ? ` (${selectedAvailableIds.length})` : "")
-              )
-            )
-          ),
-          availableAthletes.length
-            ? h(
-                "ul",
-                { className: "clean-list", style: { maxHeight: "280px", overflow: "auto" } },
-                availableAthletes.map((athlete) =>
-                  h(
-                    "li",
-                    { key: athlete.id },
-                    h(
-                      "label",
-                      { style: { display: "flex", alignItems: "center", gap: "10px", width: "100%", cursor: "pointer" } },
-                      h("input", {
-                        type: "checkbox",
-                        checked: selectedAthleteIds.includes(athlete.id),
-                        onChange: () => toggleSelectedAthlete(athlete.id),
-                        style: { width: "auto", minHeight: "auto" }
-                      }),
-                      h("span", null, h("strong", null, athleteName(athlete)), h("small", null, athlete.group || "Fara grupa"))
-                    )
-                  )
-                )
-              )
-            : h(EmptyState, { title: "Nu mai sunt sportivi de adaugat.", text: "Toti sportivii disponibili sunt deja in antrenament." })
-        ),
-      h(
-        "div",
-        { className: "table-wrap" },
-        h(
-          "table",
-          null,
-          h("thead", null, h("tr", null, h("th", null, "Sportiv"), h("th", null, "Status prezenta"))),
-          h(
-            "tbody",
+            "p",
             null,
-            shownAthletes.map((athlete) => {
-              const canRemove = mode !== "grupa" || athlete.group !== group;
-
-              return h(
-                "tr",
-                { key: athlete.id, className: attendance[athlete.id] === "prezent" ? "row-present" : "" },
-                h(
-                  "td",
-                  { "data-label": "Sportiv" },
-                  h("strong", null, athleteName(athlete)),
-                  h("small", null, athlete.group || "Fara grupa"),
-                  canRemove &&
-                    h(
-                      "button",
-                      { type: "button", onClick: () => removeAthlete(athlete.id), style: { marginTop: "8px", minHeight: "34px", padding: "6px 10px" } },
-                      "Scoate din antrenament"
-                    )
-                ),
-                h(
-                  "td",
-                  { "data-label": "Status prezenta" },
-                  h(
-                    "div",
-                    { className: "segmented" },
-                    attendanceStatuses.map((status) =>
-                      h(
-                        "button",
-                        {
-                          key: status,
-                          type: "button",
-                          className: attendance[athlete.id] === status ? "selected" : "",
-                          onClick: () => updateAttendance(athlete.id, status)
-                        },
-                        status
-                      )
-                    )
-                  )
-                )
-              );
-            })
+            screen === "marcare"
+              ? "Verifica fiecare sportiv. Nimeni nu este marcat automat si nimic nu se salveaza fara confirmarea ta."
+              : "Vezi antrenamentele salvate si deschide rapid o prezenta pentru verificare."
+          )
+        ),
+        h(
+          "div",
+          { className: "attendance-v2-tabs", "aria-label": "Mod prezenta" },
+          h(
+            "button",
+            {
+              type: "button",
+              className: screen === "marcare" ? "selected" : "",
+              "aria-pressed": screen === "marcare",
+              onClick: () => setScreen("marcare")
+            },
+            "Marcheaza prezenta"
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              className: screen === "istoric" ? "selected" : "",
+              "aria-pressed": screen === "istoric",
+              onClick: () => setScreen("istoric")
+            },
+            "Istoric",
+            h("span", null, historyRows.length)
           )
         )
       ),
-      h(
-        "div",
-        { className: "panel" },
-        h("button", { type: "button", className: "primary", onClick: confirmTraining, disabled: !shownAthletes.length }, "Confirma prezenta")
-      ),
-      !shownAthletes.length &&
-        h(EmptyState, {
-          title: mode === "grupa" ? "Nu sunt sportivi pentru acest antrenament." : "Nu ai ales sportivi pentru acest antrenament.",
-          text: mode === "grupa" ? "Alege alta grupa sau foloseste antrenament mixt." : "Bifeaza sportivii si apasa Adauga selectatii."
-        }),
-      h(
-        "div",
-        { className: "table-wrap" },
+      screen === "marcare" &&
         h(
-          "table",
+          React.Fragment,
           null,
-          h("thead", null, h("tr", null, ["Istoric data aleasa", "Prezenti", "Absenti", "Invoiti", "Accidentati", ""].map((head) => h("th", { key: head }, head)))),
           h(
-            "tbody",
-            null,
-            historyRows.map((training) => {
-              const counts = countStatuses(training.attendance);
-              const type = displayTrainingType(training, activeAthletes);
-              const label = type === "Grupa" ? `Grupa ${training.group || "-"}` : type;
-
-              return h(
-                "tr",
-                { key: training.id || `${training.date}-${training.group || "antrenament"}` },
-                h("td", { "data-label": "Istoric data aleasa" }, h("strong", null, formatDate(training.date)), h("small", null, label)),
-                h("td", { "data-label": "Prezenti" }, counts.present),
-                h("td", { "data-label": "Absenti" }, counts.absent),
-                h("td", { "data-label": "Invoiti" }, counts.excused),
-                h("td", { "data-label": "Accidentati" }, counts.injured),
+            "div",
+            { className: "panel compact-grid attendance-v2-controls" },
+            h(Field, { label: "Data antrenamentului" }, h("input", { type: "date", value: date, onChange: (event) => setDate(event.target.value) })),
+            h(
+              Field,
+              { label: "Tip antrenament" },
+              h(
+                "select",
+                { value: mode, onChange: (event) => setMode(event.target.value) },
+                trainingModes.map(([value, label]) => h("option", { key: value, value }, label))
+              )
+            ),
+            mode === "grupa" &&
+              h(
+                Field,
+                { label: "Grupa" },
                 h(
-                  "td",
-                  { className: "row-actions" },
-                  h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"),
-                  h("button", { type: "button", className: "danger", onClick: () => deleteHistory(training) }, "Sterge")
+                  "select",
+                  { value: group, onChange: (event) => setGroup(event.target.value) },
+                  groups.map((item) => h("option", { key: item, value: item }, item))
                 )
-              );
-            })
+              )
+          ),
+          h(
+            "div",
+            { className: "attendance-v2-summary" },
+            h("article", { className: "present" }, h("span", null, "Prezenti"), h("strong", null, counts.present)),
+            h("article", { className: "absent" }, h("span", null, "Absenti"), h("strong", null, counts.absent)),
+            h("article", { className: "excused" }, h("span", null, "Invoiti"), h("strong", null, counts.excused)),
+            h("article", { className: "injured" }, h("span", null, "Accidentati"), h("strong", null, counts.injured)),
+            h("article", { className: unmarkedCount ? "unmarked attention" : "unmarked" }, h("span", null, "Nemarcati"), h("strong", null, unmarkedCount))
+          ),
+          h(
+            "div",
+            { className: "panel attendance-v2-bulk" },
+            h(
+              "div",
+              null,
+              h("strong", null, "Scurtaturi optionale"),
+              h("p", null, "„Toti prezenti” completeaza doar marcajele de pe ecran. Verifica sala si salveaza separat.")
+            ),
+            h(
+              "div",
+              { className: "row-actions" },
+              h("button", { type: "button", className: "secondary", onClick: markAllPresent, disabled: !shownAthletes.length }, "Marcheaza toti prezenti"),
+              h("button", { type: "button", onClick: clearAllMarks, disabled: !markedCount }, "Sterge marcajele")
+            )
+          ),
+          canPickAthletes &&
+            h(
+              "div",
+              { className: "panel stack attendance-v2-picker" },
+              h(
+                "div",
+                { className: "toolbar" },
+                h("strong", null, mode === "mixt" ? "Alege sportivii pentru antrenamentul mixt" : "Alege sportivii pentru antrenamentul individual"),
+                h(
+                  "div",
+                  { className: "row-actions" },
+                  h("button", { type: "button", onClick: selectAllAvailable, disabled: !availableAthletes.length }, "Selecteaza toti"),
+                  h("button", { type: "button", onClick: clearSelectedAthletes, disabled: !selectedAvailableIds.length }, "Goleste"),
+                  h(
+                    "button",
+                    { type: "button", className: "primary", onClick: addSelectedAthletes, disabled: !selectedAvailableIds.length },
+                    "Adauga selectatii" + (selectedAvailableIds.length ? ` (${selectedAvailableIds.length})` : "")
+                  )
+                )
+              ),
+              availableAthletes.length
+                ? h(
+                    "ul",
+                    { className: "clean-list", style: { maxHeight: "280px", overflow: "auto" } },
+                    availableAthletes.map((athlete) =>
+                      h(
+                        "li",
+                        { key: athlete.id },
+                        h(
+                          "label",
+                          { style: { display: "flex", alignItems: "center", gap: "10px", width: "100%", cursor: "pointer" } },
+                          h("input", {
+                            type: "checkbox",
+                            checked: selectedAthleteIds.includes(athlete.id),
+                            onChange: () => toggleSelectedAthlete(athlete.id),
+                            style: { width: "auto", minHeight: "auto" }
+                          }),
+                          h("span", null, h("strong", null, athleteName(athlete)), h("small", null, athlete.group || "Fara grupa"))
+                        )
+                      )
+                    )
+                  )
+                : h(EmptyState, { title: "Nu mai sunt sportivi de adaugat.", text: "Toti sportivii disponibili sunt deja in antrenament." })
+            ),
+          shownAthletes.length
+            ? h(
+                "div",
+                { className: "attendance-v2-athletes" },
+                shownAthletes.map((athlete) => {
+                  const canRemove = mode !== "grupa" || athlete.group !== group;
+                  const currentStatus = attendance[athlete.id] || "";
+
+                  return h(
+                    "article",
+                    { key: athlete.id, className: `attendance-v2-athlete ${currentStatus ? "marked " + currentStatus : "not-marked"}` },
+                    h(
+                      "header",
+                      null,
+                      h("div", null, h("strong", null, athleteName(athlete)), h("small", null, athlete.group || "Fara grupa")),
+                      currentStatus
+                        ? h("span", { className: "attendance-v2-current" }, currentStatus)
+                        : h("span", { className: "attendance-v2-current empty" }, "Nemarcat"),
+                      canRemove && h("button", { type: "button", className: "attendance-v2-remove", onClick: () => removeAthlete(athlete.id) }, "Scoate")
+                    ),
+                    h(
+                      "div",
+                      { className: "attendance-v2-statuses" },
+                      attendanceStatuses.map((status) =>
+                        h(
+                          "button",
+                          {
+                            key: status,
+                            type: "button",
+                            className: currentStatus === status ? `selected ${status}` : status,
+                            onClick: () => updateAttendance(athlete.id, status)
+                          },
+                          status
+                        )
+                      )
+                    )
+                  );
+                })
+              )
+            : h(EmptyState, {
+                title: mode === "grupa" ? "Nu sunt sportivi pentru acest antrenament." : "Nu ai ales sportivi pentru acest antrenament.",
+                text: mode === "grupa" ? "Alege alta grupa sau foloseste antrenament mixt." : "Bifeaza sportivii si apasa Adauga selectatii."
+              }),
+          h(
+            "div",
+            { className: `attendance-v2-save ${unmarkedCount ? "has-unmarked" : "ready"}` },
+            h(
+              "div",
+              null,
+              savedNotice
+                ? h("strong", { className: "attendance-v2-saved" }, "Prezenta a fost salvata.")
+                : h("strong", null, unmarkedCount ? `${unmarkedCount} sportivi sunt inca nemarcati.` : "Toti sportivii au fost verificati."),
+              h("small", null, selectedTraining ? "Editezi o prezenta salvata. Modificarile se aplica doar dupa salvare." : "Este un antrenament nou. Nimic nu este salvat inca.")
+            ),
+            h(
+              "button",
+              { type: "button", className: "primary", onClick: saveTraining, disabled: !shownAthletes.length || unmarkedCount > 0 },
+              selectedTraining ? "Salveaza modificarile" : `Salveaza prezenta (${markedCount}/${shownAthletes.length})`
+            )
           )
         ),
-        !historyRows.length &&
-          h(EmptyState, {
-            title: "Nu exista antrenamente salvate in data aleasa.",
-            text: "Alege alta data sau confirma prezenta ca sa apara aici."
-          })
-      )
+      screen === "istoric" &&
+        (historyRows.length
+          ? h(
+              "div",
+              { className: "attendance-v2-history" },
+              historyRows.map((training) => {
+                const historyCounts = countStatuses(training.attendance);
+                const type = displayTrainingType(training, activeAthletes);
+                const label = type === "Grupa" ? `Grupa ${training.group || "-"}` : type;
+
+                return h(
+                  "article",
+                  { key: training.id || `${training.date}-${training.group || "antrenament"}`, className: "attendance-v2-history-card" },
+                  h(
+                    "header",
+                    null,
+                    h("div", null, h("strong", null, formatDate(training.date)), h("small", null, label)),
+                    h(
+                      "div",
+                      { className: "row-actions" },
+                      h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"),
+                      h("button", { type: "button", className: "danger", onClick: () => deleteHistory(training) }, "Sterge")
+                    )
+                  ),
+                  h(
+                    "div",
+                    { className: "attendance-v2-history-counts" },
+                    h("span", null, "Prezenti ", h("strong", null, historyCounts.present)),
+                    h("span", null, "Absenti ", h("strong", null, historyCounts.absent)),
+                    h("span", null, "Invoiti ", h("strong", null, historyCounts.excused)),
+                    h("span", null, "Accidentati ", h("strong", null, historyCounts.injured))
+                  )
+                );
+              })
+            )
+          : h(EmptyState, { title: "Nu exista prezente salvate.", text: "Dupa prima salvare, antrenamentul va aparea aici." }))
     );
   }
 
