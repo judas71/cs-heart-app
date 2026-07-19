@@ -451,7 +451,13 @@
               null,
               savedNotice
                 ? h("strong", { className: "attendance-v2-saved" }, "Prezenta a fost salvata.")
-                : h("strong", null, unmarkedCount ? `${unmarkedCount} sportivi sunt inca nemarcati.` : "Toti sportivii au fost verificati."),
+                : h(
+                    "strong",
+                    null,
+                    unmarkedCount
+                      ? `${unmarkedCount} ${unmarkedCount === 1 ? "sportiv este" : "sportivi sunt"} inca ${unmarkedCount === 1 ? "nemarcat" : "nemarcati"}.`
+                      : "Toti sportivii au fost verificati."
+                  ),
               h("small", null, selectedTraining ? "Editezi o prezenta salvata. Modificarile se aplica doar dupa salvare." : "Este un antrenament nou. Nimic nu este salvat inca.")
             ),
             h(
