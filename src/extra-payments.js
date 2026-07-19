@@ -1926,7 +1926,7 @@
 
     return h(
       "section",
-      { className: "stack" },
+      { className: "stack extra-income-v2" },
       h(
         "div",
         { className: "panel compact-grid" },
@@ -2156,8 +2156,10 @@
 
   function OtherPaymentsView({ athletes, otherPayments = [], otherActions = [], onSavePayment, onDeletePayment, onSaveAction, onDeleteAction }) {
     const initialMonth = currentMonth();
-    const [dateFrom, setDateFrom] = React.useState(initialMonth + "-01");
-    const [dateTo, setDateTo] = React.useState(getMonthEndDate(initialMonth));
+    const initialYear = initialMonth.slice(0, 4);
+    const [dateFrom, setDateFrom] = React.useState(initialYear + "-01-01");
+    const [dateTo, setDateTo] = React.useState(today());
+    const [periodPreset, setPeriodPreset] = React.useState("an");
     const [group, setGroup] = React.useState("toate");
     const [category, setCategory] = React.useState("toate");
     const [typeFilter, setTypeFilter] = React.useState("toate");
@@ -2235,6 +2237,7 @@
     const period = dateRangeBounds(dateFrom, dateTo);
     const periodEndForBalance = period.end || period.start || today();
     const periodLabel = (period.start ? formatDate(period.start) : "inceput") + " - " + (period.end ? formatDate(period.end) : "azi");
+    const normalizedQuery = normalizeText(query);
     const filteredPayments = otherPayments
       .filter((payment) => isDateInRange(payment.date, period.start, period.end))
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
@@ -2257,9 +2260,9 @@
         ]
           .join(" ")
           .toLowerCase();
-        return text.includes(query.toLowerCase());
+        return normalizeText(text).includes(normalizedQuery);
       })
-      .sort(comparePaymentsByPayer(athletes));
+      .sort(sortByDateDesc);
 
     const balancePayments = otherPayments
       .filter((payment) => isSameOrBeforeDate(payment.date, periodEndForBalance))
@@ -2282,13 +2285,37 @@
         ]
           .join(" ")
           .toLowerCase();
-        return text.includes(query.toLowerCase());
+        return normalizeText(text).includes(normalizedQuery);
       });
 
     const receivedLei = sumPaymentsByType(filteredPayments, "lei", "incasare");
     const paidLei = sumOutgoingPayments(filteredPayments, "lei");
     const receivedEuro = sumPaymentsByType(filteredPayments, "euro", "incasare");
     const paidEuro = sumOutgoingPayments(filteredPayments, "euro");
+    const resultBalanceLei = receivedLei - paidLei;
+    const resultBalanceEuro = receivedEuro - paidEuro;
+    const receivedCashLei = sumPaymentsByTypeAndMethod(filteredPayments, "lei", "incasare", "cash");
+    const receivedCashEuro = sumPaymentsByTypeAndMethod(filteredPayments, "euro", "incasare", "cash");
+    const paidCashLei = filteredPayments
+      .filter((payment) => paymentCurrency(payment) === "lei" && payment.method === "cash" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const paidCashEuro = filteredPayments
+      .filter((payment) => paymentCurrency(payment) === "euro" && payment.method === "cash" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const receivedTransferLei = sumPaymentsByTypeAndMethod(filteredPayments, "lei", "incasare", "transfer");
+    const receivedTransferEuro = sumPaymentsByTypeAndMethod(filteredPayments, "euro", "incasare", "transfer");
+    const paidTransferLei = filteredPayments
+      .filter((payment) => paymentCurrency(payment) === "lei" && payment.method === "transfer" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const paidTransferEuro = filteredPayments
+      .filter((payment) => paymentCurrency(payment) === "euro" && payment.method === "transfer" && isOutgoingPayment(payment))
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const quickActionNames = [...otherPayments]
+      .filter((payment) => !isBlankMarker(payment.actionName))
+      .sort(sortByDateDesc)
+      .map((payment) => String(payment.actionName || "").trim())
+      .filter((name, index, names) => names.findIndex((item) => normalizeText(item) === normalizeText(name)) === index)
+      .slice(0, 6);
     const balanceReceivedLei = sumPaymentsByType(balancePayments, "lei", "incasare");
     const balancePaidLei = sumOutgoingPayments(balancePayments, "lei");
     const balanceReceivedEuro = sumPaymentsByType(balancePayments, "euro", "incasare");
@@ -2310,6 +2337,46 @@
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
+    }
+
+    function applyPeriodPreset(preset) {
+      const month = currentMonth();
+      const year = month.slice(0, 4);
+
+      setPeriodPreset(preset);
+
+      if (preset === "luna") {
+        setDateFrom(month + "-01");
+        setDateTo(getMonthEndDate(month));
+        return;
+      }
+
+      if (preset === "an") {
+        setDateFrom(year + "-01-01");
+        setDateTo(today());
+        return;
+      }
+
+      setDateFrom("");
+      setDateTo("");
+    }
+
+    function resetInformationSearch() {
+      setQuery("");
+      setGroup("toate");
+      setCategory("toate");
+      setTypeFilter("toate");
+      setCurrencyFilter("toate");
+      applyPeriodPreset("an");
+    }
+
+    function searchAction(actionName) {
+      setQuery(actionName);
+      setGroup("toate");
+      setCategory("toate");
+      setTypeFilter("toate");
+      setCurrencyFilter("toate");
+      applyPeriodPreset("toate");
     }
 
     function updatePaymentActionId(actionId) {
@@ -2564,15 +2631,56 @@
       }),
       h(
         "div",
-        { className: "panel" },
+        { className: "panel extra-income-v2-mode-panel" },
         h(
           "div",
-          { className: "segmented", style: { gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" } },
-          h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Cauta incasari - ce ai introdus"),
-          h("button", { type: "button", className: workMode === "actiuni" ? "selected" : "", onClick: () => setWorkMode("actiuni") }, "Situatie actiuni - vezi sau creezi"),
-          h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica incasare" : "Adauga incasare - inregistreaza banii")
+          { className: "segmented extra-income-v2-modes", style: { gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" } },
+          h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Registru si cautare"),
+          h("button", { type: "button", className: workMode === "actiuni" ? "selected" : "", onClick: () => setWorkMode("actiuni") }, "Situatie pe actiuni"),
+          h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica operatiunea" : "+ Adauga incasare / plata")
         )
       ),
+      workMode === "lista" &&
+        h(
+          "div",
+          { className: "extra-income-v2-hero" },
+          h(
+            "div",
+            { className: "extra-income-v2-hero-copy" },
+            h("p", { className: "eyebrow" }, "Centrul de informatii"),
+            h("h2", null, "Ce vrei sa afli?"),
+            h("p", null, "Scrie un nume, o actiune sau o categorie. Totalurile si operatiunile se actualizeaza imediat.")
+          ),
+          h(
+            "div",
+            { className: "extra-income-v2-search-row" },
+            h("input", {
+              type: "search",
+              value: query,
+              onChange: (event) => setQuery(event.target.value),
+              placeholder: "Ex: Costinesti, Kasta, transport, numele unui sportiv",
+              "aria-label": "Ce vrei sa afli"
+            }),
+            h("button", { type: "button", className: "secondary", onClick: resetInformationSearch }, "Curata")
+          ),
+          h(
+            "div",
+            { className: "extra-income-v2-periods", "aria-label": "Perioada cautarii" },
+            h("span", null, "Perioada:"),
+            h("button", { type: "button", className: periodPreset === "luna" ? "selected" : "", onClick: () => applyPeriodPreset("luna") }, "Luna aceasta"),
+            h("button", { type: "button", className: periodPreset === "an" ? "selected" : "", onClick: () => applyPeriodPreset("an") }, "Anul acesta"),
+            h("button", { type: "button", className: periodPreset === "toate" ? "selected" : "", onClick: () => applyPeriodPreset("toate") }, "Tot istoricul")
+          ),
+          quickActionNames.length > 0 &&
+            h(
+              "div",
+              { className: "extra-income-v2-quick-actions" },
+              h("span", null, "Cauta rapid:"),
+              quickActionNames.map((actionName) =>
+                h("button", { key: actionName, type: "button", onClick: () => searchAction(actionName) }, actionName)
+              )
+            )
+        ),
       workMode === "adauga" &&
         h(
         "form",
@@ -2881,68 +2989,111 @@
         h(EmptyState, { title: "Nu exista inregistrari in filtrul actiunii.", text: showOnlyDebtors ? "Debifeaza filtrul cu rest sau verifica participantii." : "Adauga participanti sau incasari la actiune." }),
       workMode === "lista" &&
         h(
-        "div",
-        { className: "panel compact-grid" },
-        h(Field, { label: "De la" }, h("input", { value: formatDate(dateFrom), onChange: (event) => setDateFrom(event.target.value), placeholder: "01.05.2026" })),
-        h(Field, { label: "Pana la" }, h("input", { value: formatDate(dateTo), onChange: (event) => setDateTo(event.target.value), placeholder: "31.07.2026" })),
-        h(
-          Field,
-          { label: "Grupa" },
+          "details",
+          { className: "panel extra-income-v2-advanced" },
+          h("summary", null, "Filtre avansate", h("small", null, "Perioada exacta, grupa, categorie, tip sau moneda")),
           h(
-            "select",
-            { value: group, onChange: (event) => setGroup(event.target.value) },
-            h("option", { value: "toate" }, "Toate grupele"),
-            groups.map((item) => h("option", { key: item, value: item }, item))
+            "div",
+            { className: "compact-grid extra-income-v2-advanced-grid" },
+            h(
+              Field,
+              { label: "De la" },
+              h("input", {
+                value: formatDate(dateFrom),
+                onChange: (event) => {
+                  setDateFrom(event.target.value);
+                  setPeriodPreset("custom");
+                },
+                placeholder: "01.01.2026"
+              })
+            ),
+            h(
+              Field,
+              { label: "Pana la" },
+              h("input", {
+                value: formatDate(dateTo),
+                onChange: (event) => {
+                  setDateTo(event.target.value);
+                  setPeriodPreset("custom");
+                },
+                placeholder: "31.12.2026"
+              })
+            ),
+            h(
+              Field,
+              { label: "Grupa" },
+              h(
+                "select",
+                { value: group, onChange: (event) => setGroup(event.target.value) },
+                h("option", { value: "toate" }, "Toate grupele"),
+                groups.map((item) => h("option", { key: item, value: item }, item))
+              )
+            ),
+            h(
+              Field,
+              { label: "Categorie" },
+              h(
+                "select",
+                { value: category, onChange: (event) => setCategory(event.target.value) },
+                h("option", { value: "toate" }, "Toate categoriile"),
+                categoryOptions.map((item) => h("option", { key: item, value: item }, item))
+              )
+            ),
+            h(
+              Field,
+              { label: "Tip" },
+              h(
+                "select",
+                { value: typeFilter, onChange: (event) => setTypeFilter(event.target.value) },
+                h("option", { value: "toate" }, "Toate tipurile"),
+                paymentTypes.map((item) => h("option", { key: item, value: item }, paymentTypeLabel(item)))
+              )
+            ),
+            h(
+              Field,
+              { label: "Moneda" },
+              h(
+                "select",
+                { value: currencyFilter, onChange: (event) => setCurrencyFilter(event.target.value) },
+                h("option", { value: "toate" }, "Lei si euro"),
+                currencies.map((item) => h("option", { key: item, value: item }, item))
+              )
+            )
           )
         ),
-        h(
-          Field,
-          { label: "Categorie" },
-          h(
-            "select",
-            { value: category, onChange: (event) => setCategory(event.target.value) },
-            h("option", { value: "toate" }, "Toate categoriile"),
-            categoryOptions.map((item) => h("option", { key: item, value: item }, item))
-          )
-        ),
-        h(
-          Field,
-          { label: "Tip" },
-          h(
-            "select",
-            { value: typeFilter, onChange: (event) => setTypeFilter(event.target.value) },
-            h("option", { value: "toate" }, "Toate tipurile"),
-            paymentTypes.map((item) => h("option", { key: item, value: item }, paymentTypeLabel(item)))
-          )
-        ),
-        h(
-          Field,
-          { label: "Moneda" },
-          h(
-            "select",
-            { value: currencyFilter, onChange: (event) => setCurrencyFilter(event.target.value) },
-            h("option", { value: "toate" }, "Lei si euro"),
-            currencies.map((item) => h("option", { key: item, value: item }, item))
-          )
-        ),
-        h(Field, { label: "Cauta ce vrei" }, h("input", { value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Nume, categorie, actiune, observatii" }))
-      ),
       workMode === "lista" &&
         h(
         "div",
-        { className: "metrics" },
-        h("div", null, h("span", null, "Total lei"), h("strong", null, "Incasat = " + formatMoney(receivedLei, "lei")), h("strong", null, "Platit = " + formatMoney(paidLei, "lei"))),
-        h("div", null, h("span", null, "Total euro"), h("strong", null, "Incasat = " + formatMoney(receivedEuro, "euro")), h("strong", null, "Platit = " + formatMoney(paidEuro, "euro"))),
-        h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatDualAmount(filteredPayments, "cash")), h("strong", null, "Transfer: " + formatDualAmount(filteredPayments, "transfer")))
-      ),
-      workMode === "lista" &&
-        h(
-        "div",
-        { className: "metrics" },
-        h("div", null, h("span", null, "Sold lei pana la data"), h("strong", null, formatMoney(balanceLei, "lei")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedLei, "lei") + " / Platit total = " + formatMoney(balancePaidLei, "lei"))),
-        h("div", null, h("span", null, "Sold euro pana la data"), h("strong", null, formatMoney(balanceEuro, "euro")), h("small", null, "Incasat total = " + formatMoney(balanceReceivedEuro, "euro") + " / Platit total = " + formatMoney(balancePaidEuro, "euro"))),
-        h("div", null, h("span", null, "Perioada cautare"), h("strong", null, periodLabel), h("small", null, "Soldul este calculat pana la data finala si respecta filtrele alese."))
-      ),
+          { className: "extra-income-v2-answer" },
+          h(
+            "div",
+            { className: "extra-income-v2-answer-head" },
+            h("div", null, h("span", null, query.trim() ? "Rezultat pentru" : "Situatia selectata"), h("h2", null, query.trim() ? "„" + query.trim() + "”" : periodPreset === "luna" ? "Luna aceasta" : periodPreset === "toate" ? "Tot istoricul" : "Anul acesta")),
+            h("div", null, h("strong", null, filteredPayments.length), h("span", null, filteredPayments.length === 1 ? "operatiune gasita" : "operatiuni gasite")),
+            h("small", null, periodLabel)
+          ),
+          h(
+            "div",
+            { className: "extra-income-v2-answer-grid" },
+            h("article", { className: "income" }, h("span", null, "Incasat"), h("strong", null, formatMoney(receivedLei, "lei")), h("small", null, formatMoney(receivedEuro, "euro"))),
+            h("article", { className: "expense" }, h("span", null, "Platit"), h("strong", null, formatMoney(paidLei, "lei")), h("small", null, formatMoney(paidEuro, "euro"))),
+            h("article", { className: resultBalanceLei < 0 || resultBalanceEuro < 0 ? "balance negative" : "balance" }, h("span", null, "Diferenta"), h("strong", null, formatMoney(resultBalanceLei, "lei")), h("small", null, formatMoney(resultBalanceEuro, "euro"))),
+            h(
+              "article",
+              { className: "method" },
+              h("span", null, "Cash"),
+              h("strong", null, "Incasat: " + formatMoney(receivedCashLei, "lei") + " / " + formatMoney(receivedCashEuro, "euro")),
+              h("small", null, "Platit: " + formatMoney(paidCashLei, "lei") + " / " + formatMoney(paidCashEuro, "euro"))
+            ),
+            h(
+              "article",
+              { className: "method" },
+              h("span", null, "Transfer"),
+              h("strong", null, "Incasat: " + formatMoney(receivedTransferLei, "lei") + " / " + formatMoney(receivedTransferEuro, "euro")),
+              h("small", null, "Platit: " + formatMoney(paidTransferLei, "lei") + " / " + formatMoney(paidTransferEuro, "euro"))
+            )
+          )
+        ),
       workMode === "lista" &&
         h(
         "div",
