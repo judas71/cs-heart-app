@@ -2165,6 +2165,7 @@
     const [typeFilter, setTypeFilter] = React.useState("toate");
     const [currencyFilter, setCurrencyFilter] = React.useState("toate");
     const [query, setQuery] = React.useState("");
+    const [selectedQuickAction, setSelectedQuickAction] = React.useState("");
     const [form, setForm] = React.useState(emptyForm);
     const [actionForm, setActionForm] = React.useState(emptyActionForm);
     const [actionGroup, setActionGroup] = React.useState("toate");
@@ -2244,6 +2245,7 @@
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
+      .filter((payment) => !selectedQuickAction || normalizeText(payment.actionName) === normalizeText(selectedQuickAction))
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
@@ -2396,6 +2398,7 @@
 
     function resetInformationSearch() {
       setQuery("");
+      setSelectedQuickAction("");
       setGroup("toate");
       setCategory("toate");
       setTypeFilter("toate");
@@ -2405,6 +2408,7 @@
 
     function searchAction(actionName) {
       setQuery(actionName);
+      setSelectedQuickAction(actionName);
       setGroup("toate");
       setCategory("toate");
       setTypeFilter("toate");
@@ -2690,7 +2694,10 @@
             h("input", {
               type: "search",
               value: query,
-              onChange: (event) => setQuery(event.target.value),
+              onChange: (event) => {
+                setQuery(event.target.value);
+                setSelectedQuickAction("");
+              },
               placeholder: "Ex: Costinesti, Kasta, transport, numele unui sportiv",
               "aria-label": "Ce vrei sa afli"
             }),
@@ -2710,7 +2717,16 @@
               { className: "extra-income-v2-quick-actions" },
               h("span", null, "Cauta rapid:"),
               quickActionNames.map((actionName) =>
-                h("button", { key: actionName, type: "button", onClick: () => searchAction(actionName) }, actionName)
+                h(
+                  "button",
+                  {
+                    key: actionName,
+                    type: "button",
+                    className: normalizeText(selectedQuickAction) === normalizeText(actionName) ? "selected" : "",
+                    onClick: () => searchAction(actionName)
+                  },
+                  actionName
+                )
               )
             )
         ),
