@@ -16,20 +16,130 @@
     style.textContent = `
       .cs-report-summary {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+      }
+      .cs-reports-shell {
+        gap: 18px;
+      }
+      .cs-reports-hero {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #26333a;
+        border-radius: 20px;
+        background:
+          radial-gradient(circle at 92% 0%, rgba(255, 210, 0, 0.2), transparent 34%),
+          linear-gradient(135deg, #172026 0%, #243139 100%);
+        box-shadow: 0 18px 38px rgba(23, 32, 38, 0.16);
+        color: #fff;
+        padding: clamp(20px, 3vw, 32px);
+        display: grid;
+        gap: 20px;
+      }
+      .cs-reports-hero-copy {
+        max-width: 720px;
+      }
+      .cs-reports-hero .eyebrow,
+      .cs-balance-header .eyebrow {
+        margin: 0 0 6px;
+        color: #ffd200;
+        font-size: 0.76rem;
+        font-weight: 900;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+      .cs-reports-hero h2,
+      .cs-balance-header h2 {
+        margin: 0;
+      }
+      .cs-reports-hero h2 {
+        color: #fff;
+        font-size: clamp(1.55rem, 3vw, 2.2rem);
+      }
+      .cs-reports-hero-copy > p:last-child {
+        max-width: 620px;
+        margin: 8px 0 0;
+        color: #cbd5da;
+        line-height: 1.5;
+      }
+      .cs-report-picker {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+        gap: 9px;
+      }
+      .cs-report-picker button {
+        min-height: 76px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.07);
+        color: #fff;
+        padding: 11px 12px;
+        text-align: left;
+        display: grid;
+        align-content: center;
+        gap: 3px;
+        box-shadow: none;
+      }
+      .cs-report-picker button:hover {
+        border-color: rgba(255, 210, 0, 0.6);
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .cs-report-picker button.selected {
+        border-color: #ffd200;
+        background: #ffd200;
+        color: #172026;
+        box-shadow: 0 8px 18px rgba(255, 210, 0, 0.18);
+      }
+      .cs-report-picker strong {
+        font-size: 0.94rem;
+      }
+      .cs-report-picker small {
+        color: #aebac0;
+        font-size: 0.72rem;
+        line-height: 1.25;
+      }
+      .cs-report-picker button.selected small {
+        color: #4d5559;
+      }
+      .cs-report-date-filters {
+        border-radius: 16px;
+      }
+      .cs-balance-header {
+        border: 1px solid #eadb94;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #fff9d9 0%, #fff 72%);
+        padding: clamp(17px, 2.6vw, 26px);
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 18px;
+      }
+      .cs-balance-header-copy > p:last-child {
+        max-width: 600px;
+        margin: 7px 0 0;
+        color: var(--muted, #66727a);
+        line-height: 1.4;
+      }
+      .cs-balance-month {
+        min-width: min(260px, 100%);
+      }
+      .cs-balance-month label {
+        margin: 0;
+      }
+      .cs-balance-month input {
+        background: #fff;
       }
       .cs-report-card {
-        min-height: 104px;
+        min-height: 124px;
         border: 1px solid var(--line, #d9e0e5);
         border-left: 4px solid #3d4a52;
-        border-radius: 8px;
+        border-radius: 15px;
         background: #fff;
-        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
-        padding: 14px;
+        box-shadow: 0 12px 28px rgba(23, 32, 38, 0.08);
+        padding: 17px;
         display: grid;
         align-content: start;
-        gap: 4px;
+        gap: 6px;
       }
       .cs-report-card span {
         color: var(--muted, #66727a);
@@ -51,15 +161,35 @@
       .cs-report-card.tone-blue { border-left-color: #1d4ed8; }
       .cs-report-card.tone-amber { border-left-color: #b45309; }
       .cs-report-card.tone-purple { border-left-color: #7e22ce; }
+      .cs-report-card.tone-dark {
+        border-color: #172026;
+        background: linear-gradient(135deg, #172026 0%, #2c3a42 100%);
+      }
+      .cs-report-card.tone-dark span,
+      .cs-report-card.tone-dark small {
+        color: #c7d1d6;
+      }
+      .cs-report-card.tone-dark strong {
+        color: #fff;
+      }
+      .cs-monthly-balance {
+        gap: 16px;
+      }
+      .cs-monthly-balance .cs-report-sections {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .cs-monthly-balance .cs-report-sections > .cs-report-section:first-child {
+        grid-column: 1 / -1;
+      }
       .cs-report-sections {
         display: grid;
         gap: 12px;
       }
       .cs-report-section {
         border: 1px solid var(--line, #d9e0e5);
-        border-radius: 8px;
+        border-radius: 15px;
         background: #fff;
-        box-shadow: var(--shadow, 0 10px 24px rgba(23, 32, 38, 0.08));
+        box-shadow: 0 10px 26px rgba(23, 32, 38, 0.07);
         overflow: hidden;
       }
       .cs-report-section summary {
@@ -109,11 +239,14 @@
         display: grid;
         gap: 8px;
       }
+      .cs-report-list.cs-report-list-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
       .cs-report-item {
         border: 1px solid #edf1f4;
-        border-radius: 8px;
-        background: #fff;
-        padding: 10px 12px;
+        border-radius: 11px;
+        background: #fbfcfd;
+        padding: 12px 14px;
         display: grid;
         gap: 8px;
       }
@@ -370,6 +503,31 @@
         }
       }
       @media (width <= 640px) {
+        .cs-reports-hero {
+          border-radius: 16px;
+          padding: 18px;
+        }
+        .cs-report-picker {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .cs-report-picker button {
+          min-height: 68px;
+          padding: 9px 10px;
+        }
+        .cs-balance-header {
+          display: grid;
+          align-items: stretch;
+        }
+        .cs-balance-month {
+          min-width: 0;
+        }
+        .cs-monthly-balance .cs-report-sections,
+        .cs-report-list.cs-report-list-grid {
+          grid-template-columns: 1fr;
+        }
+        .cs-monthly-balance .cs-report-sections > .cs-report-section:first-child {
+          grid-column: auto;
+        }
         .cs-report-section summary {
           grid-template-columns: minmax(0, 1fr) 28px;
         }
@@ -3640,12 +3798,22 @@
 
     return h(
       "section",
-      { className: "stack" },
-      h("h2", null, "Balanta lunii"),
+      { className: "stack cs-monthly-balance" },
       h(
         "div",
-        { className: "panel compact-grid" },
-        h(Field, { label: "Luna" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) }))
+        { className: "cs-balance-header" },
+        h(
+          "div",
+          { className: "cs-balance-header-copy" },
+          h("p", { className: "eyebrow" }, "Raport financiar"),
+          h("h2", null, "Balanta lunii"),
+          h("p", null, "Vezi dintr-o privire ce a intrat, ce s-a platit si cu ce sold s-a incheiat luna.")
+        ),
+        h(
+          "div",
+          { className: "cs-balance-month" },
+          h(Field, { label: "Luna analizata" }, h("input", { type: "month", value: month, onChange: (event) => setMonth(event.target.value) }))
+        )
       ),
       h(
         "div",
@@ -3653,8 +3821,9 @@
         h(SummaryCard, { label: "Incasari taxe", value: formatMoney(taxIncome), hint: `${monthlyFees.length} sportivi cu taxa achitata`, tone: "tone-green" }),
         h(SummaryCard, { label: "Alte incasari", value: formatMoney(otherIncomeLei, "lei"), hint: otherIncomeEuro ? formatMoney(otherIncomeEuro, "euro") : "Doar incasari, fara plati", tone: "tone-blue" }),
         h(SummaryCard, { label: "Plati", value: formatMoney(totalPaymentsLei), hint: "Salarii/chirii + plati/retururi din alte incasari", tone: "tone-red" }),
+        h(SummaryCard, { label: "Rezultatul lunii", value: formatMoney(monthBalanceLei), hint: monthBalanceEuro ? "Euro: " + formatMoney(monthBalanceEuro, "euro") : "Incasari minus plati", tone: monthBalanceLei < 0 ? "tone-red" : "tone-green" }),
         h(SummaryCard, { label: "Sold anterior", value: formatMoney(previousBalanceLei), hint: previousBalanceEuro ? "Euro: " + formatMoney(previousBalanceEuro, "euro") : "Pana inainte de luna aleasa", tone: previousBalanceLei < 0 ? "tone-red" : "tone-amber" }),
-        h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: (finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") + " / " : "") + "Luna curenta: " + formatMoney(monthBalanceLei), tone: finalBalanceLei < 0 ? "tone-red" : "tone-purple" })
+        h(SummaryCard, { label: "Sold sfarsit luna", value: formatMoney(finalBalanceLei), hint: finalBalanceEuro ? "Euro: " + formatMoney(finalBalanceEuro, "euro") : "Sold cumulat", tone: finalBalanceLei < 0 ? "tone-red" : "tone-dark" })
       ),
       h(
         "div",
@@ -3665,7 +3834,7 @@
           groupTotals.length
             ? h(
                 "ul",
-                { className: "cs-report-list" },
+                { className: "cs-report-list cs-report-list-grid" },
                 groupTotals.map((row) =>
                   h(
                     ExpandableReportItem,
@@ -4168,31 +4337,55 @@
     const initialMonth = currentMonth();
     const [paymentDateFrom, setPaymentDateFrom] = React.useState(initialMonth + "-01");
     const [paymentDateTo, setPaymentDateTo] = React.useState(today());
+    const reportSections = [
+      { value: "balanta", label: "Balanta lunii", description: "Incasari, plati si sold" },
+      { value: "taxe", label: "Taxe", description: "Achitate si restante" },
+      { value: "prezenta", label: "Prezenta", description: "Situatia antrenamentelor" },
+      { value: "vizeMedicale", label: "Vize medicale", description: "Valabile si expirate" },
+      { value: "alteIncasari", label: "Alte incasari", description: "Actiuni si categorii" },
+      { value: "platiEfectuate", label: "Plati", description: "Toate cheltuielile" },
+      { value: "tot", label: "Privire completa", description: "Toate rapoartele" }
+    ];
 
     return h(
       "div",
-      { className: "stack" },
+      { className: "stack cs-reports-shell" },
       h(
-        "div",
-        { className: "panel compact-grid" },
+        "section",
+        { className: "cs-reports-hero" },
         h(
-          Field,
-          { label: "Ce raport vezi" },
-          h(
-            "select",
-            { value: section, onChange: (event) => setSection(event.target.value) },
-            h("option", { value: "balanta" }, "Balanta lunii"),
-            h("option", { value: "taxe" }, "Taxe"),
-            h("option", { value: "prezenta" }, "Prezenta"),
-            h("option", { value: "vizeMedicale" }, "Vize medicale"),
-            h("option", { value: "alteIncasari" }, "Alte incasari"),
-            h("option", { value: "platiEfectuate" }, "Plati efectuate"),
-            h("option", { value: "tot" }, "Tot")
-          )
+          "div",
+          { className: "cs-reports-hero-copy" },
+          h("p", { className: "eyebrow" }, "Centrul de rapoarte"),
+          h("h2", null, "Situatia clubului, fara cautari"),
+          h("p", null, "Alege informatia de care ai nevoie. Datele sunt aceleasi; aici sunt doar organizate mai clar.")
         ),
-        section === "platiEfectuate" && h(Field, { label: "De la" }, h("input", { value: formatDate(paymentDateFrom), onChange: (event) => setPaymentDateFrom(event.target.value), placeholder: "01.07.2026" })),
-        section === "platiEfectuate" && h(Field, { label: "Pana la" }, h("input", { value: formatDate(paymentDateTo), onChange: (event) => setPaymentDateTo(event.target.value), placeholder: "31.07.2026" }))
+        h(
+          "nav",
+          { className: "cs-report-picker", "aria-label": "Alege raportul" },
+          reportSections.map((item) =>
+            h(
+              "button",
+              {
+                key: item.value,
+                type: "button",
+                className: section === item.value ? "selected" : "",
+                "aria-pressed": section === item.value,
+                onClick: () => setSection(item.value)
+              },
+              h("strong", null, item.label),
+              h("small", null, item.description)
+            )
+          )
+        )
       ),
+      section === "platiEfectuate" &&
+        h(
+          "div",
+          { className: "panel compact-grid cs-report-date-filters" },
+          h(Field, { label: "De la" }, h("input", { value: formatDate(paymentDateFrom), onChange: (event) => setPaymentDateFrom(event.target.value), placeholder: "01.07.2026" })),
+          h(Field, { label: "Pana la" }, h("input", { value: formatDate(paymentDateTo), onChange: (event) => setPaymentDateTo(event.target.value), placeholder: "31.07.2026" }))
+        ),
       (section === "balanta" || section === "tot") && h(MonthlyBalanceReport, props),
       (section === "taxe" || section === "tot") && h(TaxReportsView, props),
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
