@@ -556,6 +556,94 @@ button.athlete-v2-status-action:focus-visible {
   grid-column: span 1;
 }
 
+.extra-income-v2-payer-list {
+  display: grid;
+  gap: 10px;
+}
+
+.extra-income-v2-payer-card {
+  overflow: hidden;
+  border: 1px solid #dbe3eb;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(23, 32, 38, 0.04);
+}
+
+button.extra-income-v2-payer-summary {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.5fr) minmax(82px, 0.55fr) minmax(135px, 1fr) minmax(115px, 0.9fr) minmax(105px, 0.75fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 78px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+button.extra-income-v2-payer-summary:hover,
+button.extra-income-v2-payer-summary.expanded {
+  background: #f8fafc;
+}
+
+.extra-income-v2-payer-summary span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.extra-income-v2-payer-summary span > small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.extra-income-v2-payer-summary span > strong {
+  overflow-wrap: anywhere;
+}
+
+.extra-income-v2-payer-summary .payer strong {
+  color: #172026;
+  font-size: 1rem;
+}
+
+.extra-income-v2-payer-summary .received strong {
+  color: var(--income-v2-green);
+}
+
+.extra-income-v2-payer-summary .paid strong {
+  color: var(--income-v2-red);
+}
+
+.extra-income-v2-payer-summary .toggle {
+  display: inline-flex;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.extra-income-v2-payer-summary.expanded .toggle {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.extra-income-v2-payer-details {
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+
+.extra-income-v2-payer-details table {
+  min-width: 960px;
+}
+
 @media (max-width: 860px) {
   .athletes-v2-hero {
     grid-template-columns: 1fr;
@@ -566,6 +654,14 @@ button.athlete-v2-status-action:focus-visible {
   .athlete-v2-payment-summary,
   .extra-income-v2-answer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  button.extra-income-v2-payer-summary {
+    grid-template-columns: minmax(170px, 1.4fr) repeat(3, minmax(92px, 1fr)) auto;
+  }
+
+  .extra-income-v2-payer-summary .paid {
+    display: none;
   }
 }
 
@@ -594,6 +690,35 @@ button.athlete-v2-status-action:focus-visible {
   .extra-income-v2-advanced summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  button.extra-income-v2-payer-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 14px;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .extra-income-v2-payer-summary .payer {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .extra-income-v2-payer-summary .toggle {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .extra-income-v2-payer-summary .operations,
+  .extra-income-v2-payer-summary .received,
+  .extra-income-v2-payer-summary .latest {
+    grid-column: 1 / -1;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: baseline;
+  }
+
+  .extra-income-v2-payer-details table {
+    min-width: 0;
   }
 
   button.athletes-v2-metric {
