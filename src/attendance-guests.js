@@ -8,7 +8,9 @@
   ];
 
   function getGroups(athletes) {
-    return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort();
+    return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort((first, second) =>
+      String(first).localeCompare(String(second), "ro", { numeric: true })
+    );
   }
 
   function athleteName(athlete) {
@@ -65,6 +67,12 @@
       .join("|");
   }
 
+  function listSignature(values) {
+    return [...(values || [])]
+      .sort((first, second) => String(first).localeCompare(String(second), "ro", { numeric: true }))
+      .join("|");
+  }
+
   function EmptyState({ title, text }) {
     return h("div", { className: "empty-state" }, h("strong", null, title), h("p", null, text));
   }
@@ -92,6 +100,27 @@
     if (savedTrainingType(training) === "individual") return "Individual";
     if (savedTrainingType(training) === "mixt" || trainingHasGuests(training, athletes)) return "Mixt";
     return "Grupa";
+  }
+
+  function trainingGroups(training, athletes) {
+    const savedGroups = Array.isArray(training?.groups) ? training.groups.filter(Boolean) : [];
+
+    if (savedGroups.length) {
+      return getGroups(savedGroups.map((group) => ({ group })));
+    }
+
+    const attendanceIds = new Set(Object.keys(training?.attendance || {}));
+    return getGroups(athletes.filter((athlete) => attendanceIds.has(athlete.id)));
+  }
+
+  function displayTrainingLabel(training, athletes) {
+    const type = displayTrainingType(training, athletes);
+
+    if (type === "Grupa") return `Grupa ${training.group || "-"}`;
+    if (type === "Individual") return "Individual";
+
+    const mixedGroups = trainingGroups(training, athletes);
+    return mixedGroups.length ? `Mixt - grupele ${mixedGroups.join(" + ")}` : "Mixt";
   }
 
   function findTraining(trainings, date, mode, group, athletes) {
@@ -129,6 +158,8 @@
     const [group, setGroup] = React.useState(groups[0] || "");
     const [screen, setScreen] = React.useState("marcare");
     const [openHistoryMonth, setOpenHistoryMonth] = React.useState(null);
+    const [selectedMixedGroups, setSelectedMixedGroups] = React.useState([]);
+    const [baselineMixedGroups, setBaselineMixedGroups] = React.useState([]);
     const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
     const [attendance, setAttendance] = React.useState({});
     const [baselineAttendance, setBaselineAttendance] = React.useState({});
@@ -150,7 +181,9 @@
     const counts = countStatuses(attendance);
     const markedCount = shownAthletes.filter((athlete) => attendanceStatuses.includes(attendance[athlete.id])).length;
     const unmarkedCount = Math.max(shownAthletes.length - markedCount, 0);
-    const draftDirty = attendanceSignature(attendance, mode) !== attendanceSignature(baselineAttendance, mode);
+    const draftDirty =
+      attendanceSignature(attendance, mode) !== attendanceSignature(baselineAttendance, mode) ||
+      (mode === "mixt" && listSignature(selectedMixedGroups) !== listSignature(baselineMixedGroups));
     const historyRows = [...trainings]
       .filter((training) => Object.keys(training.attendance || {}).length > 0)
       .sort((first, second) => {
@@ -188,6 +221,9 @@
 
       setAttendance(next);
       setBaselineAttendance(next);
+      const nextMixedGroups = mode === "mixt" && selectedTraining ? trainingGroups(selectedTraining, activeAthletes) : [];
+      setSelectedMixedGroups(nextMixedGroups);
+      setBaselineMixedGroups(nextMixedGroups);
       setSelectedAthleteIds([]);
       setSavedNotice(false);
     }, [date, group, mode, selectedTraining?.id, athletes.length]);
@@ -215,6 +251,7 @@
       if (!ok) return false;
 
       setAttendance({ ...baselineAttendance });
+      setSelectedMixedGroups([...baselineMixedGroups]);
       setSelectedAthleteIds([]);
       setSavedNotice(false);
       return true;
@@ -275,16 +312,53 @@
         Object.entries(attendance).filter(([, status]) => attendanceStatuses.includes(status))
       );
 
-      onSaveTraining({
+      const nextTraining = {
         id: selectedTraining?.id,
         date,
         group: mode === "individual" ? "Individual" : mode === "mixt" ? "Mixt" : group,
         type: trainingRecordType(mode),
         attendance: cleanedAttendance
-      });
+      };
+
+      if (mode === "mixt") {
+        nextTraining.groups = [...selectedMixedGroups];
+      }
+
+      onSaveTraining(nextTraining);
       setAttendance(cleanedAttendance);
       setBaselineAttendance(cleanedAttendance);
+      setBaselineMixedGroups([...selectedMixedGroups]);
       setSavedNotice(true);
+    }
+
+    function toggleMixedGroup(groupName) {
+      const isSelected = selectedMixedGroups.includes(groupName);
+      const athleteIds = activeAthletes.filter((athlete) => athlete.group === groupName).map((athlete) => athlete.id);
+
+      if (isSelected) {
+        const hasMarkedAthletes = athleteIds.some((athleteId) => attendanceStatuses.includes(attendance[athleteId]));
+        if (hasMarkedAthletes) {
+          const ok = confirm(`Grupa ${groupName} are deja marcaje. O scoti din acest antrenament mixt?`);
+          if (!ok) return;
+        }
+
+        const nextAttendance = { ...attendance };
+        athleteIds.forEach((athleteId) => delete nextAttendance[athleteId]);
+        setAttendance(nextAttendance);
+        setSelectedMixedGroups((current) => current.filter((item) => item !== groupName));
+      } else {
+        const nextAttendance = { ...attendance };
+        athleteIds.forEach((athleteId) => {
+          nextAttendance[athleteId] = nextAttendance[athleteId] || "";
+        });
+        setAttendance(nextAttendance);
+        setSelectedMixedGroups((current) =>
+          [...current, groupName].sort((first, second) => String(first).localeCompare(String(second), "ro", { numeric: true }))
+        );
+      }
+
+      setSelectedAthleteIds([]);
+      setSavedNotice(false);
     }
 
     function toggleSelectedAthlete(athleteId) {
@@ -421,6 +495,44 @@
                 )
               )
           ),
+          mode === "mixt" &&
+            h(
+              "div",
+              { className: "panel attendance-v2-mixed-groups" },
+              h(
+                "div",
+                { className: "attendance-v2-mixed-groups-copy" },
+                h("strong", null, "Ce grupe se antreneaza impreuna?"),
+                h("p", null, "Alege grupele participante. Copiii lor vor intra automat intr-o singura prezenta.")
+              ),
+              h(
+                "div",
+                { className: "attendance-v2-mixed-group-buttons", "aria-label": "Grupe participante" },
+                groups.map((item) => {
+                  const isSelected = selectedMixedGroups.includes(item);
+
+                  return h(
+                    "button",
+                    {
+                      key: item,
+                      type: "button",
+                      className: isSelected ? "selected" : "",
+                      "aria-pressed": isSelected,
+                      onClick: () => toggleMixedGroup(item)
+                    },
+                    item,
+                    h("span", null, activeAthletes.filter((athlete) => athlete.group === item).length)
+                  );
+                })
+              ),
+              h(
+                "small",
+                { className: selectedMixedGroups.length ? "attendance-v2-mixed-selection ready" : "attendance-v2-mixed-selection" },
+                selectedMixedGroups.length
+                  ? `Grupe selectate: ${selectedMixedGroups.join(" + ")}`
+                  : "Nu ai selectat inca nicio grupa."
+              )
+            ),
           h(
             "div",
             { className: "attendance-v2-summary" },
@@ -453,7 +565,12 @@
               h(
                 "div",
                 { className: "toolbar" },
-                h("strong", null, mode === "mixt" ? "Alege sportivii pentru antrenamentul mixt" : "Alege sportivii pentru antrenamentul individual"),
+                h(
+                  "div",
+                  { className: "attendance-v2-picker-copy" },
+                  h("strong", null, mode === "mixt" ? "Exceptii la grupele selectate" : "Alege sportivii pentru antrenamentul individual"),
+                  mode === "mixt" && h("small", null, "Daca este nevoie, poti adauga separat un copil din alta grupa.")
+                ),
                 h(
                   "div",
                   { className: "row-actions" },
@@ -589,8 +706,7 @@
                       { className: "attendance-v2-history" },
                       month.rows.map((training) => {
                         const historyCounts = countStatuses(training.attendance);
-                        const type = displayTrainingType(training, activeAthletes);
-                        const label = type === "Grupa" ? `Grupa ${training.group || "-"}` : type;
+                        const label = displayTrainingLabel(training, activeAthletes);
 
                         return h(
                           "article",
