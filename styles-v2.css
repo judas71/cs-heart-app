@@ -425,7 +425,8 @@ button.athlete-v2-status-action:focus-visible {
   font-weight: 800;
 }
 
-.extra-income-v2-periods button.selected {
+.extra-income-v2-periods button.selected,
+.extra-income-v2-quick-actions button.selected {
   border-color: var(--primary);
   background: var(--primary);
   color: #fff;
