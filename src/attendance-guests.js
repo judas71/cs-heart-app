@@ -33,6 +33,17 @@
     });
   }
 
+  function formatMonth(value) {
+    if (!value) return "Fara data";
+
+    const label = new Date(`${value}-01T00:00:00`).toLocaleDateString("ro-RO", {
+      month: "long",
+      year: "numeric"
+    });
+
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
   function countStatuses(attendance) {
     return Object.values(attendance || {}).reduce(
       (counts, status) => {
@@ -117,6 +128,7 @@
     const [mode, setMode] = React.useState("grupa");
     const [group, setGroup] = React.useState(groups[0] || "");
     const [screen, setScreen] = React.useState("marcare");
+    const [openHistoryMonth, setOpenHistoryMonth] = React.useState(null);
     const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
     const [attendance, setAttendance] = React.useState({});
     const [baselineAttendance, setBaselineAttendance] = React.useState({});
@@ -146,6 +158,23 @@
         if (byDate !== 0) return byDate;
         return String(first.group || "").localeCompare(String(second.group || ""), "ro");
       });
+    const historyMonths = historyRows.reduce((months, training) => {
+      const monthKey = String(training.date || "").slice(0, 7) || "fara-data";
+      const currentMonth = months.find((month) => month.key === monthKey);
+
+      if (currentMonth) {
+        currentMonth.rows.push(training);
+      } else {
+        months.push({
+          key: monthKey,
+          label: monthKey === "fara-data" ? "Fara data" : formatMonth(monthKey),
+          rows: [training]
+        });
+      }
+
+      return months;
+    }, []);
+    const activeHistoryMonth = openHistoryMonth === null ? historyMonths[0]?.key || "" : openHistoryMonth;
 
     React.useEffect(() => {
       const savedAttendance = selectedTraining?.attendance || {};
@@ -529,37 +558,65 @@
           )
         ),
       screen === "istoric" &&
-        (historyRows.length
+        (historyMonths.length
           ? h(
               "div",
-              { className: "attendance-v2-history" },
-              historyRows.map((training) => {
-                const historyCounts = countStatuses(training.attendance);
-                const type = displayTrainingType(training, activeAthletes);
-                const label = type === "Grupa" ? `Grupa ${training.group || "-"}` : type;
+              { className: "attendance-v2-history-months" },
+              historyMonths.map((month) => {
+                const isOpen = activeHistoryMonth === month.key;
 
                 return h(
-                  "article",
-                  { key: training.id || `${training.date}-${training.group || "antrenament"}`, className: "attendance-v2-history-card" },
+                  "section",
+                  { key: month.key, className: `attendance-v2-history-month ${isOpen ? "open" : ""}` },
                   h(
-                    "header",
-                    null,
-                    h("div", null, h("strong", null, formatDate(training.date)), h("small", null, label)),
+                    "button",
+                    {
+                      type: "button",
+                      className: "attendance-v2-history-month-toggle",
+                      "aria-expanded": isOpen,
+                      onClick: () =>
+                        setOpenHistoryMonth((current) => {
+                          const effectiveCurrent = current === null ? historyMonths[0]?.key || "" : current;
+                          return effectiveCurrent === month.key ? "" : month.key;
+                        })
+                    },
+                    h("span", null, h("strong", null, month.label), h("small", null, `${month.rows.length} ${month.rows.length === 1 ? "antrenament" : "antrenamente"}`)),
+                    h("span", { className: "attendance-v2-history-month-action" }, isOpen ? "Ascunde" : "Deschide")
+                  ),
+                  isOpen &&
                     h(
                       "div",
-                      { className: "row-actions" },
-                      h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"),
-                      h("button", { type: "button", className: "danger", onClick: () => deleteHistory(training) }, "Sterge")
+                      { className: "attendance-v2-history" },
+                      month.rows.map((training) => {
+                        const historyCounts = countStatuses(training.attendance);
+                        const type = displayTrainingType(training, activeAthletes);
+                        const label = type === "Grupa" ? `Grupa ${training.group || "-"}` : type;
+
+                        return h(
+                          "article",
+                          { key: training.id || `${training.date}-${training.group || "antrenament"}`, className: "attendance-v2-history-card" },
+                          h(
+                            "header",
+                            null,
+                            h("div", null, h("strong", null, formatDate(training.date)), h("small", null, label)),
+                            h(
+                              "div",
+                              { className: "row-actions" },
+                              h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"),
+                              h("button", { type: "button", className: "danger", onClick: () => deleteHistory(training) }, "Sterge")
+                            )
+                          ),
+                          h(
+                            "div",
+                            { className: "attendance-v2-history-counts" },
+                            h("span", null, "Prezenti ", h("strong", null, historyCounts.present)),
+                            h("span", null, "Absenti ", h("strong", null, historyCounts.absent)),
+                            h("span", null, "Invoiti ", h("strong", null, historyCounts.excused)),
+                            h("span", null, "Accidentati ", h("strong", null, historyCounts.injured))
+                          )
+                        );
+                      })
                     )
-                  ),
-                  h(
-                    "div",
-                    { className: "attendance-v2-history-counts" },
-                    h("span", null, "Prezenti ", h("strong", null, historyCounts.present)),
-                    h("span", null, "Absenti ", h("strong", null, historyCounts.absent)),
-                    h("span", null, "Invoiti ", h("strong", null, historyCounts.excused)),
-                    h("span", null, "Accidentati ", h("strong", null, historyCounts.injured))
-                  )
                 );
               })
             )
