@@ -426,6 +426,7 @@
           h("input", {
             type: "month",
             value: month,
+            onInput: (event) => setMonth(event.target.value || currentMonthValue()),
             onChange: (event) => setMonth(event.target.value || currentMonthValue())
           })
         )
