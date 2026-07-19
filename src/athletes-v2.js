@@ -60,6 +60,60 @@
     return Math.round((present / entries.length) * 100);
   }
 
+  function currentMonthValue() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function getAttendanceDetails(athleteId, trainings, month) {
+    const rows = trainings
+      .filter(
+        (training) =>
+          String(training.date || "").startsWith(month) &&
+          training.attendance &&
+          training.attendance[athleteId]
+      )
+      .map((training) => ({
+        id: training.id || `${training.date}-${training.group || "antrenament"}`,
+        date: training.date,
+        group: training.group || "",
+        type: training.type || "grupa",
+        status: training.attendance[athleteId]
+      }))
+      .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
+
+    const counts = rows.reduce(
+      (result, row) => {
+        if (row.status === "prezent") result.present += 1;
+        if (row.status === "absent") result.absent += 1;
+        if (row.status === "\u00eenvoit") result.excused += 1;
+        if (row.status === "accidentat") result.injured += 1;
+        return result;
+      },
+      { present: 0, absent: 0, excused: 0, injured: 0 }
+    );
+
+    return {
+      rows,
+      counts,
+      percentage: rows.length ? Math.round((counts.present / rows.length) * 100) : null
+    };
+  }
+
+  function attendanceStatusLabel(status) {
+    if (status === "prezent") return "Prezent";
+    if (status === "absent") return "Absent";
+    if (status === "\u00eenvoit") return "\u00cenvoit";
+    if (status === "accidentat") return "Accidentat";
+    return status || "-";
+  }
+
+  function trainingLabel(row) {
+    if (row.type === "individual") return "Individual";
+    if (row.type === "mixt") return "Mixt";
+    return row.group ? `Grupa ${row.group}` : "Antrenament";
+  }
+
   function getOutstanding(athlete, fees) {
     const currentMonth = new Date().toISOString().slice(0, 7);
     if (!athlete.joinMonth || athlete.joinMonth > currentMonth) return 0;
@@ -345,6 +399,73 @@
     );
   }
 
+  function AttendanceHistoryV2({ athlete, trainings }) {
+    const [month, setMonth] = React.useState(currentMonthValue());
+    const details = getAttendanceDetails(athlete.id, trainings, month);
+    const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("ro-RO", {
+      month: "long",
+      year: "numeric"
+    });
+
+    return h(
+      "section",
+      { className: "athlete-v2-attendance" },
+      h(
+        "div",
+        { className: "athlete-v2-attendance-head" },
+        h(
+          "div",
+          null,
+          h("h3", null, "Prezen\u021b\u0103 detaliat\u0103"),
+          h("p", null, `Situa\u021bia pentru ${monthLabel}`)
+        ),
+        h(
+          "label",
+          { className: "athlete-v2-attendance-month" },
+          h("span", null, "Alege luna"),
+          h("input", {
+            type: "month",
+            value: month,
+            onChange: (event) => setMonth(event.target.value || currentMonthValue())
+          })
+        )
+      ),
+      h(
+        "div",
+        { className: "athlete-v2-attendance-summary" },
+        h("article", { className: "percentage" }, h("span", null, "Prezen\u021b\u0103"), h("strong", null, details.percentage === null ? "-" : `${details.percentage}%`)),
+        h("article", { className: "present" }, h("span", null, "Prezent"), h("strong", null, details.counts.present)),
+        h("article", { className: "absent" }, h("span", null, "Absent"), h("strong", null, details.counts.absent)),
+        h("article", { className: "excused" }, h("span", null, "\u00cenvoit"), h("strong", null, details.counts.excused)),
+        h("article", { className: "injured" }, h("span", null, "Accidentat"), h("strong", null, details.counts.injured))
+      ),
+      h(
+        "p",
+        { className: "athlete-v2-attendance-explanation" },
+        "Procentul este calculat doar din antrenamentele lunii alese la care sportivul apare \u00een prezen\u021b\u0103."
+      ),
+      details.rows.length
+        ? h(
+            "div",
+            { className: "athlete-v2-attendance-list" },
+            details.rows.map((row) =>
+              h(
+                "article",
+                { key: row.id, className: `athlete-v2-attendance-row ${row.status}` },
+                h("div", null, h("strong", null, formatDate(row.date)), h("small", null, trainingLabel(row))),
+                h("span", { className: `athlete-v2-attendance-status ${row.status}` }, attendanceStatusLabel(row.status))
+              )
+            )
+          )
+        : h(
+            "div",
+            { className: "athlete-v2-attendance-empty" },
+            h("strong", null, "Nu exist\u0103 prezen\u021be pentru luna aleas\u0103."),
+            h("p", null, "Alege alt\u0103 lun\u0103 pentru a vedea istoricul sportivului.")
+          )
+    );
+  }
+
   function AthleteProfile({ athlete, trainings, fees, otherPayments, onClose, onEdit, onNavigate, profileRef }) {
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
@@ -391,6 +512,7 @@
         )
       ),
       athlete.notes && h("div", { className: "athlete-v2-notes" }, h("span", null, "Observații"), h("p", null, athlete.notes)),
+      h(AttendanceHistoryV2, { athlete, trainings }),
       h(PaymentHistoryV2, { athlete, fees, otherPayments })
     );
   }
