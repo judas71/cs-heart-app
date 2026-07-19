@@ -2171,6 +2171,7 @@
     const [selectedActionId, setSelectedActionId] = React.useState("");
     const [showOnlyDebtors, setShowOnlyDebtors] = React.useState(false);
     const [workMode, setWorkMode] = React.useState("lista");
+    const [expandedPayerKey, setExpandedPayerKey] = React.useState("");
     const [printPreviewPayment, setPrintPreviewPayment] = React.useState(null);
     const formRef = React.useRef(null);
 
@@ -2263,6 +2264,38 @@
         return normalizeText(text).includes(normalizedQuery);
       })
       .sort(comparePaymentsByPayer(athletes));
+
+    const paymentGroups = Object.values(
+      filteredPayments.reduce((result, payment) => {
+        const athlete = findAthlete(athletes, payment.athleteId);
+        const label = payerLabel(athletes, payment);
+        const key = payment.athleteId
+          ? "sportiv:" + payment.athleteId
+          : payerType(payment) + ":" + normalizeText(label);
+
+        if (!result[key]) {
+          result[key] = {
+            key,
+            label,
+            detail: athlete ? athlete.group : payerType(payment),
+            payments: []
+          };
+        }
+
+        result[key].payments.push(payment);
+        return result;
+      }, {})
+    )
+      .map((item) => ({
+        ...item,
+        payments: item.payments.sort(sortByDateDesc),
+        latestDate: item.payments[0]?.date || "",
+        receivedLei: sumPaymentsByType(item.payments, "lei", "incasare"),
+        receivedEuro: sumPaymentsByType(item.payments, "euro", "incasare"),
+        paidLei: sumOutgoingPayments(item.payments, "lei"),
+        paidEuro: sumOutgoingPayments(item.payments, "euro")
+      }))
+      .sort((first, second) => compareText(first.label, second.label));
 
     const balancePayments = otherPayments
       .filter((payment) => isSameOrBeforeDate(payment.date, periodEndForBalance))
@@ -3069,7 +3102,13 @@
             "div",
             { className: "extra-income-v2-answer-head" },
             h("div", null, h("span", null, query.trim() ? "Rezultat pentru" : "Situatia selectata"), h("h2", null, query.trim() ? "„" + query.trim() + "”" : periodPreset === "luna" ? "Luna aceasta" : periodPreset === "toate" ? "Tot istoricul" : "Anul acesta")),
-            h("div", null, h("strong", null, filteredPayments.length), h("span", null, filteredPayments.length === 1 ? "operatiune gasita" : "operatiuni gasite")),
+            h(
+              "div",
+              null,
+              h("strong", null, paymentGroups.length),
+              h("span", null, paymentGroups.length === 1 ? "sportiv / sursa" : "sportivi / surse"),
+              h("small", null, filteredPayments.length + (filteredPayments.length === 1 ? " operatiune" : " operatiuni"))
+            ),
             h("small", null, periodLabel)
           ),
           h(
@@ -3095,49 +3134,76 @@
           )
         ),
       workMode === "lista" &&
+        paymentGroups.length > 0 &&
         h(
-        "div",
-        { className: "table-wrap wide" },
-        h(
-          "table",
-          null,
-          h("thead", null, h("tr", null, ["Sportiv / sursa", "Data", "Incasare", "Confirmare", "Actiune", "Categorie", "Tip", "Metoda", "Moneda", "Observatii", "Operat de"].map((head) => h("th", { key: head }, head)))),
-          h(
-            "tbody",
-            null,
-            filteredPayments.map((payment) => {
-              const athlete = findAthlete(athletes, payment.athleteId);
+          "div",
+          { className: "extra-income-v2-payer-list" },
+          paymentGroups.map((payerGroup) => {
+            const isExpanded = expandedPayerKey === payerGroup.key;
+            const hasOutgoing = payerGroup.paidLei > 0 || payerGroup.paidEuro > 0;
 
-              return h(
-                "tr",
-                { key: payment.id },
-                h("td", { "data-label": "Sportiv / sursa" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
-                h("td", { "data-label": "Data" }, formatDate(payment.date)),
-                h("td", { "data-label": "Incasare" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
+            return h(
+              "article",
+              { className: "extra-income-v2-payer-card", key: payerGroup.key },
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "extra-income-v2-payer-summary" + (isExpanded ? " expanded" : ""),
+                  "aria-expanded": isExpanded,
+                  onClick: () => setExpandedPayerKey(isExpanded ? "" : payerGroup.key)
+                },
+                h("span", { className: "payer" }, h("strong", null, payerGroup.label), h("small", null, payerGroup.detail)),
+                h("span", { className: "operations" }, h("strong", null, payerGroup.payments.length), h("small", null, payerGroup.payments.length === 1 ? "operatiune" : "operatiuni")),
+                h("span", { className: "received" }, h("small", null, "Incasat"), h("strong", null, formatDualMoney(payerGroup.receivedLei, payerGroup.receivedEuro))),
+                h("span", { className: "paid" }, h("small", null, "Platit"), h("strong", null, hasOutgoing ? formatDualMoney(payerGroup.paidLei, payerGroup.paidEuro) : "-")),
+                h("span", { className: "latest" }, h("small", null, "Ultima data"), h("strong", null, formatDate(payerGroup.latestDate))),
+                h("span", { className: "toggle" }, isExpanded ? "Inchide" : "Vezi detalii")
+              ),
+              isExpanded &&
                 h(
-                  "td",
-                  { className: "row-actions", "data-label": "Confirmare" },
-                  h("button", { onClick: () => edit(payment) }, "Editeaza"),
-                  ["incasare", "avans"].includes(paymentType(payment)) &&
+                  "div",
+                  { className: "extra-income-v2-payer-details table-wrap wide" },
+                  h(
+                    "table",
+                    null,
+                    h("thead", null, h("tr", null, ["Data", "Incasare", "Confirmare", "Actiune", "Categorie", "Tip", "Metoda", "Moneda", "Observatii", "Operat de"].map((head) => h("th", { key: head }, head)))),
                     h(
-                      "button",
-                      { onClick: () => printPreview(payment) },
-                      Number(payment.printCount || 0) > 0 || payment.printedAt || Number(payment.shareCount || 0) > 0 || payment.sharedAt ? "Retrimite" : "Confirmare"
-                    ),
-                  h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
-                ),
-                h("td", { "data-label": "Actiune" }, payment.actionName || "-"),
-                h("td", { "data-label": "Categorie" }, payment.category || "-"),
-                h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
-                h("td", { "data-label": "Metoda" }, payment.method || "-"),
-                h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
-                h("td", { "data-label": "Observatii" }, payment.notes || "-"),
-                h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail))
-              );
-            })
-          )
-        )
-      ),
+                      "tbody",
+                      null,
+                      payerGroup.payments.map((payment) =>
+                        h(
+                          "tr",
+                          { key: payment.id },
+                          h("td", { "data-label": "Data" }, formatDate(payment.date)),
+                          h("td", { "data-label": "Incasare" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
+                          h(
+                            "td",
+                            { className: "row-actions", "data-label": "Confirmare" },
+                            h("button", { onClick: () => edit(payment) }, "Editeaza"),
+                            ["incasare", "avans"].includes(paymentType(payment)) &&
+                              h(
+                                "button",
+                                { onClick: () => printPreview(payment) },
+                                Number(payment.printCount || 0) > 0 || payment.printedAt || Number(payment.shareCount || 0) > 0 || payment.sharedAt ? "Retrimite" : "Confirmare"
+                              ),
+                            h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
+                          ),
+                          h("td", { "data-label": "Actiune" }, payment.actionName || "-"),
+                          h("td", { "data-label": "Categorie" }, payment.category || "-"),
+                          h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
+                          h("td", { "data-label": "Metoda" }, payment.method || "-"),
+                          h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
+                          h("td", { "data-label": "Observatii" }, payment.notes || "-"),
+                          h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail))
+                        )
+                      )
+                    )
+                  )
+                )
+            );
+          })
+        ),
       workMode === "lista" &&
         !filteredPayments.length &&
         h(EmptyState, { title: "Nu exista alte incasari in filtrul curent.", text: "Adauga o incasare sau schimba intervalul, grupa ori categoria." })
