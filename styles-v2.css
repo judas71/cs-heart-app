@@ -338,6 +338,224 @@ button.athlete-v2-status-action:focus-visible {
   font-size: 1.05rem;
 }
 
+.extra-income-v2 {
+  --income-v2-green: #166534;
+  --income-v2-green-bg: #ecfdf3;
+  --income-v2-red: #b42318;
+  --income-v2-red-bg: #fff1f0;
+  --income-v2-blue: #1d4ed8;
+  --income-v2-blue-bg: #eff6ff;
+}
+
+.extra-income-v2-mode-panel {
+  padding: 8px;
+}
+
+.extra-income-v2-modes button {
+  min-height: 48px;
+  font-weight: 800;
+}
+
+.extra-income-v2-hero {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #dbe5ee;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(30, 64, 175, 0.12), transparent 38%),
+    linear-gradient(135deg, #ffffff 0%, #f5f9ff 100%);
+  padding: clamp(20px, 4vw, 34px);
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+}
+
+.extra-income-v2-hero-copy h2,
+.extra-income-v2-answer-head h2 {
+  margin: 2px 0 6px;
+}
+
+.extra-income-v2-hero-copy p:last-child {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.extra-income-v2-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.extra-income-v2-search-row input {
+  min-height: 54px;
+  border: 2px solid #b8c9dc;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 16px;
+  font-size: 1.05rem;
+}
+
+.extra-income-v2-search-row input:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(29, 78, 216, 0.12);
+}
+
+.extra-income-v2-periods,
+.extra-income-v2-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extra-income-v2-periods > span,
+.extra-income-v2-quick-actions > span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.extra-income-v2-periods button,
+.extra-income-v2-quick-actions button {
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  padding: 7px 12px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.extra-income-v2-periods button.selected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.extra-income-v2-quick-actions button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.extra-income-v2-advanced {
+  padding: 0;
+  overflow: hidden;
+}
+
+.extra-income-v2-advanced summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  font-weight: 850;
+  list-style-position: inside;
+}
+
+.extra-income-v2-advanced summary small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.extra-income-v2-advanced[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.extra-income-v2-advanced-grid {
+  padding: 18px;
+}
+
+.extra-income-v2-answer {
+  display: grid;
+  gap: 14px;
+}
+
+.extra-income-v2-answer-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 2px 14px;
+}
+
+.extra-income-v2-answer-head span,
+.extra-income-v2-answer-head small {
+  color: var(--muted);
+}
+
+.extra-income-v2-answer-head > div:nth-child(2) {
+  display: grid;
+  text-align: right;
+}
+
+.extra-income-v2-answer-head > div:nth-child(2) strong {
+  color: var(--primary);
+  font-size: 1.7rem;
+}
+
+.extra-income-v2-answer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.extra-income-v2-answer-grid article {
+  display: grid;
+  gap: 7px;
+  min-height: 116px;
+  border: 1px solid #dbe3eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px;
+}
+
+.extra-income-v2-answer-grid article span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.extra-income-v2-answer-grid article strong {
+  font-size: 1.2rem;
+}
+
+.extra-income-v2-answer-grid article small {
+  color: var(--muted);
+}
+
+.extra-income-v2-answer-grid article.income {
+  border-color: #bbefce;
+  background: var(--income-v2-green-bg);
+}
+
+.extra-income-v2-answer-grid article.income strong {
+  color: var(--income-v2-green);
+}
+
+.extra-income-v2-answer-grid article.expense {
+  border-color: #ffd0cc;
+  background: var(--income-v2-red-bg);
+}
+
+.extra-income-v2-answer-grid article.expense strong,
+.extra-income-v2-answer-grid article.balance.negative strong {
+  color: var(--income-v2-red);
+}
+
+.extra-income-v2-answer-grid article.balance {
+  border-color: #c7d9ff;
+  background: var(--income-v2-blue-bg);
+}
+
+.extra-income-v2-answer-grid article.balance strong {
+  color: var(--income-v2-blue);
+}
+
+.extra-income-v2-answer-grid article.method {
+  grid-column: span 1;
+}
+
 @media (max-width: 860px) {
   .athletes-v2-hero {
     grid-template-columns: 1fr;
@@ -345,7 +563,8 @@ button.athlete-v2-status-action:focus-visible {
 
   .athletes-v2-metrics,
   .athlete-v2-profile-grid,
-  .athlete-v2-payment-summary {
+  .athlete-v2-payment-summary,
+  .extra-income-v2-answer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -354,8 +573,27 @@ button.athlete-v2-status-action:focus-visible {
   .athletes-v2-metrics,
   .athletes-v2-grid,
   .athlete-v2-profile-grid,
-  .athlete-v2-payment-summary {
+  .athlete-v2-payment-summary,
+  .extra-income-v2-answer-grid {
     grid-template-columns: 1fr;
+  }
+
+  .extra-income-v2-search-row,
+  .extra-income-v2-answer-head {
+    grid-template-columns: 1fr;
+  }
+
+  .extra-income-v2-search-row button {
+    width: 100%;
+  }
+
+  .extra-income-v2-answer-head > div:nth-child(2) {
+    text-align: left;
+  }
+
+  .extra-income-v2-advanced summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   button.athletes-v2-metric {
