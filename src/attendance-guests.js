@@ -648,7 +648,12 @@
               )
             : h(EmptyState, {
                 title: mode === "grupa" ? "Nu sunt sportivi pentru acest antrenament." : "Nu ai ales sportivi pentru acest antrenament.",
-                text: mode === "grupa" ? "Alege alta grupa sau foloseste antrenament mixt." : "Bifeaza sportivii si apasa Adauga selectatii."
+                text:
+                  mode === "grupa"
+                    ? "Alege alta grupa sau foloseste antrenament mixt."
+                    : mode === "mixt"
+                      ? "Alege una sau mai multe grupe de mai sus. Poti adauga apoi si exceptii individuale."
+                      : "Bifeaza sportivii si apasa Adauga selectatii."
               }),
           h(
             "div",
@@ -658,6 +663,8 @@
               null,
               savedNotice
                 ? h("strong", { className: "attendance-v2-saved" }, "Prezenta a fost salvata.")
+                : !shownAthletes.length
+                  ? h("strong", null, mode === "mixt" ? "Alege cel putin o grupa pentru acest antrenament." : "Alege cel putin un sportiv.")
                 : h(
                     "strong",
                     null,
