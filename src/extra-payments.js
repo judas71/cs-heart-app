@@ -2240,12 +2240,34 @@
     const periodEndForBalance = period.end || period.start || today();
     const periodLabel = (period.start ? formatDate(period.start) : "inceput") + " - " + (period.end ? formatDate(period.end) : "azi");
     const normalizedQuery = normalizeText(query);
+    const selectedQuickActionDefinition = selectedQuickAction
+      ? uniqueActions.find((action) => normalizeText(action.name) === normalizeText(selectedQuickAction))
+      : null;
     const filteredPayments = otherPayments
       .filter((payment) => isDateInRange(payment.date, period.start, period.end))
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
       .filter((payment) => typeFilter === "toate" || paymentType(payment) === typeFilter)
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
-      .filter((payment) => !selectedQuickAction || normalizeText(payment.actionName) === normalizeText(selectedQuickAction))
+      .filter((payment) => {
+        if (!selectedQuickAction) return true;
+        if (normalizeText(payment.actionName) === normalizeText(selectedQuickAction)) return true;
+        if (!selectedQuickActionDefinition || !isBlankMarker(payment.actionName)) return false;
+        if (selectedQuickActionDefinition.currency && paymentCurrency(payment) !== selectedQuickActionDefinition.currency) return false;
+        if (
+          selectedQuickActionDefinition.category &&
+          selectedQuickActionDefinition.category !== "toate" &&
+          payment.category &&
+          !sameCategory(payment.category, selectedQuickActionDefinition.category)
+        ) {
+          return false;
+        }
+
+        return actionTextMatchesKnownAction(
+          [payment.notes, payment.category].join(" "),
+          selectedQuickActionDefinition,
+          uniqueActions
+        );
+      })
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
