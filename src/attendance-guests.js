@@ -46,6 +46,14 @@
     );
   }
 
+  function attendanceSignature(attendance, mode) {
+    return Object.keys(attendance || {})
+      .filter((athleteId) => mode !== "grupa" || attendanceStatuses.includes(attendance[athleteId]))
+      .sort()
+      .map((athleteId) => `${athleteId}:${attendance[athleteId] || ""}`)
+      .join("|");
+  }
+
   function EmptyState({ title, text }) {
     return h("div", { className: "empty-state" }, h("strong", null, title), h("p", null, text));
   }
@@ -103,7 +111,7 @@
     );
   }
 
-  function AttendanceView({ athletes, trainings, onSaveTraining, onDeleteTraining }) {
+  function AttendanceView({ athletes, trainings, onSaveTraining, onDeleteTraining, onDirtyChange = () => {} }) {
     const groups = getGroups(athletes);
     const [date, setDate] = React.useState(new Date().toISOString().slice(0, 10));
     const [mode, setMode] = React.useState("grupa");
@@ -111,6 +119,7 @@
     const [screen, setScreen] = React.useState("marcare");
     const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
     const [attendance, setAttendance] = React.useState({});
+    const [baselineAttendance, setBaselineAttendance] = React.useState({});
     const [savedNotice, setSavedNotice] = React.useState(false);
     const activeAthletes = athletes.filter((athlete) => athlete.active !== false).sort(compareAthletes);
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
@@ -129,6 +138,7 @@
     const counts = countStatuses(attendance);
     const markedCount = shownAthletes.filter((athlete) => attendanceStatuses.includes(attendance[athlete.id])).length;
     const unmarkedCount = Math.max(shownAthletes.length - markedCount, 0);
+    const draftDirty = attendanceSignature(attendance, mode) !== attendanceSignature(baselineAttendance, mode);
     const historyRows = [...trainings]
       .filter((training) => Object.keys(training.attendance || {}).length > 0)
       .sort((first, second) => {
@@ -148,9 +158,59 @@
       });
 
       setAttendance(next);
+      setBaselineAttendance(next);
       setSelectedAthleteIds([]);
       setSavedNotice(false);
     }, [date, group, mode, selectedTraining?.id, athletes.length]);
+
+    React.useEffect(() => {
+      onDirtyChange(draftDirty);
+
+      if (!draftDirty) return undefined;
+
+      function warnBeforeUnload(event) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+
+      window.addEventListener("beforeunload", warnBeforeUnload);
+      return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+    }, [draftDirty, onDirtyChange]);
+
+    React.useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
+
+    function confirmDiscardDraft() {
+      if (!draftDirty) return true;
+
+      const ok = confirm("Ai modificari nesalvate la prezenta. Sigur vrei sa pleci fara sa le salvezi?");
+      if (!ok) return false;
+
+      setAttendance({ ...baselineAttendance });
+      setSelectedAthleteIds([]);
+      setSavedNotice(false);
+      return true;
+    }
+
+    function changeDate(nextDate) {
+      if (nextDate === date || !confirmDiscardDraft()) return;
+      setDate(nextDate);
+    }
+
+    function changeMode(nextMode) {
+      if (nextMode === mode || !confirmDiscardDraft()) return;
+      setMode(nextMode);
+    }
+
+    function changeGroup(nextGroup) {
+      if (nextGroup === group || !confirmDiscardDraft()) return;
+      setGroup(nextGroup);
+    }
+
+    function changeScreen(nextScreen) {
+      if (nextScreen === screen) return;
+      if (screen === "marcare" && !confirmDiscardDraft()) return;
+      setScreen(nextScreen);
+    }
 
     function updateAttendance(athleteId, status) {
       setAttendance((current) => ({
@@ -194,6 +254,7 @@
         attendance: cleanedAttendance
       });
       setAttendance(cleanedAttendance);
+      setBaselineAttendance(cleanedAttendance);
       setSavedNotice(true);
     }
 
@@ -286,7 +347,7 @@
               type: "button",
               className: screen === "marcare" ? "selected" : "",
               "aria-pressed": screen === "marcare",
-              onClick: () => setScreen("marcare")
+              onClick: () => changeScreen("marcare")
             },
             "Marcheaza prezenta"
           ),
@@ -296,7 +357,7 @@
               type: "button",
               className: screen === "istoric" ? "selected" : "",
               "aria-pressed": screen === "istoric",
-              onClick: () => setScreen("istoric")
+              onClick: () => changeScreen("istoric")
             },
             "Istoric",
             h("span", null, historyRows.length)
@@ -310,13 +371,13 @@
           h(
             "div",
             { className: "panel compact-grid attendance-v2-controls" },
-            h(Field, { label: "Data antrenamentului" }, h("input", { type: "date", value: date, onChange: (event) => setDate(event.target.value) })),
+            h(Field, { label: "Data antrenamentului" }, h("input", { type: "date", value: date, onChange: (event) => changeDate(event.target.value) })),
             h(
               Field,
               { label: "Tip antrenament" },
               h(
                 "select",
-                { value: mode, onChange: (event) => setMode(event.target.value) },
+                { value: mode, onChange: (event) => changeMode(event.target.value) },
                 trainingModes.map(([value, label]) => h("option", { key: value, value }, label))
               )
             ),
@@ -326,7 +387,7 @@
                 { label: "Grupa" },
                 h(
                   "select",
-                  { value: group, onChange: (event) => setGroup(event.target.value) },
+                  { value: group, onChange: (event) => changeGroup(event.target.value) },
                   groups.map((item) => h("option", { key: item, value: item }, item))
                 )
               )
