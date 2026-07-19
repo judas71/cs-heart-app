@@ -2262,7 +2262,7 @@
           .toLowerCase();
         return normalizeText(text).includes(normalizedQuery);
       })
-      .sort(sortByDateDesc);
+      .sort(comparePaymentsByPayer(athletes));
 
     const balancePayments = otherPayments
       .filter((payment) => isSameOrBeforeDate(payment.date, periodEndForBalance))
@@ -3101,7 +3101,7 @@
         h(
           "table",
           null,
-          h("thead", null, h("tr", null, ["Data", "De la / Catre", "Categorie", "Actiune", "Tip", "Suma", "Moneda", "Metoda", "Observatii", "Operat de", ""].map((head) => h("th", { key: head }, head)))),
+          h("thead", null, h("tr", null, ["Sportiv / sursa", "Data", "Incasare", "Confirmare", "Actiune", "Categorie", "Tip", "Metoda", "Moneda", "Observatii", "Operat de"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -3111,19 +3111,12 @@
               return h(
                 "tr",
                 { key: payment.id },
+                h("td", { "data-label": "Sportiv / sursa" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
                 h("td", { "data-label": "Data" }, formatDate(payment.date)),
-                h("td", { "data-label": "De la / Catre" }, h("strong", null, payerLabel(athletes, payment)), h("small", null, athlete ? athlete.group : payerType(payment))),
-                h("td", { "data-label": "Categorie" }, payment.category || "-"),
-                h("td", { "data-label": "Actiune" }, payment.actionName || "-"),
-                h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
-                h("td", { "data-label": "Suma" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
-                h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
-                h("td", { "data-label": "Metoda" }, payment.method || "-"),
-                h("td", { "data-label": "Observatii" }, payment.notes || "-"),
-                h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail)),
+                h("td", { "data-label": "Incasare" }, h("strong", { className: isOutgoingPayment(payment) ? "arrears" : "" }, formatPaymentAmount(payment))),
                 h(
                   "td",
-                  { className: "row-actions" },
+                  { className: "row-actions", "data-label": "Confirmare" },
                   h("button", { onClick: () => edit(payment) }, "Editeaza"),
                   ["incasare", "avans"].includes(paymentType(payment)) &&
                     h(
@@ -3132,7 +3125,14 @@
                       Number(payment.printCount || 0) > 0 || payment.printedAt || Number(payment.shareCount || 0) > 0 || payment.sharedAt ? "Retrimite" : "Confirmare"
                     ),
                   h("button", { className: "danger", onClick: () => onDeletePayment(payment.id) }, "Sterge")
-                )
+                ),
+                h("td", { "data-label": "Actiune" }, payment.actionName || "-"),
+                h("td", { "data-label": "Categorie" }, payment.category || "-"),
+                h("td", { "data-label": "Tip" }, paymentTypeLabel(payment)),
+                h("td", { "data-label": "Metoda" }, payment.method || "-"),
+                h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
+                h("td", { "data-label": "Observatii" }, payment.notes || "-"),
+                h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail))
               );
             })
           )
