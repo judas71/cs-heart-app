@@ -49,6 +49,79 @@
   background: #e1e7eb;
 }
 
+.attendance-v2-mixed-groups {
+  display: grid;
+  gap: 13px;
+  border-color: #cbd9e2;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #fff 0%, #f5f9fc 100%);
+}
+
+.attendance-v2-mixed-groups-copy p {
+  max-width: 720px;
+  margin: 4px 0 0;
+  color: #66727a;
+  font-size: 0.88rem;
+}
+
+.attendance-v2-mixed-group-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attendance-v2-mixed-group-buttons button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 82px;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 850;
+}
+
+.attendance-v2-mixed-group-buttons button span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 999px;
+  background: #e8edf1;
+  color: #52616a;
+  font-size: 0.75rem;
+}
+
+.attendance-v2-mixed-group-buttons button.selected {
+  border-color: #c5162e;
+  background: #c5162e;
+  color: #fff;
+  box-shadow: 0 5px 12px rgba(197, 22, 46, 0.18);
+}
+
+.attendance-v2-mixed-group-buttons button.selected span {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.attendance-v2-mixed-selection {
+  color: #805b00;
+  font-weight: 800;
+}
+
+.attendance-v2-mixed-selection.ready {
+  color: #166534;
+}
+
+.attendance-v2-picker-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.attendance-v2-picker-copy small {
+  color: #66727a;
+  font-weight: 600;
+}
+
 .attendance-v2-history-months {
   display: grid;
   gap: 10px;
@@ -125,5 +198,10 @@ button.attendance-v2-history-month-toggle[aria-expanded="true"] {
 
   button.attendance-v2-history-month-toggle {
     min-height: 62px;
+  }
+
+  .attendance-v2-mixed-group-buttons button {
+    flex: 1 1 calc(33.333% - 8px);
+    justify-content: center;
   }
 }
