@@ -2240,8 +2240,20 @@
     const periodEndForBalance = period.end || period.start || today();
     const periodLabel = (period.start ? formatDate(period.start) : "inceput") + " - " + (period.end ? formatDate(period.end) : "azi");
     const normalizedQuery = normalizeText(query);
+    const selectedQuickActionPayments = selectedQuickAction
+      ? otherPayments.filter((payment) => normalizeText(payment.actionName) === normalizeText(selectedQuickAction))
+      : [];
+    const selectedQuickActionCurrencies = new Set(selectedQuickActionPayments.map((payment) => paymentCurrency(payment)));
+    const selectedQuickActionCategories = selectedQuickActionPayments
+      .map((payment) => payment.category)
+      .filter((value, index, values) => value && values.findIndex((item) => sameCategory(item, value)) === index);
+    const quickActionDefinitions = otherPayments
+      .filter((payment) => !isBlankMarker(payment.actionName))
+      .map((payment) => String(payment.actionName || "").trim())
+      .filter((name, index, names) => names.findIndex((item) => normalizeText(item) === normalizeText(name)) === index)
+      .map((name) => ({ name, matchText: name }));
     const selectedQuickActionDefinition = selectedQuickAction
-      ? uniqueActions.find((action) => normalizeText(action.name) === normalizeText(selectedQuickAction))
+      ? { name: selectedQuickAction, matchText: selectedQuickAction }
       : null;
     const filteredPayments = otherPayments
       .filter((payment) => isDateInRange(payment.date, period.start, period.end))
@@ -2252,12 +2264,11 @@
         if (!selectedQuickAction) return true;
         if (normalizeText(payment.actionName) === normalizeText(selectedQuickAction)) return true;
         if (!selectedQuickActionDefinition || !isBlankMarker(payment.actionName)) return false;
-        if (selectedQuickActionDefinition.currency && paymentCurrency(payment) !== selectedQuickActionDefinition.currency) return false;
+        if (selectedQuickActionCurrencies.size && !selectedQuickActionCurrencies.has(paymentCurrency(payment))) return false;
         if (
-          selectedQuickActionDefinition.category &&
-          selectedQuickActionDefinition.category !== "toate" &&
+          selectedQuickActionCategories.length &&
           payment.category &&
-          !sameCategory(payment.category, selectedQuickActionDefinition.category)
+          !selectedQuickActionCategories.some((item) => sameCategory(item, payment.category))
         ) {
           return false;
         }
@@ -2265,7 +2276,7 @@
         return actionTextMatchesKnownAction(
           [payment.notes, payment.category].join(" "),
           selectedQuickActionDefinition,
-          uniqueActions
+          quickActionDefinitions
         );
       })
       .filter((payment) => {
