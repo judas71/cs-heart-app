@@ -64,6 +64,34 @@
   font-size: 0.88rem;
 }
 
+.attendance-v2-mixed-session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #dbe5eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 11px 13px;
+}
+
+.attendance-v2-mixed-session div {
+  display: grid;
+  gap: 3px;
+}
+
+.attendance-v2-mixed-session small {
+  color: #66727a;
+  font-weight: 600;
+}
+
+.attendance-v2-mixed-session button {
+  flex: 0 0 auto;
+  border-color: #c5162e;
+  color: #a30f24;
+  font-weight: 850;
+}
+
 .attendance-v2-mixed-group-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -198,6 +226,15 @@ button.attendance-v2-history-month-toggle[aria-expanded="true"] {
 
   button.attendance-v2-history-month-toggle {
     min-height: 62px;
+  }
+
+  .attendance-v2-mixed-session {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-v2-mixed-session button {
+    width: 100%;
   }
 
   .attendance-v2-mixed-group-buttons button {
