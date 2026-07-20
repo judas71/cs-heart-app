@@ -83,6 +83,10 @@
     return "grupa";
   }
 
+  function createTrainingId() {
+    return `tr-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
   function savedTrainingType(training) {
     return training?.type || "grupa";
   }
@@ -123,7 +127,7 @@
     return mixedGroups.length ? `Mixt - grupele ${mixedGroups.join(" + ")}` : "Mixt";
   }
 
-  function findTraining(trainings, date, mode, group, athletes) {
+  function findTraining(trainings, date, mode, group, athletes, editingTrainingId) {
     const recordType = trainingRecordType(mode);
 
     if (recordType === "individual") {
@@ -136,9 +140,15 @@
     }
 
     if (recordType === "mixt") {
+      if (!editingTrainingId) return null;
+
       return (
-        trainings.find((training) => training.date === date && savedTrainingType(training) === "mixt") ||
-        trainings.find((training) => training.date === date && trainingHasGuests(training, athletes))
+        trainings.find(
+          (training) =>
+            training.id === editingTrainingId &&
+            training.date === date &&
+            (savedTrainingType(training) === "mixt" || trainingHasGuests(training, athletes))
+        ) || null
       );
     }
 
@@ -160,13 +170,14 @@
     const [openHistoryMonth, setOpenHistoryMonth] = React.useState(null);
     const [selectedMixedGroups, setSelectedMixedGroups] = React.useState([]);
     const [baselineMixedGroups, setBaselineMixedGroups] = React.useState([]);
+    const [editingTrainingId, setEditingTrainingId] = React.useState("");
     const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
     const [attendance, setAttendance] = React.useState({});
     const [baselineAttendance, setBaselineAttendance] = React.useState({});
     const [savedNotice, setSavedNotice] = React.useState(false);
     const activeAthletes = athletes.filter((athlete) => athlete.active !== false).sort(compareAthletes);
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
-    const selectedTraining = findTraining(trainings, date, mode, group, activeAthletes);
+    const selectedTraining = findTraining(trainings, date, mode, group, activeAthletes, editingTrainingId);
     const attendanceIds = new Set(Object.keys(attendance));
     const shownAthletes =
       mode === "grupa"
@@ -226,7 +237,7 @@
       setBaselineMixedGroups(nextMixedGroups);
       setSelectedAthleteIds([]);
       setSavedNotice(false);
-    }, [date, group, mode, selectedTraining?.id, athletes.length]);
+    }, [date, group, mode, editingTrainingId, selectedTraining?.id, athletes.length]);
 
     React.useEffect(() => {
       onDirtyChange(draftDirty);
@@ -259,16 +270,19 @@
 
     function changeDate(nextDate) {
       if (nextDate === date || !confirmDiscardDraft()) return;
+      setEditingTrainingId("");
       setDate(nextDate);
     }
 
     function changeMode(nextMode) {
       if (nextMode === mode || !confirmDiscardDraft()) return;
+      setEditingTrainingId("");
       setMode(nextMode);
     }
 
     function changeGroup(nextGroup) {
       if (nextGroup === group || !confirmDiscardDraft()) return;
+      setEditingTrainingId("");
       setGroup(nextGroup);
     }
 
@@ -313,7 +327,7 @@
       );
 
       const nextTraining = {
-        id: selectedTraining?.id,
+        id: selectedTraining?.id || createTrainingId(),
         date,
         group: mode === "individual" ? "Individual" : mode === "mixt" ? "Mixt" : group,
         type: trainingRecordType(mode),
@@ -328,7 +342,19 @@
       setAttendance(cleanedAttendance);
       setBaselineAttendance(cleanedAttendance);
       setBaselineMixedGroups([...selectedMixedGroups]);
+      setEditingTrainingId(nextTraining.id);
       setSavedNotice(true);
+    }
+
+    function startNewMixedTraining() {
+      if (mode !== "mixt" || !confirmDiscardDraft()) return;
+      setEditingTrainingId("");
+      setAttendance({});
+      setBaselineAttendance({});
+      setSelectedMixedGroups([]);
+      setBaselineMixedGroups([]);
+      setSelectedAthleteIds([]);
+      setSavedNotice(false);
     }
 
     function toggleMixedGroup(groupName) {
@@ -397,6 +423,7 @@
     function openHistory(training) {
       const type = displayTrainingType(training, activeAthletes);
 
+      setEditingTrainingId(training.id || "");
       setDate(training.date);
       setScreen("marcare");
 
@@ -420,6 +447,9 @@
       const ok = confirm("Stergi aceasta prezenta/antrenament?");
       if (!ok) return;
       onDeleteTraining(training);
+      if (training.id && training.id === editingTrainingId) {
+        setEditingTrainingId("");
+      }
     }
 
     return h(
@@ -503,7 +533,29 @@
                 "div",
                 { className: "attendance-v2-mixed-groups-copy" },
                 h("strong", null, "Ce grupe se antreneaza impreuna?"),
-                h("p", null, "Alege grupele participante. Copiii lor vor intra automat intr-o singura prezenta.")
+                h("p", null, "Alege grupele participante. Poti salva mai multe antrenamente mixte distincte in aceeasi zi.")
+              ),
+              h(
+                "div",
+                { className: "attendance-v2-mixed-session" },
+                h(
+                  "div",
+                  null,
+                  h("strong", null, selectedTraining ? "Editezi un antrenament mixt salvat" : "Antrenament mixt nou"),
+                  h(
+                    "small",
+                    null,
+                    selectedTraining
+                      ? "Modificarile se aplica numai acestui antrenament."
+                      : "Aceasta prezenta se va salva separat de celelalte antrenamente ale zilei."
+                  )
+                ),
+                selectedTraining &&
+                  h(
+                    "button",
+                    { type: "button", onClick: startNewMixedTraining },
+                    "+ Alt antrenament mixt"
+                  )
               ),
               h(
                 "div",
