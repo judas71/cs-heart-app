@@ -1551,6 +1551,22 @@
     );
   }
 
+  function findActionForSearch(actions, value) {
+    const normalizedValue = normalizeText(value);
+    if (!normalizedValue) return null;
+
+    const exactLabelMatch = actions.find((action) => normalizeText(actionLabel(action)) === normalizedValue);
+    if (exactLabelMatch) return exactLabelMatch;
+
+    const exactNameMatches = actions.filter((action) => normalizeText(action.name) === normalizedValue);
+    if (exactNameMatches.length === 1) return exactNameMatches[0];
+    if (exactNameMatches.length > 1) {
+      return exactNameMatches.find((action) => !sameCategory(action.category, "transport")) || exactNameMatches[0];
+    }
+
+    return findActionByWrittenName(actions, value);
+  }
+
   function actionNumberTokens(value) {
     return normalizeText(value).match(/\d+/g) || [];
   }
@@ -2399,9 +2415,9 @@
     const periodLabel = (period.start ? formatDate(period.start) : "inceput") + " - " + (period.end ? formatDate(period.end) : "azi");
     const normalizedQuery = normalizeText(query);
     const selectedQuickActionDefinition = selectedQuickAction
-      ? findActionByWrittenName(uniqueActions, selectedQuickAction) || { name: selectedQuickAction, matchText: selectedQuickAction }
+      ? findActionForSearch(uniqueActions, selectedQuickAction) || { name: selectedQuickAction, matchText: selectedQuickAction }
       : null;
-    const queryActionDefinition = normalizedQuery ? findActionByWrittenName(uniqueActions, query) : null;
+    const queryActionDefinition = normalizedQuery ? findActionForSearch(uniqueActions, query) : null;
 
     function paymentMatchesInformationQuery(payment) {
       if (!normalizedQuery) return true;
