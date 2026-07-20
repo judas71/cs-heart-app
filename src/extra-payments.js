@@ -2716,26 +2716,12 @@
       const existingPayment = otherPayments.find((payment) => payment.id === form.id) || {};
       const linkedAction = findActionById(uniqueActions, form.actionId) || findActionByWrittenName(uniqueActions, form.actionName, form.category);
       const writtenActionName = linkedAction?.name || String(form.actionName || "").trim();
-      const existingAthleteName = athleteName(findAthlete(athletes, existingPayment.athleteId));
-      const restoresKastaTransportConfirmation =
-        normalizeDateInput(existingPayment.date) === "2026-07-20" &&
-        Number(existingPayment.amount || 0) === 200 &&
-        sameCategory(existingPayment.category, "transport") &&
-        normalizeText(existingPayment.actionName) === "kasta" &&
-        ["barbuceanu mara", "piciorus lavinia", "serban rares"].includes(normalizeText(existingAthleteName)) &&
-        !existingPayment.printedAt &&
-        !existingPayment.sharedAt &&
-        Number(existingPayment.printCount || 0) === 0 &&
-        Number(existingPayment.shareCount || 0) === 0;
 
       if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !paymentDate || !form.category || Number(form.amount || 0) <= 0) return;
 
       onSavePayment({
         ...existingPayment,
         ...form,
-        ...(restoresKastaTransportConfirmation
-          ? { printedAt: existingPayment.updatedAt || new Date().toISOString(), printCount: 1 }
-          : {}),
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
         date: paymentDate,
