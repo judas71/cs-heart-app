@@ -2697,17 +2697,33 @@
       const isSportiv = form.payerType === "sportiv";
       const payerName = String(form.payerName || "").trim();
       const paymentDate = normalizeDateInput(form.date);
+      const existingPayment = otherPayments.find((payment) => payment.id === form.id) || {};
       const linkedAction = findActionById(uniqueActions, form.actionId) || findActionByWrittenName(uniqueActions, form.actionName, form.category);
       const writtenActionName = linkedAction?.name || String(form.actionName || "").trim();
+      const existingAthleteName = athleteName(findAthlete(athletes, existingPayment.athleteId));
+      const restoresKastaTransportConfirmation =
+        normalizeDateInput(existingPayment.date) === "2026-07-20" &&
+        Number(existingPayment.amount || 0) === 200 &&
+        sameCategory(existingPayment.category, "transport") &&
+        normalizeText(existingPayment.actionName) === "kasta" &&
+        ["barbuceanu mara", "piciorus lavinia", "serban rares"].includes(normalizeText(existingAthleteName)) &&
+        !existingPayment.printedAt &&
+        !existingPayment.sharedAt &&
+        Number(existingPayment.printCount || 0) === 0 &&
+        Number(existingPayment.shareCount || 0) === 0;
 
       if ((isSportiv && !form.athleteId) || (!isSportiv && !payerName) || !paymentDate || !form.category || Number(form.amount || 0) <= 0) return;
 
       onSavePayment({
+        ...existingPayment,
         ...form,
+        ...(restoresKastaTransportConfirmation
+          ? { printedAt: existingPayment.updatedAt || new Date().toISOString(), printCount: 1 }
+          : {}),
         athleteId: isSportiv ? form.athleteId : "",
         payerName: isSportiv ? "" : payerName,
         date: paymentDate,
-        actionId: linkedAction?.id || "",
+        actionId: linkedAction?.id || form.actionId || "",
         actionName: writtenActionName,
         category: linkedAction?.category || cleanCategory(form.category),
         currency: linkedAction?.currency || form.currency,
@@ -2758,7 +2774,7 @@
         payerName: payment.payerName || "",
         date: formatDate(payment.date || today()),
         category: payment.category || categories[0],
-        actionId: payment.actionId || "",
+        actionId: linkedAction?.id || payment.actionId || "",
         actionName: linkedAction?.name || payment.actionName || "",
         paymentType: paymentType(payment),
         amount: payment.amount || "",
