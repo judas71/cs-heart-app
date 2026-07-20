@@ -2398,21 +2398,34 @@
     const periodEndForBalance = period.end || period.start || today();
     const periodLabel = (period.start ? formatDate(period.start) : "inceput") + " - " + (period.end ? formatDate(period.end) : "azi");
     const normalizedQuery = normalizeText(query);
-    const selectedQuickActionPayments = selectedQuickAction
-      ? otherPayments.filter((payment) => normalizeText(payment.actionName) === normalizeText(selectedQuickAction))
-      : [];
-    const selectedQuickActionCurrencies = new Set(selectedQuickActionPayments.map((payment) => paymentCurrency(payment)));
-    const selectedQuickActionCategories = selectedQuickActionPayments
-      .map((payment) => payment.category)
-      .filter((value, index, values) => value && values.findIndex((item) => sameCategory(item, value)) === index);
-    const quickActionDefinitions = otherPayments
-      .filter((payment) => !isBlankMarker(payment.actionName))
-      .map((payment) => String(payment.actionName || "").trim())
-      .filter((name, index, names) => names.findIndex((item) => normalizeText(item) === normalizeText(name)) === index)
-      .map((name) => ({ name, matchText: name }));
     const selectedQuickActionDefinition = selectedQuickAction
-      ? { name: selectedQuickAction, matchText: selectedQuickAction }
+      ? findActionByWrittenName(uniqueActions, selectedQuickAction) || { name: selectedQuickAction, matchText: selectedQuickAction }
       : null;
+    const queryActionDefinition = normalizedQuery ? findActionByWrittenName(uniqueActions, query) : null;
+
+    function paymentMatchesInformationQuery(payment) {
+      if (!normalizedQuery) return true;
+
+      if (queryActionDefinition) {
+        return paymentMatchesAction(payment, queryActionDefinition, payment.athleteId, uniqueActions);
+      }
+
+      const text = [
+        payerLabel(athletes, payment),
+        payerType(payment),
+        payment.category,
+        payment.actionName,
+        paymentTypeLabel(payment),
+        payment.method,
+        paymentCurrency(payment),
+        payment.notes
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return normalizeText(text).includes(normalizedQuery);
+    }
+
     const filteredPayments = otherPayments
       .filter((payment) => isDateInRange(payment.date, period.start, period.end))
       .filter((payment) => category === "toate" || sameCategory(payment.category, category))
@@ -2420,42 +2433,15 @@
       .filter((payment) => currencyFilter === "toate" || paymentCurrency(payment) === currencyFilter)
       .filter((payment) => {
         if (!selectedQuickAction) return true;
-        if (normalizeText(payment.actionName) === normalizeText(selectedQuickAction)) return true;
-        if (!selectedQuickActionDefinition || !isBlankMarker(payment.actionName)) return false;
-        if (selectedQuickActionCurrencies.size && !selectedQuickActionCurrencies.has(paymentCurrency(payment))) return false;
-        if (
-          selectedQuickActionCategories.length &&
-          payment.category &&
-          !selectedQuickActionCategories.some((item) => sameCategory(item, payment.category))
-        ) {
-          return false;
-        }
-
-        return actionTextMatchesKnownAction(
-          [payment.notes, payment.category].join(" "),
-          selectedQuickActionDefinition,
-          quickActionDefinitions
-        );
+        return selectedQuickActionDefinition
+          ? paymentMatchesAction(payment, selectedQuickActionDefinition, payment.athleteId, uniqueActions)
+          : false;
       })
       .filter((payment) => {
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
       })
-      .filter((payment) => {
-        const text = [
-          payerLabel(athletes, payment),
-          payerType(payment),
-          payment.category,
-          payment.actionName,
-          paymentTypeLabel(payment),
-          payment.method,
-          paymentCurrency(payment),
-          payment.notes
-        ]
-          .join(" ")
-          .toLowerCase();
-        return normalizeText(text).includes(normalizedQuery);
-      })
+      .filter(paymentMatchesInformationQuery)
       .sort(comparePaymentsByPayer(athletes));
 
     const paymentGroups = Object.values(
@@ -2498,21 +2484,7 @@
         const athlete = findAthlete(athletes, payment.athleteId);
         return group === "toate" || athlete?.group === group;
       })
-      .filter((payment) => {
-        const text = [
-          payerLabel(athletes, payment),
-          payerType(payment),
-          payment.category,
-          payment.actionName,
-          paymentTypeLabel(payment),
-          payment.method,
-          paymentCurrency(payment),
-          payment.notes
-        ]
-          .join(" ")
-          .toLowerCase();
-        return normalizeText(text).includes(normalizedQuery);
-      });
+      .filter(paymentMatchesInformationQuery);
 
     const receivedLei = sumPaymentsByType(filteredPayments, "lei", "incasare");
     const paidLei = sumOutgoingPayments(filteredPayments, "lei");
@@ -2787,7 +2759,7 @@
         date: formatDate(payment.date || today()),
         category: payment.category || categories[0],
         actionId: payment.actionId || "",
-        actionName: payment.actionName || linkedAction?.name || "",
+        actionName: linkedAction?.name || payment.actionName || "",
         paymentType: paymentType(payment),
         amount: payment.amount || "",
         method: payment.method || "cash",
