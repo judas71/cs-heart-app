@@ -8,6 +8,121 @@
   --v2-red-bg: #fff1f2;
 }
 
+.cs-fee-payment-panel {
+  scroll-margin-top: 18px;
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.cs-fee-payment-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.cs-fee-payment-head .eyebrow {
+  margin: 0 0 4px;
+  color: #c5162e;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-fee-payment-head h3,
+.cs-fee-payment-head p,
+.cs-fee-payment-panel h4 {
+  margin: 0;
+}
+
+.cs-fee-payment-head p:last-child,
+.cs-fee-payment-note,
+.cs-fee-payment-empty {
+  color: #66727a;
+}
+
+.cs-fee-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cs-fee-payment-summary > div {
+  border: 1px solid #dbe2e7;
+  border-radius: 12px;
+  background: #f8fafb;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.cs-fee-payment-summary span {
+  color: #66727a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cs-fee-payment-form {
+  border: 1px solid #f0d65d;
+  border-radius: 13px;
+  background: #fffbea;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.cs-fee-payment-history {
+  display: grid;
+  gap: 8px;
+}
+
+.cs-fee-payment-history article {
+  border: 1px solid #dbe2e7;
+  border-radius: 12px;
+  background: #fff;
+  padding: 11px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.cs-fee-payment-history article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.cs-fee-payment-history span,
+.cs-fee-payment-history small {
+  color: #66727a;
+}
+
+@media (max-width: 900px) {
+  .cs-fee-payment-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cs-fee-payment-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .cs-fee-payment-summary,
+  .cs-fee-payment-form {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-fee-payment-history article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .attendance-v2 {
   gap: 16px;
 }
