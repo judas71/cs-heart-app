@@ -772,6 +772,88 @@
     return fees.find((fee) => fee.athleteId === athleteId && fee.month === month);
   }
 
+  function normalizeFeePayment(payment, fallback = {}) {
+    return {
+      ...payment,
+      id: payment?.id || fallback.id || `feepay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      amount: Number(payment?.amount ?? fallback.amount ?? 0),
+      date: payment?.date || fallback.date || "",
+      method: payment?.method || fallback.method || "cash",
+      notes: payment?.notes ?? fallback.notes ?? "",
+      createdAt: payment?.createdAt || fallback.createdAt || "",
+      confirmationCount: Number(payment?.confirmationCount ?? fallback.confirmationCount ?? 0),
+      confirmationGeneratedAt: payment?.confirmationGeneratedAt || fallback.confirmationGeneratedAt || ""
+    };
+  }
+
+  function getFeePayments(fee) {
+    if (!fee) return [];
+    if (Array.isArray(fee.payments)) {
+      return fee.payments
+        .map((payment) => normalizeFeePayment(payment))
+        .filter((payment) => Number(payment.amount || 0) > 0);
+    }
+
+    const legacyAmount = Number(fee.amountPaid || 0);
+    if (legacyAmount <= 0 && !fee.paymentDate) return [];
+
+    return [normalizeFeePayment({}, {
+      id: `legacy-${fee.id || `${fee.athleteId}-${fee.month}`}`,
+      amount: legacyAmount,
+      date: fee.paymentDate || "",
+      method: fee.method || "cash",
+      notes: fee.notes || "",
+      createdAt: fee.updatedAt || "",
+      confirmationCount: fee.confirmationCount || 0,
+      confirmationGeneratedAt: fee.confirmationGeneratedAt || ""
+    })];
+  }
+
+  function compareFeePayments(first, second) {
+    return String(first.date || "").localeCompare(String(second.date || "")) ||
+      String(first.createdAt || "").localeCompare(String(second.createdAt || "")) ||
+      String(first.id || "").localeCompare(String(second.id || ""));
+  }
+
+  function feePaymentsTotal(fee) {
+    return getFeePayments(fee).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+
+  function withFeePayments(fee, payments) {
+    const normalizedPayments = payments
+      .map((payment) => normalizeFeePayment(payment))
+      .filter((payment) => Number(payment.amount || 0) > 0);
+    const chronological = [...normalizedPayments].sort(compareFeePayments);
+    const latest = chronological[chronological.length - 1];
+
+    return {
+      ...fee,
+      payments: normalizedPayments,
+      amountPaid: normalizedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+      paymentDate: latest?.date || "",
+      method: latest?.method || fee?.method || "cash"
+    };
+  }
+
+  function getTaxReceiptFee(fee, payment) {
+    const chronological = [...getFeePayments(fee)].sort(compareFeePayments);
+    const paymentIndex = chronological.findIndex((item) => item.id === payment.id);
+    const cumulativePaid = chronological
+      .slice(0, paymentIndex >= 0 ? paymentIndex + 1 : chronological.length)
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    return {
+      ...fee,
+      amountPaid: cumulativePaid,
+      paymentDate: payment.date || fee.paymentDate || "",
+      method: payment.method || fee.method || "cash",
+      notes: payment.notes || "",
+      receiptAmount: Number(payment.amount || 0),
+      confirmationCount: Number(payment.confirmationCount || 0),
+      confirmationGeneratedAt: payment.confirmationGeneratedAt || ""
+    };
+  }
+
   function hasAmountDue(fee) {
     return fee && fee.amountDue !== undefined && fee.amountDue !== null && fee.amountDue !== "";
   }
@@ -917,6 +999,7 @@
   function getTaxFeeReceiptRows(athlete, fee, previousBalance, fallbackDue) {
     const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
     const amountPaid = Number(fee?.amountPaid || 0);
+    const receiptAmount = Number(fee?.receiptAmount ?? amountPaid);
     const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
     const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
     const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
@@ -935,7 +1018,7 @@
       ["Taxa lunii", formatMoney(amountDue)],
       ["Rest/avans anterior", previousText],
       ["Total calculat", formatMoney(totalToPay)],
-      ["Suma", formatMoney(amountPaid)],
+      ["Suma incasata", formatMoney(receiptAmount)],
       ["Rest ramas", creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding)],
       ["Metoda", fee.method || "-"],
       ["Operat de", operatorLabel(fee.updatedByEmail || fee.updatedBy)],
@@ -956,7 +1039,7 @@
       "Grupa: " + (athlete.group || "-"),
       "Luna: " + formatMonthLabel(fee.month),
       "Data platii: " + formatDate(fee.paymentDate || today()),
-      "Suma achitata: " + formatMoney(fee.amountPaid),
+      "Suma achitata: " + formatMoney(fee.receiptAmount ?? fee.amountPaid),
       "Metoda: " + (fee.method || "-"),
       "Rest ramas: " + remainingText,
       "Operat de: " + operatorLabel(fee.updatedByEmail || fee.updatedBy),
@@ -1895,6 +1978,8 @@
     const [group, setGroup] = React.useState("toate");
     const [showTaxPaymentForm, setShowTaxPaymentForm] = React.useState(false);
     const [taxPaymentForm, setTaxPaymentForm] = React.useState(() => emptyTaxPaymentForm(monthNow));
+    const [feePaymentForm, setFeePaymentForm] = React.useState(null);
+    const [feeHistoryAthleteId, setFeeHistoryAthleteId] = React.useState("");
     const [taxReceiptPreview, setTaxReceiptPreview] = React.useState(null);
     const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
     const groups = getGroups(athletes);
@@ -1907,13 +1992,14 @@
     });
     const listedAthleteIds = listedAthletes.map((athlete) => athlete.id);
     const monthlyFeeRows = fees.filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId));
+    const monthlyFeePayments = monthlyFeeRows.flatMap((fee) => getFeePayments(fee));
     const monthlyCollected = monthlyFeeRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
-    const monthlyCashCollected = monthlyFeeRows
-      .filter((fee) => fee.method === "cash")
-      .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
-    const monthlyTransferCollected = monthlyFeeRows
-      .filter((fee) => fee.method === "transfer")
-      .reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const monthlyCashCollected = monthlyFeePayments
+      .filter((payment) => payment.method === "cash")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const monthlyTransferCollected = monthlyFeePayments
+      .filter((payment) => payment.method === "transfer")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     const monthlyTaxPayments = (taxPayments || [])
       .filter((payment) => payment.month === month)
       .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
@@ -1929,6 +2015,8 @@
     function updateMonth(value) {
       setMonth(value);
       setTaxPaymentForm((current) => ({ ...current, month: value }));
+      setFeePaymentForm(null);
+      setFeeHistoryAthleteId("");
     }
 
     function getFee(athleteId) {
@@ -1950,6 +2038,46 @@
     function updateFee(athleteId, field, value) {
       const fee = getFee(athleteId);
       onSaveFee({ ...fee, athleteId, month, [field]: value });
+    }
+
+    function openFeePaymentForm(athlete) {
+      setFeeHistoryAthleteId(athlete.id);
+      setFeePaymentForm({
+        athleteId: athlete.id,
+        date: today(),
+        amount: "",
+        method: "cash",
+        notes: ""
+      });
+      window.setTimeout(() => document.getElementById("fee-payment-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    }
+
+    function submitFeePayment(event) {
+      event.preventDefault();
+      if (!feePaymentForm) return;
+
+      const amount = Number(feePaymentForm.amount || 0);
+      const paymentDate = normalizeDateInput(feePaymentForm.date);
+      if (amount <= 0 || !paymentDate) return;
+
+      const fee = getFee(feePaymentForm.athleteId);
+      const payment = normalizeFeePayment({
+        id: `feepay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        amount,
+        date: paymentDate,
+        method: feePaymentForm.method || "cash",
+        notes: String(feePaymentForm.notes || "").trim(),
+        createdAt: new Date().toISOString()
+      });
+
+      onSaveFee(withFeePayments(fee, [...getFeePayments(fee), payment]));
+      setFeePaymentForm(null);
+    }
+
+    function toggleFeeHistory(athleteId) {
+      setFeeHistoryAthleteId((current) => current === athleteId ? "" : athleteId);
+      setFeePaymentForm(null);
+      window.setTimeout(() => document.getElementById("fee-payment-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     }
 
     function updateTaxPayment(field, value) {
@@ -1988,9 +2116,9 @@
       setShowTaxPaymentForm(true);
     }
 
-    function openTaxReceipt(athlete, fee, previousBalance, fallbackDue) {
-      if (Number(fee.amountPaid || 0) <= 0) return;
-      setTaxReceiptPreview({ athlete, fee, previousBalance, fallbackDue });
+    function openTaxReceipt(athlete, fee, payment, previousBalance, fallbackDue) {
+      if (Number(payment?.amount || 0) <= 0) return;
+      setTaxReceiptPreview({ athlete, sourceFee: fee, payment, fee: getTaxReceiptFee(fee, payment), previousBalance, fallbackDue });
     }
 
     function openTaxReminder(athlete, fee, previousBalance, fallbackDue) {
@@ -1998,16 +2126,29 @@
       setTaxReminderPreview({ athlete, fee, previousBalance, fallbackDue });
     }
 
-    function markTaxReceiptGenerated(fee) {
-      const markedFee = {
-        ...fee,
-        confirmationCount: Number(fee.confirmationCount || 0) + 1,
-        confirmationGeneratedAt: new Date().toISOString()
+    function markTaxReceiptGenerated(preview) {
+      const generatedAt = new Date().toISOString();
+      const markedPayments = getFeePayments(preview.sourceFee).map((payment) =>
+        payment.id === preview.payment.id
+          ? {
+              ...payment,
+              confirmationCount: Number(payment.confirmationCount || 0) + 1,
+              confirmationGeneratedAt: generatedAt
+            }
+          : payment
+      );
+      const markedSourceFee = withFeePayments(preview.sourceFee, markedPayments);
+      const markedPayment = markedPayments.find((payment) => payment.id === preview.payment.id) || preview.payment;
+      const markedPreview = {
+        ...preview,
+        sourceFee: markedSourceFee,
+        payment: markedPayment,
+        fee: getTaxReceiptFee(markedSourceFee, markedPayment)
       };
 
-      onSaveFee(markedFee);
-      setTaxReceiptPreview((current) => current ? { ...current, fee: markedFee } : current);
-      return markedFee;
+      onSaveFee(markedSourceFee);
+      setTaxReceiptPreview(markedPreview);
+      return markedPreview;
     }
 
     function markTaxReminderGenerated(fee) {
@@ -2023,8 +2164,8 @@
 
     function printTaxReceipt() {
       if (!taxReceiptPreview) return;
-      const markedFee = markTaxReceiptGenerated(taxReceiptPreview.fee);
-      printTaxFeeReceipt(taxReceiptPreview.athlete, markedFee, taxReceiptPreview.previousBalance, taxReceiptPreview.fallbackDue);
+      const markedPreview = markTaxReceiptGenerated(taxReceiptPreview);
+      printTaxFeeReceipt(markedPreview.athlete, markedPreview.fee, markedPreview.previousBalance, markedPreview.fallbackDue);
     }
 
     async function shareTaxReceipt() {
@@ -2041,7 +2182,7 @@
         } else {
           window.prompt("Copiaza mesajul pentru WhatsApp:", message);
         }
-        markTaxReceiptGenerated(taxReceiptPreview.fee);
+        markTaxReceiptGenerated(taxReceiptPreview);
       } catch (error) {
         if (error?.name !== "AbortError") {
           alert("Nu am putut distribui confirmarea. Incearca din nou sau foloseste Tipareste.");
@@ -2097,6 +2238,13 @@
 
       return secondIsUnpaid - firstIsUnpaid || originalOrder.get(first.id) - originalOrder.get(second.id);
     });
+    const feePanelAthlete = athletes.find((athlete) => athlete.id === feeHistoryAthleteId);
+    const feePanelFee = feePanelAthlete ? getFee(feePanelAthlete.id) : null;
+    const feePanelPreviousBalance = feePanelAthlete ? getPreviousBalance(fees, feePanelAthlete, month) : 0;
+    const feePanelFallbackDue = feePanelAthlete ? getDefaultAmountDue(fees, feePanelAthlete, month) : 0;
+    const feePanelTotalToPay = feePanelFee ? getTotalToPay(feePanelFee, feePanelPreviousBalance, feePanelFallbackDue) : 0;
+    const feePanelOutstanding = feePanelFee ? getOutstandingAmount(feePanelFee, feePanelPreviousBalance, feePanelFallbackDue) : 0;
+    const feePanelPayments = feePanelFee ? [...getFeePayments(feePanelFee)].sort((first, second) => compareFeePayments(second, first)) : [];
 
     return h(
       "section",
@@ -2178,6 +2326,77 @@
           h("small", null, "Incasari taxe - salarii/chirii")
         )
       ),
+      feePanelAthlete && feePanelFee &&
+        h(
+          "section",
+          { id: "fee-payment-panel", className: "panel cs-fee-payment-panel" },
+          h(
+            "div",
+            { className: "cs-fee-payment-head" },
+            h(
+              "div",
+              null,
+              h("p", { className: "eyebrow" }, "Incasari taxa"),
+              h("h3", null, athleteName(feePanelAthlete)),
+              h("p", null, formatMonthLabel(month) + " / " + (feePanelAthlete.group || "Fara grupa"))
+            ),
+            h("button", { type: "button", onClick: () => { setFeePaymentForm(null); setFeeHistoryAthleteId(""); } }, "Inchide")
+          ),
+          h(
+            "div",
+            { className: "cs-fee-payment-summary" },
+            h("div", null, h("span", null, "Rest anterior"), h("strong", null, feePanelPreviousBalance < 0 ? "Avans " + formatMoney(Math.abs(feePanelPreviousBalance)) : formatMoney(feePanelPreviousBalance))),
+            h("div", null, h("span", null, "Taxa lunii"), h("strong", null, formatMoney(feePanelFee.amountDue ?? feePanelFallbackDue))),
+            h("div", null, h("span", null, "Sold inainte de plati"), h("strong", null, formatMoney(feePanelTotalToPay))),
+            h("div", null, h("span", null, "Incasat luna aceasta"), h("strong", null, formatMoney(feePaymentsTotal(feePanelFee)))),
+            h("div", null, h("span", null, "Ramas de achitat"), h("strong", { className: feePanelOutstanding > 0 ? "arrears" : "" }, formatMoney(feePanelOutstanding)))
+          ),
+          feePaymentForm &&
+            h(
+              "form",
+              { className: "cs-fee-payment-form", onSubmit: submitFeePayment },
+              h(Field, { label: "Data incasarii" }, h("input", { type: "date", value: feePaymentForm.date, onChange: (event) => setFeePaymentForm((current) => ({ ...current, date: event.target.value })), required: true })),
+              h(Field, { label: "Suma primita" }, h("input", { type: "number", min: "0.01", step: "0.01", value: feePaymentForm.amount, onChange: (event) => setFeePaymentForm((current) => ({ ...current, amount: event.target.value })), autoFocus: true, required: true })),
+              h(
+                Field,
+                { label: "Metoda" },
+                h(
+                  "select",
+                  { value: feePaymentForm.method, onChange: (event) => setFeePaymentForm((current) => ({ ...current, method: event.target.value })) },
+                  paymentMethods.map((method) => h("option", { key: method, value: method }, method))
+                )
+              ),
+              h(Field, { label: "Observatii" }, h("input", { value: feePaymentForm.notes, onChange: (event) => setFeePaymentForm((current) => ({ ...current, notes: event.target.value })), placeholder: "Optional" })),
+              h(
+                "div",
+                { className: "form-actions" },
+                h("button", { className: "primary", type: "submit" }, "Salveaza incasarea"),
+                h("button", { type: "button", onClick: () => setFeePaymentForm(null) }, "Renunta")
+              )
+            ),
+          !feePaymentForm &&
+            h("button", { className: "primary", type: "button", onClick: () => openFeePaymentForm(feePanelAthlete) }, "+ Inregistreaza o incasare"),
+          h("h4", null, "Istoric plati (" + feePanelPayments.length + ")"),
+          feePanelPayments.length
+            ? h(
+                "div",
+                { className: "cs-fee-payment-history" },
+                feePanelPayments.map((payment) =>
+                  h(
+                    "article",
+                    { key: payment.id },
+                    h("div", null, h("strong", null, formatMoney(payment.amount)), h("span", null, formatDate(payment.date) + " / " + (payment.method || "-")), payment.notes && h("small", null, payment.notes)),
+                    h(
+                      "button",
+                      { type: "button", onClick: () => openTaxReceipt(feePanelAthlete, feePanelFee, payment, feePanelPreviousBalance, feePanelFallbackDue) },
+                      Number(payment.confirmationCount || 0) > 0 ? "Retrimite confirmarea" : "Confirmare"
+                    )
+                  )
+                )
+              )
+            : h("p", { className: "cs-fee-payment-empty" }, "Nu exista inca nicio incasare in aceasta luna."),
+          h("small", { className: "cs-fee-payment-note" }, "Fiecare plata ramane separata, cu data si metoda ei. Soldul anterior continua sa fie afisat in luna curenta.")
+        ),
       monthlyTaxPayments.length > 0 &&
         h(
           "div",
@@ -2217,7 +2436,7 @@
         h(
           "table",
           null,
-            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Total", "Platit", "Data platii", "Metoda", "Mesaj"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Sold inainte", "Platit", "Ramas", "Incasari", "Mesaj"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -2230,6 +2449,7 @@
               const automaticStatus = getAutomaticFeeStatus(fee, previousBalance, fallbackDue);
               const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
               const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
+              const feePayments = getFeePayments(fee);
 
               return h(
                 "tr",
@@ -2247,33 +2467,24 @@
                 ),
                 h("td", { "data-label": "Taxa lunii" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
                 h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
-                h("td", { "data-label": "Total" }, h("strong", null, formatMoney(totalToPay)), creditAfterMonth > 0 && h("small", null, "Avans ramas: " + formatMoney(creditAfterMonth))),
-                h("td", { "data-label": "Platit" }, h("input", { type: "number", min: "0", value: Number(fee.amountPaid || 0) === 0 ? "" : fee.amountPaid, onChange: (event) => updateFee(athlete.id, "amountPaid", event.target.value === "" ? 0 : Number(event.target.value)) })),
-                h("td", { "data-label": "Data platii" }, h("input", { type: "date", value: fee.paymentDate, onChange: (event) => updateFee(athlete.id, "paymentDate", event.target.value) })),
+                h("td", { "data-label": "Sold inainte" }, h("strong", null, formatMoney(totalToPay))),
+                h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(feePaymentsTotal(fee))), feePayments.length > 1 && h("small", null, feePayments.length + " incasari")),
+                h("td", { "data-label": "Ramas" }, h("strong", { className: outstanding > 0 ? "arrears" : "" }, creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding))),
                 h(
                   "td",
-                  { "data-label": "Metoda" },
-                  h(
-                    "select",
-                    { value: fee.method, onChange: (event) => updateFee(athlete.id, "method", event.target.value) },
-                    paymentMethods.map((method) => h("option", { key: method, value: method }, method))
-                  )
+                  { "data-label": "Incasari", className: "row-actions" },
+                  h("button", { className: "primary", type: "button", onClick: () => openFeePaymentForm(athlete) }, "Incaseaza"),
+                  feePayments.length > 0 && h("button", { type: "button", onClick: () => toggleFeeHistory(athlete.id) }, "Istoric (" + feePayments.length + ")")
                 ),
                 h(
                   "td",
                   { "data-label": "Mesaj", className: "row-actions" },
-                  Number(fee.amountPaid || 0) > 0
-                    ? h(
-                        "button",
-                        { type: "button", onClick: () => openTaxReceipt(athlete, fee, previousBalance, fallbackDue) },
-                        Number(fee.confirmationCount || 0) > 0 ? "Retrimite" : "Confirmare"
-                      )
-                    : outstanding > 0 &&
-                      h(
-                        "button",
-                        { type: "button", onClick: () => openTaxReminder(athlete, fee, previousBalance, fallbackDue) },
-                        Number(fee.reminderCount || 0) > 0 ? "Reamintește" : "Amintește"
-                      )
+                  outstanding > 0 &&
+                    h(
+                      "button",
+                      { type: "button", onClick: () => openTaxReminder(athlete, fee, previousBalance, fallbackDue) },
+                      Number(fee.reminderCount || 0) > 0 ? "Reamintește" : "Amintește"
+                    )
                 )
               );
             })
@@ -3701,7 +3912,7 @@
   }
 
   function FeePaymentRows({ title, rows, athletes, emptyText }) {
-    const subtotal = rows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const subtotal = rows.reduce((sum, row) => sum + Number(row.payment?.amount || 0), 0);
 
     return h(
       "div",
@@ -3711,14 +3922,14 @@
         ? h(
             "ul",
             { className: "cs-report-list" },
-            [...rows].sort(compareFeesByAthlete(athletes)).map((fee) => {
+            [...rows].sort((first, second) => compareFeesByAthlete(athletes)(first.fee, second.fee) || compareFeePayments(second.payment, first.payment)).map(({ fee, payment }) => {
               const athlete = findAthlete(athletes, fee.athleteId);
 
               return h(ReportItem, {
-                key: fee.id || `${fee.athleteId}-${fee.month}-${fee.method}-${fee.amountPaid}`,
+                key: payment.id || `${fee.athleteId}-${fee.month}-${payment.method}-${payment.amount}`,
                 title: athlete ? athleteName(athlete) : "Sportiv necunoscut",
-                subtitle: fee.paymentDate ? "Data platii: " + fee.paymentDate : "Fara data de plata",
-                amount: formatMoney(fee.amountPaid)
+                subtitle: payment.date ? "Data platii: " + formatDate(payment.date) : "Fara data de plata",
+                amount: formatMoney(payment.amount)
               });
             })
           )
@@ -3933,11 +4144,12 @@
         Number(fee.amountPaid || 0) > 0 &&
         athletesInFilter.some((athlete) => athlete.id === fee.athleteId)
     );
-    const cashRows = collectedFees.filter((fee) => fee.method === "cash");
-    const transferRows = collectedFees.filter((fee) => fee.method === "transfer");
+    const collectedFeePayments = collectedFees.flatMap((fee) => getFeePayments(fee).map((payment) => ({ fee, payment })));
+    const cashRows = collectedFeePayments.filter((row) => row.payment.method === "cash");
+    const transferRows = collectedFeePayments.filter((row) => row.payment.method === "transfer");
     const totalCollected = collectedFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
-    const totalCash = cashRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
-    const totalTransfer = transferRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const totalCash = cashRows.reduce((sum, row) => sum + Number(row.payment.amount || 0), 0);
+    const totalTransfer = transferRows.reduce((sum, row) => sum + Number(row.payment.amount || 0), 0);
     const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim()).sort(compareAthletesByName);
     const totalToPay = feeRows.reduce((sum, row) => sum + row.totalToPay, 0);
     const totalOutstanding = debtorRows.reduce((sum, row) => sum + row.outstanding, 0);
