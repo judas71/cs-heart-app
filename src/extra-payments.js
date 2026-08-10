@@ -1980,6 +1980,7 @@
     const [taxPaymentForm, setTaxPaymentForm] = React.useState(() => emptyTaxPaymentForm(monthNow));
     const [feePaymentForm, setFeePaymentForm] = React.useState(null);
     const [feeHistoryAthleteId, setFeeHistoryAthleteId] = React.useState("");
+    const [feePaymentPendingDeleteId, setFeePaymentPendingDeleteId] = React.useState("");
     const [taxReceiptPreview, setTaxReceiptPreview] = React.useState(null);
     const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
     const groups = getGroups(athletes);
@@ -2077,15 +2078,10 @@
     function deleteFeePayment(payment) {
       if (!feePanelFee || !payment) return;
 
-      const ok = confirm(
-        "Ștergi încasarea de " + formatMoney(payment.amount) + "?\n\n" +
-        "Se șterge doar această încasare. Taxa și celelalte plăți rămân neschimbate."
-      );
-      if (!ok) return;
-
       const remainingPayments = getFeePayments(feePanelFee).filter((item) => item.id !== payment.id);
       onSaveFee(withFeePayments(feePanelFee, remainingPayments));
       setTaxReceiptPreview(null);
+      setFeePaymentPendingDeleteId("");
     }
 
     function toggleFeeHistory(athleteId) {
@@ -2408,11 +2404,22 @@
                         { type: "button", onClick: () => openTaxReceipt(feePanelAthlete, feePanelFee, payment, feePanelPreviousBalance, feePanelFallbackDue) },
                         Number(payment.confirmationCount || 0) > 0 ? "Retrimite confirmarea" : "Confirmare"
                       ),
-                      h(
-                        "button",
-                        { className: "danger", type: "button", onClick: () => deleteFeePayment(payment) },
-                        "Șterge"
-                      )
+                      feePaymentPendingDeleteId === payment.id
+                        ? h(
+                            React.Fragment,
+                            null,
+                            h(
+                              "button",
+                              { className: "danger", type: "button", onClick: () => deleteFeePayment(payment) },
+                              "Da, șterge"
+                            ),
+                            h("button", { type: "button", onClick: () => setFeePaymentPendingDeleteId("") }, "Renunță")
+                          )
+                        : h(
+                            "button",
+                            { className: "danger", type: "button", onClick: () => setFeePaymentPendingDeleteId(payment.id) },
+                            "Șterge"
+                          )
                     )
                   )
                 )
