@@ -179,6 +179,26 @@
     return "Plătită";
   }
 
+  function feePaymentRows(fee) {
+    if (Array.isArray(fee.payments)) {
+      return fee.payments
+        .filter((payment) => Number(payment.amount || 0) > 0)
+        .map((payment) => ({ fee, payment }));
+    }
+
+    if (Number(fee.amountPaid || 0) <= 0 && !fee.paymentDate) return [];
+    return [{
+      fee,
+      payment: {
+        id: `legacy-${fee.id || `${fee.athleteId}-${fee.month}`}`,
+        amount: Number(fee.amountPaid || 0),
+        date: fee.paymentDate || "",
+        method: fee.method || "cash",
+        notes: fee.notes || ""
+      }
+    }];
+  }
+
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -316,12 +336,13 @@
 
   function PaymentHistoryV2({ athlete, fees, otherPayments = [] }) {
     const feeRows = fees
-      .filter((fee) => fee.athleteId === athlete.id && (Number(fee.amountPaid || 0) > 0 || fee.paymentDate))
-      .sort((a, b) => String(b.paymentDate || b.month || "").localeCompare(String(a.paymentDate || a.month || "")));
+      .filter((fee) => fee.athleteId === athlete.id)
+      .flatMap(feePaymentRows)
+      .sort((a, b) => String(b.payment.date || b.fee.month || "").localeCompare(String(a.payment.date || a.fee.month || "")));
     const otherRows = otherPayments
       .filter((payment) => payment.athleteId === athlete.id)
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-    const feeTotal = feeRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const feeTotal = feeRows.reduce((sum, row) => sum + Number(row.payment.amount || 0), 0);
     const otherIncomingLei = otherRows
       .filter((payment) => paymentCurrency(payment) === "lei" && !isOutgoingPayment(payment))
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
@@ -352,16 +373,16 @@
               h(
                 "tbody",
                 null,
-                feeRows.map((fee) =>
+                feeRows.map(({ fee, payment }) =>
                   h(
                     "tr",
-                    { key: fee.id || `${fee.athleteId}-${fee.month}` },
-                    h("td", { "data-label": "Data" }, formatDate(fee.paymentDate)),
+                    { key: payment.id || `${fee.athleteId}-${fee.month}-${payment.date}-${payment.amount}` },
+                    h("td", { "data-label": "Data" }, formatDate(payment.date)),
                     h("td", { "data-label": "Luna" }, fee.month || "-"),
-                    h("td", { "data-label": "Încasat" }, h("strong", null, formatMoney(fee.amountPaid))),
-                    h("td", { "data-label": "Metoda" }, fee.method || "-"),
+                    h("td", { "data-label": "Încasat" }, h("strong", null, formatMoney(payment.amount))),
+                    h("td", { "data-label": "Metoda" }, payment.method || "-"),
                     h("td", { "data-label": "Status" }, feePaymentStatus(fee)),
-                    h("td", { "data-label": "Observații" }, fee.notes || "-")
+                    h("td", { "data-label": "Observații" }, payment.notes || "-")
                   )
                 )
               )
