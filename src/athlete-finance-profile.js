@@ -76,6 +76,28 @@
     }
   }
 
+  function feePaymentRows(fee) {
+    if (Array.isArray(fee.payments)) {
+      return fee.payments
+        .filter((payment) => Number(payment.amount || 0) > 0)
+        .map((payment) => ({ fee, payment }));
+    }
+
+    if (Number(fee.amountPaid || 0) <= 0 && !fee.paymentDate) return [];
+    return [{
+      fee,
+      payment: {
+        id: `legacy-${fee.id || `${fee.athleteId}-${fee.month}`}`,
+        amount: Number(fee.amountPaid || 0),
+        date: fee.paymentDate || "",
+        method: fee.method || "cash",
+        notes: fee.notes || "",
+        createdAt: fee.updatedAt || "",
+        updatedByEmail: fee.updatedByEmail || fee.updatedBy || ""
+      }
+    }];
+  }
+
   function medicalVisaPart(label, value) {
     const formatted = formatDate(value);
 
@@ -308,9 +330,10 @@
 
   function PaymentHistory({ athlete, fees, otherPayments = [] }) {
     const rows = fees
-      .filter((fee) => fee.athleteId === athlete.id && (Number(fee.amountPaid || 0) > 0 || fee.paymentDate))
-      .sort((a, b) => String(b.month || "").localeCompare(String(a.month || "")));
-    const totalPaid = rows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+      .filter((fee) => fee.athleteId === athlete.id)
+      .flatMap(feePaymentRows)
+      .sort((a, b) => String(b.payment.date || b.fee.month || "").localeCompare(String(a.payment.date || a.fee.month || "")));
+    const totalPaid = rows.reduce((sum, row) => sum + Number(row.payment.amount || 0), 0);
     const otherRows = otherPayments
       .filter((payment) => payment.athleteId === athlete.id)
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
@@ -370,18 +393,18 @@
               h(
                 "tbody",
                 null,
-                rows.map((fee) =>
+                rows.map(({ fee, payment }) =>
                   h(
                     "tr",
-                    { key: fee.id || `${fee.athleteId}-${fee.month}` },
+                    { key: payment.id || `${fee.athleteId}-${fee.month}-${payment.date}-${payment.amount}` },
                     h("td", { "data-label": "Luna" }, fee.month || "-"),
                     h("td", { "data-label": "Taxa lunii" }, formatMoney(fee.amountDue)),
-                    h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(fee.amountPaid))),
-                    h("td", { "data-label": "Data platii" }, formatDate(fee.paymentDate)),
-                    h("td", { "data-label": "Metoda" }, fee.method || "-"),
+                    h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(payment.amount))),
+                    h("td", { "data-label": "Data platii" }, formatDate(payment.date)),
+                    h("td", { "data-label": "Metoda" }, payment.method || "-"),
                     h("td", { "data-label": "Status" }, fee.status || "-"),
-                    h("td", { "data-label": "Operat de" }, operatorLabel(fee.updatedByEmail || fee.updatedBy)),
-                    h("td", { "data-label": "Modificat la" }, formatDateTime(fee.updatedAt))
+                    h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail || fee.updatedByEmail || fee.updatedBy)),
+                    h("td", { "data-label": "Modificat la" }, formatDateTime(payment.createdAt || fee.updatedAt))
                   )
                 )
               )
