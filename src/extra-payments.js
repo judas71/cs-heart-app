@@ -2074,6 +2074,20 @@
       setFeePaymentForm(null);
     }
 
+    function deleteFeePayment(payment) {
+      if (!feePanelFee || !payment) return;
+
+      const ok = confirm(
+        "Ștergi încasarea de " + formatMoney(payment.amount) + "?\n\n" +
+        "Se șterge doar această încasare. Taxa și celelalte plăți rămân neschimbate."
+      );
+      if (!ok) return;
+
+      const remainingPayments = getFeePayments(feePanelFee).filter((item) => item.id !== payment.id);
+      onSaveFee(withFeePayments(feePanelFee, remainingPayments));
+      setTaxReceiptPreview(null);
+    }
+
     function toggleFeeHistory(athleteId) {
       setFeeHistoryAthleteId((current) => current === athleteId ? "" : athleteId);
       setFeePaymentForm(null);
@@ -2387,9 +2401,18 @@
                     { key: payment.id },
                     h("div", null, h("strong", null, formatMoney(payment.amount)), h("span", null, formatDate(payment.date) + " / " + (payment.method || "-")), payment.notes && h("small", null, payment.notes)),
                     h(
-                      "button",
-                      { type: "button", onClick: () => openTaxReceipt(feePanelAthlete, feePanelFee, payment, feePanelPreviousBalance, feePanelFallbackDue) },
-                      Number(payment.confirmationCount || 0) > 0 ? "Retrimite confirmarea" : "Confirmare"
+                      "div",
+                      { className: "cs-fee-payment-actions" },
+                      h(
+                        "button",
+                        { type: "button", onClick: () => openTaxReceipt(feePanelAthlete, feePanelFee, payment, feePanelPreviousBalance, feePanelFallbackDue) },
+                        Number(payment.confirmationCount || 0) > 0 ? "Retrimite confirmarea" : "Confirmare"
+                      ),
+                      h(
+                        "button",
+                        { className: "danger", type: "button", onClick: () => deleteFeePayment(payment) },
+                        "Șterge"
+                      )
                     )
                   )
                 )
