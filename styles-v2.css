@@ -96,6 +96,13 @@
   gap: 2px;
 }
 
+.cs-fee-payment-history .cs-fee-payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .cs-fee-payment-history span,
 .cs-fee-payment-history small {
   color: #66727a;
@@ -120,6 +127,10 @@
   .cs-fee-payment-history article {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .cs-fee-payment-history .cs-fee-payment-actions {
+    justify-content: flex-start;
   }
 }
 
