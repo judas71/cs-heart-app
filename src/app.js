@@ -283,6 +283,9 @@ React.useEffect(() => {
                 status: "neplÄƒtitÄƒ",
                 amountPaid: 0,
                 paymentDate: "",
+                payments: [],
+                confirmationCount: 0,
+                confirmationGeneratedAt: "",
                 notes: ""
               }
             : fee
