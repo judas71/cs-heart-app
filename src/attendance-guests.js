@@ -171,6 +171,8 @@
     const [selectedMixedGroups, setSelectedMixedGroups] = React.useState([]);
     const [baselineMixedGroups, setBaselineMixedGroups] = React.useState([]);
     const [editingTrainingId, setEditingTrainingId] = React.useState("");
+    const [singleCorrection, setSingleCorrection] = React.useState(false);
+    const [correctionAthleteId, setCorrectionAthleteId] = React.useState("");
     const [selectedAthleteIds, setSelectedAthleteIds] = React.useState([]);
     const [attendance, setAttendance] = React.useState({});
     const [baselineAttendance, setBaselineAttendance] = React.useState({});
@@ -183,6 +185,12 @@
       mode === "grupa"
         ? activeAthletes.filter((athlete) => athlete.group === group || attendanceIds.has(athlete.id))
         : activeAthletes.filter((athlete) => attendanceIds.has(athlete.id));
+    const correctionAthletes = selectedTraining
+      ? activeAthletes.filter((athlete) => attendanceStatuses.includes(selectedTraining.attendance?.[athlete.id]))
+      : [];
+    const displayedAthletes = singleCorrection
+      ? shownAthletes.filter((athlete) => athlete.id === correctionAthleteId)
+      : shownAthletes;
     const shownIds = new Set(shownAthletes.map((athlete) => athlete.id));
     const canPickAthletes = mode !== "grupa";
     const availableAthletes = activeAthletes.filter((athlete) => !shownIds.has(athlete.id));
@@ -202,6 +210,8 @@
         if (byDate !== 0) return byDate;
         return String(first.group || "").localeCompare(String(second.group || ""), "ro");
       });
+    const today = new Date().toISOString().slice(0, 10);
+    const todayRows = historyRows.filter((training) => training.date === today);
     const historyMonths = historyRows.reduce((months, training) => {
       const monthKey = String(training.date || "").slice(0, 7) || "fara-data";
       const currentMonth = months.find((month) => month.key === monthKey);
@@ -270,18 +280,24 @@
 
     function changeDate(nextDate) {
       if (nextDate === date || !confirmDiscardDraft()) return;
+      setSingleCorrection(false);
+      setCorrectionAthleteId("");
       setEditingTrainingId("");
       setDate(nextDate);
     }
 
     function changeMode(nextMode) {
       if (nextMode === mode || !confirmDiscardDraft()) return;
+      setSingleCorrection(false);
+      setCorrectionAthleteId("");
       setEditingTrainingId("");
       setMode(nextMode);
     }
 
     function changeGroup(nextGroup) {
       if (nextGroup === group || !confirmDiscardDraft()) return;
+      setSingleCorrection(false);
+      setCorrectionAthleteId("");
       setEditingTrainingId("");
       setGroup(nextGroup);
     }
@@ -346,8 +362,28 @@
       setSavedNotice(true);
     }
 
+    function saveSingleCorrection() {
+      if (!selectedTraining || !correctionAthleteId) return;
+
+      const status = attendance[correctionAthleteId];
+      if (!attendanceStatuses.includes(status)) return;
+
+      const nextAttendance = {
+        ...(selectedTraining.attendance || {}),
+        [correctionAthleteId]: status
+      };
+      const nextTraining = { ...selectedTraining, attendance: nextAttendance };
+
+      onSaveTraining(nextTraining);
+      setAttendance(nextAttendance);
+      setBaselineAttendance(nextAttendance);
+      setSavedNotice(true);
+    }
+
     function startNewMixedTraining() {
       if (mode !== "mixt" || !confirmDiscardDraft()) return;
+      setSingleCorrection(false);
+      setCorrectionAthleteId("");
       setEditingTrainingId("");
       setAttendance({});
       setBaselineAttendance({});
@@ -423,9 +459,12 @@
     function openHistory(training) {
       const type = displayTrainingType(training, activeAthletes);
 
+      setSingleCorrection(false);
+      setCorrectionAthleteId("");
       setEditingTrainingId(training.id || "");
       setDate(training.date);
       setScreen("marcare");
+      window.setTimeout(() => document.querySelector(".attendance-v2")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
 
       if (type === "Individual") {
         setMode("individual");
@@ -439,6 +478,26 @@
 
       setMode("grupa");
       setGroup(training.group || groups[0] || "");
+    }
+
+    function openSingleCorrection(training) {
+      const type = displayTrainingType(training, activeAthletes);
+      const firstAthlete = activeAthletes.find((athlete) => attendanceStatuses.includes(training.attendance?.[athlete.id]));
+
+      setSingleCorrection(true);
+      setCorrectionAthleteId(firstAthlete?.id || "");
+      setEditingTrainingId(training.id || "");
+      setDate(training.date);
+      setScreen("marcare");
+
+      if (type === "Individual") setMode("individual");
+      else if (type === "Mixt") setMode("mixt");
+      else {
+        setMode("grupa");
+        setGroup(training.group || groups[0] || "");
+      }
+
+      window.setTimeout(() => document.querySelector(".attendance-v2")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     }
 
     function deleteHistory(training) {
@@ -462,13 +521,15 @@
           "div",
           { className: "attendance-v2-hero-copy" },
           h("p", { className: "eyebrow" }, "Prezenta"),
-          h("h2", null, screen === "marcare" ? "Antrenamentul de azi" : "Istoric antrenamente"),
+          h("h2", null, screen === "marcare" ? (singleCorrection ? "Corecteaza un sportiv" : "Antrenamentul de azi") : "Istoric antrenamente"),
           h(
             "p",
             null,
             screen === "marcare"
-              ? "Verifica fiecare sportiv. Nimeni nu este marcat automat si nimic nu se salveaza fara confirmarea ta."
-              : "Vezi antrenamentele salvate si deschide rapid o prezenta pentru verificare."
+              ? singleCorrection
+                ? "Modifica doar copilul ales. Prezentele celorlalti sportivi raman neschimbate."
+                : "La un antrenament nou verifici intreaga lista. Pentru un copil sosit mai tarziu foloseste Corecteaza un sportiv."
+              : "Vezi antrenamentele salvate si corecteaza rapid un singur sportiv sau intreaga lista."
           )
         ),
         h(
@@ -501,7 +562,58 @@
         h(
           React.Fragment,
           null,
-          h(
+          !singleCorrection &&
+            todayRows.length > 0 &&
+            h(
+              "section",
+              { className: "panel attendance-v2-today" },
+              h(
+                "div",
+                { className: "attendance-v2-today-head" },
+                h("div", null, h("strong", null, "Prezente salvate astazi"), h("p", null, "A sosit un copil mai tarziu? Corecteaza numai statusul lui.")),
+                h("span", null, `${todayRows.length} ${todayRows.length === 1 ? "antrenament" : "antrenamente"}`)
+              ),
+              h(
+                "div",
+                { className: "attendance-v2-today-list" },
+                todayRows.map((training) => {
+                  const todayCounts = countStatuses(training.attendance);
+                  return h(
+                    "article",
+                    { key: `today-${training.id || training.group}`, className: "attendance-v2-today-card" },
+                    h("div", null, h("strong", null, displayTrainingLabel(training, activeAthletes)), h("small", null, `${todayCounts.present} prezenti / ${todayCounts.absent} absenti`)),
+                    h(
+                      "div",
+                      { className: "row-actions" },
+                      h("button", { type: "button", className: "primary", onClick: () => openSingleCorrection(training) }, "Corecteaza un sportiv"),
+                      h("button", { type: "button", onClick: () => openHistory(training) }, "Editeaza lista")
+                    )
+                  );
+                })
+              )
+            ),
+          singleCorrection && selectedTraining &&
+            h(
+              "div",
+              { className: "panel attendance-v2-correction" },
+              h(
+                "div",
+                null,
+                h("strong", null, `${formatDate(selectedTraining.date)} - ${displayTrainingLabel(selectedTraining, activeAthletes)}`),
+                h("p", null, "Alege copilul si schimba numai statusul lui. Restul prezentei nu va fi atins.")
+              ),
+              h(
+                Field,
+                { label: "Sportivul corectat" },
+                h(
+                  "select",
+                  { value: correctionAthleteId, onChange: (event) => { setCorrectionAthleteId(event.target.value); setSavedNotice(false); } },
+                  correctionAthletes.map((athlete) => h("option", { key: athlete.id, value: athlete.id }, `${athleteName(athlete)} - ${athlete.group || "Fara grupa"}`))
+                )
+              ),
+              h("button", { type: "button", onClick: () => openHistory(selectedTraining) }, "Editeaza toata lista")
+            ),
+          !singleCorrection && h(
             "div",
             { className: "panel compact-grid attendance-v2-controls" },
             h(Field, { label: "Data antrenamentului" }, h("input", { type: "date", value: date, onChange: (event) => changeDate(event.target.value) })),
@@ -525,7 +637,7 @@
                 )
               )
           ),
-          mode === "mixt" &&
+          !singleCorrection && mode === "mixt" &&
             h(
               "div",
               { className: "panel attendance-v2-mixed-groups" },
@@ -585,7 +697,7 @@
                   : "Nu ai selectat inca nicio grupa."
               )
             ),
-          h(
+          !singleCorrection && h(
             "div",
             { className: "attendance-v2-summary" },
             h("article", { className: "present" }, h("span", null, "Prezenti"), h("strong", null, counts.present)),
@@ -594,7 +706,7 @@
             h("article", { className: "injured" }, h("span", null, "Accidentati"), h("strong", null, counts.injured)),
             h("article", { className: unmarkedCount ? "unmarked attention" : "unmarked" }, h("span", null, "Nemarcati"), h("strong", null, unmarkedCount))
           ),
-          h(
+          !singleCorrection && h(
             "div",
             { className: "panel attendance-v2-bulk" },
             h(
@@ -610,7 +722,7 @@
               h("button", { type: "button", onClick: clearAllMarks, disabled: !markedCount }, "Sterge marcajele")
             )
           ),
-          canPickAthletes &&
+          !singleCorrection && canPickAthletes &&
             h(
               "div",
               { className: "panel stack attendance-v2-picker" },
@@ -659,12 +771,12 @@
                   )
                 : h(EmptyState, { title: "Nu mai sunt sportivi de adaugat.", text: "Toti sportivii disponibili sunt deja in antrenament." })
             ),
-          shownAthletes.length
+          displayedAthletes.length
             ? h(
                 "div",
-                { className: "attendance-v2-athletes" },
-                shownAthletes.map((athlete) => {
-                  const canRemove = mode !== "grupa" || athlete.group !== group;
+                { className: `attendance-v2-athletes ${singleCorrection ? "single" : ""}` },
+                displayedAthletes.map((athlete) => {
+                  const canRemove = !singleCorrection && (mode !== "grupa" || athlete.group !== group);
                   const currentStatus = attendance[athlete.id] || "";
 
                   return h(
@@ -699,15 +811,40 @@
                 })
               )
             : h(EmptyState, {
-                title: mode === "grupa" ? "Nu sunt sportivi pentru acest antrenament." : "Nu ai ales sportivi pentru acest antrenament.",
+                title: singleCorrection ? "Nu exista un sportiv de corectat." : mode === "grupa" ? "Nu sunt sportivi pentru acest antrenament." : "Nu ai ales sportivi pentru acest antrenament.",
                 text:
-                  mode === "grupa"
+                  singleCorrection
+                    ? "Deschide alta prezenta salvata."
+                    : mode === "grupa"
                     ? "Alege alta grupa sau foloseste antrenament mixt."
                     : mode === "mixt"
                       ? "Alege una sau mai multe grupe de mai sus. Poti adauga apoi si exceptii individuale."
                       : "Bifeaza sportivii si apasa Adauga selectatii."
               }),
-          h(
+          singleCorrection
+            ? h(
+                "div",
+                { className: `attendance-v2-save ${savedNotice ? "ready" : ""}` },
+                h(
+                  "div",
+                  null,
+                  savedNotice
+                    ? h("strong", { className: "attendance-v2-saved" }, "Corectarea a fost salvata.")
+                    : h("strong", null, "Se va modifica numai sportivul ales."),
+                  h("small", null, "Toate celelalte statusuri din acest antrenament raman exact cum sunt.")
+                ),
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    className: "primary",
+                    onClick: saveSingleCorrection,
+                    disabled: !correctionAthleteId || !attendanceStatuses.includes(attendance[correctionAthleteId]) || !draftDirty
+                  },
+                  "Salveaza corectarea"
+                )
+              )
+            : h(
             "div",
             { className: `attendance-v2-save ${unmarkedCount ? "has-unmarked" : "ready"}` },
             h(
@@ -777,7 +914,8 @@
                             h(
                               "div",
                               { className: "row-actions" },
-                              h("button", { type: "button", onClick: () => openHistory(training) }, "Deschide"),
+                              h("button", { type: "button", className: "primary", onClick: () => openSingleCorrection(training) }, "Corecteaza un sportiv"),
+                              h("button", { type: "button", onClick: () => openHistory(training) }, "Editeaza lista"),
                               h("button", { type: "button", className: "danger", onClick: () => deleteHistory(training) }, "Sterge")
                             )
                           ),

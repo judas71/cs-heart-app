@@ -702,6 +702,66 @@
     return "#172026";
   }
 
+  function attendanceStatusText(status) {
+    if (status === "prezent") return "Prezent";
+    if (status === "absent") return "Absent";
+    if (status === "\u00eenvoit") return "Invoit";
+    if (status === "accidentat") return "Accidentat";
+    return status || "-";
+  }
+
+  function attendanceShareMessage(athlete, month, entries) {
+    const counts = entries.reduce(
+      (result, training) => {
+        const status = training.attendance?.[athlete.id];
+        if (status === "prezent") result.present += 1;
+        if (status === "absent") result.absent += 1;
+        if (status === "\u00eenvoit") result.excused += 1;
+        if (status === "accidentat") result.injured += 1;
+        return result;
+      },
+      { present: 0, absent: 0, excused: 0, injured: 0 }
+    );
+    const percentage = entries.length ? Math.round((counts.present / entries.length) * 100) : 0;
+    const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("ro-RO", { month: "long", year: "numeric" });
+    const dates = entries
+      .map((training) => `${formatDate(training.date)} - ${attendanceStatusText(training.attendance?.[athlete.id])}`)
+      .join("\n");
+
+    return [
+      "CS HEART - Situatie prezenta",
+      `Sportiv: ${athleteName(athlete)}`,
+      `Luna: ${monthLabel}`,
+      "",
+      `Antrenamente inregistrate: ${entries.length}`,
+      `Prezent: ${counts.present}`,
+      `Absent: ${counts.absent}`,
+      `Invoit: ${counts.excused}`,
+      `Accidentat: ${counts.injured}`,
+      `Procent prezenta: ${percentage}%`,
+      "",
+      "Detalii:",
+      dates
+    ].join("\n");
+  }
+
+  async function shareAttendanceReport(athlete, month, entries) {
+    const text = attendanceShareMessage(athlete, month, entries);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "CS HEART - Situatie prezenta", text });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        alert("Mesajul a fost copiat. Il poti lipi in WhatsApp.");
+      } else {
+        window.prompt("Copiaza mesajul pentru WhatsApp:", text);
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") alert("Nu am putut distribui situatia. Incearca din nou.");
+    }
+  }
+
   function parseDateValue(value) {
     if (!value) return null;
 
@@ -4333,6 +4393,7 @@
     const [month, setMonth] = React.useState(currentMonth());
     const [group, setGroup] = React.useState("toate");
     const [mode, setMode] = React.useState("peSportiv");
+    const [query, setQuery] = React.useState("");
     const groups = getGroups(athletes);
     const athletesInFilter = athletes.filter(
       (athlete) =>
@@ -4347,7 +4408,9 @@
       const present = entries.filter((training) => training.attendance[athlete.id] === "prezent").length;
       return { athlete, total: entries.length, present, entries };
     });
-    const visibleRows = mode === "sub50" ? rows.filter((row) => row.total > 0 && row.present / row.total < 0.5) : rows;
+    const normalizedQuery = query.trim().toLocaleLowerCase("ro");
+    const visibleRows = (mode === "sub50" ? rows.filter((row) => row.total > 0 && row.present / row.total < 0.5) : rows)
+      .filter((row) => !normalizedQuery || athleteName(row.athlete).toLocaleLowerCase("ro").includes(normalizedQuery));
     const athletesWithAttendance = rows.filter((row) => row.total > 0).length;
     const lowAttendance = rows.filter((row) => row.total > 0 && row.present / row.total < 0.5).length;
     const totalEntries = rows.reduce((sum, row) => sum + row.total, 0);
@@ -4380,7 +4443,8 @@
             h("option", { value: "peSportiv" }, "Prezente pe sportiv"),
             h("option", { value: "sub50" }, "Prezenta sub 50%")
           )
-        )
+        ),
+        h(Field, { label: "Cauta sportiv" }, h("input", { type: "search", value: query, onChange: (event) => setQuery(event.target.value), placeholder: "Scrie numele..." }))
       ),
       h(
         "div",
@@ -4403,21 +4467,28 @@
               { className: "cs-report-list" },
               visibleRows.map(({ athlete, present, total, entries }) =>
                 h(
-                  ReportItem,
+                  ExpandableReportItem,
                   {
                     key: athlete.id,
                     title: athleteName(athlete),
-                    subtitle: total > 0 ? "Date marcate in luna aleasa" : "Fara prezenta in luna aleasa",
-                    amount: `${present}/${total}`
+                    subtitle: total > 0 ? "Deschide fisa lunara" : "Fara prezenta in luna aleasa",
+                    amount: total > 0 ? `${Math.round((present / total) * 100)}% (${present}/${total})` : "-"
                   },
-                  entries.length > 0 &&
-                    entries.map((training) =>
-                      h(
-                        "span",
-                        { key: training.id || training.date, style: { color: attendanceColor(training.attendance[athlete.id]), fontSize: "0.84rem", fontWeight: 800 } },
-                        formatAttendanceDay(training.date)
+                  entries.length > 0 && [
+                    h(
+                      "div",
+                      { key: "dates", className: "cs-attendance-report-dates" },
+                      entries.map((training) =>
+                        h(
+                          "span",
+                          { key: training.id || training.date, style: { color: attendanceColor(training.attendance[athlete.id]) } },
+                          h("strong", null, formatAttendanceDay(training.date)),
+                          attendanceStatusText(training.attendance[athlete.id])
+                        )
                       )
-                    )
+                    ),
+                    h("button", { key: "share", type: "button", className: "primary", onClick: () => shareAttendanceReport(athlete, month, entries) }, "Trimite parintelui")
+                  ]
                 )
               )
             )

@@ -422,15 +422,71 @@
 
   function AttendanceHistoryV2({ athlete, trainings }) {
     const [month, setMonth] = React.useState(currentMonthValue());
+    const [shareText, setShareText] = React.useState("");
+    const [shareNotice, setShareNotice] = React.useState("");
     const details = getAttendanceDetails(athlete.id, trainings, month);
     const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("ro-RO", {
       month: "long",
       year: "numeric"
     });
 
+    function changeMonth(nextMonth) {
+      setMonth(nextMonth || currentMonthValue());
+      setShareText("");
+      setShareNotice("");
+    }
+
+    function attendanceMessage() {
+      const dates = [...details.rows]
+        .reverse()
+        .map((row) => `${formatDate(row.date)} - ${attendanceStatusLabel(row.status)} (${trainingLabel(row)})`)
+        .join("\n");
+
+      return [
+        "CS HEART - Situatie prezenta",
+        `Sportiv: ${athleteName(athlete)}`,
+        `Luna: ${monthLabel}`,
+        "",
+        `Antrenamente inregistrate: ${details.rows.length}`,
+        `Prezent: ${details.counts.present}`,
+        `Absent: ${details.counts.absent}`,
+        `Invoit: ${details.counts.excused}`,
+        `Accidentat: ${details.counts.injured}`,
+        `Procent prezenta: ${details.percentage === null ? "-" : details.percentage + "%"}`,
+        "",
+        "Detalii:",
+        dates
+      ].join("\n");
+    }
+
+    function prepareShare() {
+      if (!details.rows.length) return;
+      setShareText(attendanceMessage());
+      setShareNotice("");
+    }
+
+    async function sendAttendance() {
+      const text = String(shareText || "").trim();
+      if (!text) return;
+
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "CS HEART - Situatie prezenta", text });
+          setShareNotice("Situatia a fost pregatita pentru trimitere.");
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          setShareNotice("Mesajul a fost copiat. Il poti lipi in WhatsApp.");
+        } else {
+          window.prompt("Copiaza mesajul pentru WhatsApp:", text);
+        }
+      } catch (error) {
+        if (error?.name !== "AbortError") alert("Nu am putut distribui situatia. Incearca din nou.");
+      }
+    }
+
     return h(
       "section",
-      { className: "athlete-v2-attendance" },
+      { className: "athlete-v2-attendance", id: "athlete-attendance-card" },
       h(
         "div",
         { className: "athlete-v2-attendance-head" },
@@ -441,15 +497,20 @@
           h("p", null, `Situa\u021bia pentru ${monthLabel}`)
         ),
         h(
-          "label",
-          { className: "athlete-v2-attendance-month" },
-          h("span", null, "Alege luna"),
-          h("input", {
-            type: "month",
-            value: month,
-            onInput: (event) => setMonth(event.target.value || currentMonthValue()),
-            onChange: (event) => setMonth(event.target.value || currentMonthValue())
-          })
+          "div",
+          { className: "athlete-v2-attendance-actions" },
+          h(
+            "label",
+            { className: "athlete-v2-attendance-month" },
+            h("span", null, "Alege luna"),
+            h("input", {
+              type: "month",
+              value: month,
+              onInput: (event) => changeMonth(event.target.value),
+              onChange: (event) => changeMonth(event.target.value)
+            })
+          ),
+          h("button", { type: "button", className: "primary", onClick: prepareShare, disabled: !details.rows.length }, "Trimite parintelui")
         )
       ),
       h(
@@ -466,6 +527,20 @@
         { className: "athlete-v2-attendance-explanation" },
         "Procentul este calculat doar din antrenamentele lunii alese la care sportivul apare \u00een prezen\u021b\u0103."
       ),
+      shareText &&
+        h(
+          "div",
+          { className: "athlete-v2-attendance-share" },
+          h("div", null, h("strong", null, "Previzualizare pentru parinte"), h("p", null, "Poti corecta textul inainte de trimitere.")),
+          h("textarea", { value: shareText, rows: 13, onChange: (event) => { setShareText(event.target.value); setShareNotice(""); } }),
+          shareNotice && h("strong", { className: "athlete-v2-attendance-share-notice" }, shareNotice),
+          h(
+            "div",
+            { className: "row-actions" },
+            h("button", { type: "button", className: "primary", onClick: sendAttendance }, "WhatsApp / copiaza"),
+            h("button", { type: "button", onClick: () => { setShareText(""); setShareNotice(""); } }, "Inchide")
+          )
+        ),
       details.rows.length
         ? h(
             "div",
@@ -493,6 +568,12 @@
     const outstanding = getOutstanding(athlete, fees);
     const expiry = getMedicalExpiry(athlete);
 
+    function scrollToAttendance() {
+      window.requestAnimationFrame(() => {
+        document.getElementById("athlete-attendance-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
     return h(
       "div",
       { className: "panel athlete-v2-profile", ref: profileRef, tabIndex: -1 },
@@ -513,10 +594,10 @@
         h("div", null, h("span", null, "Telefon părinte"), h("strong", null, athlete.parentPhone || "Necompletat")),
         h(
           "button",
-          { className: "athlete-v2-profile-action", type: "button", onClick: () => onNavigate("prezenta") },
+          { className: "athlete-v2-profile-action", type: "button", onClick: scrollToAttendance },
           h("span", null, "Prezență luna curentă"),
           h("strong", null, attendance === null ? "Fără date" : `${attendance}%`),
-          h("small", null, "Deschide prezența →")
+          h("small", null, "Vezi fișa lunară ↓")
         ),
         h(
           "button",
