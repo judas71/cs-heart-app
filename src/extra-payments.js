@@ -2466,7 +2466,7 @@
         h(
           "table",
           null,
-            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Sold inainte", "Platit", "Ramas", "Incasari", "Mesaj"].map((head) => h("th", { key: head }, head)))),
+            h("thead", null, h("tr", null, ["Sportiv", "Status", "Taxa lunii", "Restanta / Avans", "Platit", "Ramas", "Incasari", "Mesaj"].map((head) => h("th", { key: head }, head)))),
           h(
             "tbody",
             null,
@@ -2474,7 +2474,6 @@
               const fee = getFee(athlete.id);
               const previousBalance = getPreviousBalance(fees, athlete, month);
               const fallbackDue = getDefaultAmountDue(fees, athlete, month);
-              const totalToPay = getTotalToPay(fee, previousBalance, fallbackDue);
               const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
               const automaticStatus = getAutomaticFeeStatus(fee, previousBalance, fallbackDue);
               const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
@@ -2497,7 +2496,6 @@
                 ),
                 h("td", { "data-label": "Taxa lunii" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
                 h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
-                h("td", { "data-label": "Sold inainte" }, h("strong", null, formatMoney(totalToPay))),
                 h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(feePaymentsTotal(fee))), feePayments.length > 1 && h("small", null, feePayments.length + " incasari")),
                 h("td", { "data-label": "Ramas" }, h("strong", { className: outstanding > 0 ? "arrears" : "" }, creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding))),
                 h(
