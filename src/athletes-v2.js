@@ -5,6 +5,26 @@
     return `${athlete.lastName || ""} ${athlete.firstName || ""}`.trim();
   }
 
+  function whatsappPhone(value) {
+    let digits = String(value || "").replace(/\D/g, "");
+
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    if (digits.startsWith("0")) digits = `40${digits.slice(1)}`;
+    if (digits.length === 9 && digits.startsWith("7")) digits = `40${digits}`;
+
+    return /^40\d{9}$/.test(digits) ? digits : "";
+  }
+
+  function openParentWhatsApp(athlete, text) {
+    const phone = whatsappPhone(athlete?.parentPhone);
+    if (!phone) return false;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    if (!popup) window.location.href = url;
+    return true;
+  }
+
   function getGroups(athletes) {
     return [...new Set(athletes.map((athlete) => athlete.group).filter(Boolean))].sort((a, b) =>
       a.localeCompare(b, "ro", { numeric: true })
@@ -469,6 +489,11 @@
       const text = String(shareText || "").trim();
       if (!text) return;
 
+      if (openParentWhatsApp(athlete, text)) {
+        setShareNotice("Conversația WhatsApp cu părintele a fost deschisă. Verifică mesajul și apasă Trimite.");
+        return;
+      }
+
       try {
         if (navigator.share) {
           await navigator.share({ title: "CS HEART - Situatie prezenta", text });
@@ -537,7 +562,11 @@
           h(
             "div",
             { className: "row-actions" },
-            h("button", { type: "button", className: "primary", onClick: sendAttendance }, "WhatsApp / copiaza"),
+            h(
+              "button",
+              { type: "button", className: "primary", onClick: sendAttendance },
+              whatsappPhone(athlete.parentPhone) ? "Deschide WhatsApp" : "WhatsApp / copiază"
+            ),
             h("button", { type: "button", onClick: () => { setShareText(""); setShareNotice(""); } }, "Inchide")
           )
         ),

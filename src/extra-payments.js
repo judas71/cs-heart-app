@@ -8,6 +8,26 @@
   const paymentMethods = ["cash", "transfer"];
   const currencies = ["lei", "euro"];
 
+  function whatsappPhone(value) {
+    let digits = String(value || "").replace(/\D/g, "");
+
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    if (digits.startsWith("0")) digits = `40${digits.slice(1)}`;
+    if (digits.length === 9 && digits.startsWith("7")) digits = `40${digits}`;
+
+    return /^40\d{9}$/.test(digits) ? digits : "";
+  }
+
+  function openParentWhatsApp(athlete, text) {
+    const phone = whatsappPhone(athlete?.parentPhone);
+    if (!phone) return false;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    if (!popup) window.location.href = url;
+    return true;
+  }
+
   function injectReportStyles() {
     if (typeof document === "undefined" || document.getElementById("cs-heart-report-style")) return;
 
@@ -747,6 +767,8 @@
 
   async function shareAttendanceReport(athlete, month, entries) {
     const text = attendanceShareMessage(athlete, month, entries);
+
+    if (openParentWhatsApp(athlete, text)) return;
 
     try {
       if (navigator.share) {
@@ -4487,7 +4509,11 @@
                         )
                       )
                     ),
-                    h("button", { key: "share", type: "button", className: "primary", onClick: () => shareAttendanceReport(athlete, month, entries) }, "Trimite parintelui")
+                    h(
+                      "button",
+                      { key: "share", type: "button", className: "primary", onClick: () => shareAttendanceReport(athlete, month, entries) },
+                      whatsappPhone(athlete.parentPhone) ? "Deschide WhatsApp" : "Trimite părintelui"
+                    )
                   ]
                 )
               )
