@@ -1404,7 +1404,11 @@
           h(
             "div",
             { className: "row-actions" },
-            h("button", { className: "primary", type: "button", onClick: onShare }, "Distribuie / copiaza"),
+            h(
+              "button",
+              { className: "primary", type: "button", onClick: onShare },
+              whatsappPhone(athlete.parentPhone) ? "Deschide WhatsApp" : "Distribuie / copiază"
+            ),
             h("button", { type: "button", onClick: onPrint }, "Tipareste"),
             h("button", { type: "button", onClick: onClose }, "Inchide")
           )
@@ -1467,7 +1471,11 @@
           h(
             "div",
             { className: "row-actions" },
-            h("button", { className: "primary", type: "button", onClick: () => onShare(message) }, "Distribuie / copiaza"),
+            h(
+              "button",
+              { className: "primary", type: "button", onClick: () => onShare(message) },
+              whatsappPhone(athlete.parentPhone) ? "Deschide WhatsApp" : "Distribuie / copiază"
+            ),
             h("button", { type: "button", onClick: onClose }, "Inchide")
           )
         ),
@@ -2265,6 +2273,11 @@
 
       const message = taxFeeReceiptMessage(taxReceiptPreview.athlete, taxReceiptPreview.fee, taxReceiptPreview.previousBalance, taxReceiptPreview.fallbackDue);
 
+      if (openParentWhatsApp(taxReceiptPreview.athlete, message)) {
+        markTaxReceiptGenerated(taxReceiptPreview);
+        return;
+      }
+
       try {
         if (navigator.share) {
           await navigator.share({ title: "CS HEART - Confirmare plata taxa", text: message });
@@ -2287,6 +2300,12 @@
 
       const text = String(message || "").trim();
       if (!text) return;
+
+      if (openParentWhatsApp(taxReminderPreview.athlete, text)) {
+        const markedFee = markTaxReminderGenerated(taxReminderPreview.fee);
+        setTaxReminderPreview((current) => current ? { ...current, fee: markedFee } : current);
+        return;
+      }
 
       try {
         if (navigator.share) {
