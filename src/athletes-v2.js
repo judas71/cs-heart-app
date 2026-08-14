@@ -629,7 +629,6 @@
     const [groupFilter, setGroupFilter] = React.useState("toate");
     const profileRef = React.useRef(null);
     const formRef = React.useRef(null);
-    const groups = getGroups(athletes);
     const effectiveTrainings =
       trainings.length > 0
         ? trainings
@@ -642,6 +641,8 @@
       if (statusFilter === "overdue") return isActiveAthlete(athlete) && getOutstanding(athlete, fees) > 0;
       return true;
     }
+
+    const groups = getGroups(athletes.filter(matchesStatus));
 
     const filtered = athletes
       .filter(matchesStatus)
@@ -711,7 +712,10 @@
             {
               key: metric.id,
               className: `athletes-v2-metric ${statusFilter === metric.id ? "selected" : ""}`,
-              onClick: () => setStatusFilter(metric.id),
+              onClick: () => {
+                setStatusFilter(metric.id);
+                setGroupFilter("toate");
+              },
               "aria-pressed": statusFilter === metric.id
             },
             h("span", null, metric.label),
