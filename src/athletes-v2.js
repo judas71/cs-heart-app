@@ -755,6 +755,7 @@
       ),
       isAdding &&
         h(AthleteFormV2, {
+          key: "new-athlete",
           formRef,
           onSave: (athlete) => {
             onAdd(athlete);
@@ -764,6 +765,7 @@
         }),
       editingId &&
         h(AthleteFormV2, {
+          key: editingId,
           formRef,
           initialValue: athletes.find((athlete) => athlete.id === editingId),
           onSave: (updated) => {

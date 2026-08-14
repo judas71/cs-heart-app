@@ -17,7 +17,8 @@
         fees: Array.isArray(parsed.fees) ? parsed.fees : [],
         otherPayments: Array.isArray(parsed.otherPayments) ? parsed.otherPayments : [],
         taxPayments: Array.isArray(parsed.taxPayments) ? parsed.taxPayments : [],
-        otherActions: Array.isArray(parsed.otherActions) ? parsed.otherActions : []
+        otherActions: Array.isArray(parsed.otherActions) ? parsed.otherActions : [],
+        athleteRevisions: Array.isArray(parsed.athleteRevisions) ? parsed.athleteRevisions : []
       };
     } catch (error) {
       return clone(window.CSHeartDemoData);

@@ -28,7 +28,8 @@ function normalizeState(value) {
     fees: value.fees,
     otherPayments: Array.isArray(value.otherPayments) ? value.otherPayments : [],
     taxPayments: Array.isArray(value.taxPayments) ? value.taxPayments : [],
-    otherActions: Array.isArray(value.otherActions) ? value.otherActions : []
+    otherActions: Array.isArray(value.otherActions) ? value.otherActions : [],
+    athleteRevisions: Array.isArray(value.athleteRevisions) ? value.athleteRevisions : []
   };
 }
 

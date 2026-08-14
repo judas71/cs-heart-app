@@ -78,7 +78,8 @@
           fees: Array.isArray(data.fees) ? data.fees : [],
           otherPayments: Array.isArray(data.otherPayments) ? data.otherPayments : [],
           taxPayments: Array.isArray(data.taxPayments) ? data.taxPayments : [],
-          otherActions: Array.isArray(data.otherActions) ? data.otherActions : []
+          otherActions: Array.isArray(data.otherActions) ? data.otherActions : [],
+          athleteRevisions: Array.isArray(data.athleteRevisions) ? data.athleteRevisions : []
         });
       } else {
         await setDoc(appRef, state);
@@ -120,16 +121,43 @@ React.useEffect(() => {
 }
 
     function updateAthlete(id, athlete) {
-      setState((current) => ({
-        ...current,
-        athletes: current.athletes.map((item) => (item.id === id ? { ...athlete, id } : item))
-      }));
+      const changedAt = new Date().toISOString();
+      setState((current) => {
+        const previous = current.athletes.find((item) => item.id === id);
+        const revision = previous
+          ? {
+              ...previous,
+              revisionSavedAt: changedAt,
+              revisionSavedByEmail: user?.email || "necunoscut"
+            }
+          : null;
+
+        return {
+          ...current,
+          athletes: current.athletes.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  ...athlete,
+                  id,
+                  updatedAt: changedAt,
+                  updatedByEmail: user?.email || "necunoscut",
+                  updatedById: user?.uid || ""
+                }
+              : item
+          ),
+          athleteRevisions: revision
+            ? [revision, ...(current.athleteRevisions || [])].slice(0, 120)
+            : current.athleteRevisions || []
+        };
+      });
     }
 
     function deleteAthlete(id) {
       const ok = confirm("È˜tergi sportivul È™i datele lui asociate?");
       if (!ok) return;
       setState((current) => ({
+        ...current,
         athletes: current.athletes.filter((athlete) => athlete.id !== id),
         trainings: current.trainings.map((training) => {
           const attendance = { ...training.attendance };
