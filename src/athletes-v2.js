@@ -251,7 +251,11 @@
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         group: form.group.trim(),
-        feeDue: Number(form.feeDue || 0)
+        feeDue: Number(
+          form.feeDue === "" || form.feeDue === undefined || form.feeDue === null
+            ? 200
+            : form.feeDue
+        )
       });
     }
 
