@@ -928,6 +928,12 @@ button.athlete-v2-status-action:focus-visible {
   font-size: 1.3rem;
 }
 
+.athlete-v2-profile-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin: 6px 0 0;
+}
+
 .athlete-v2-profile-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -46,6 +46,21 @@
     return years;
   }
 
+  function normalizeFrbLicense(value) {
+    return String(value || "")
+      .trim()
+      .replace(/^FRB\s*[:#-]?\s*/i, "")
+      .replace(/\s+/g, " ");
+  }
+
+  function getFrbLicense(athlete) {
+    const saved = normalizeFrbLicense(athlete?.frbLicense);
+    if (saved) return saved;
+
+    const match = String(athlete?.notes || "").match(/(?:^|\s)FRB\s*[:#-]?\s*([A-Z0-9/-]+)/i);
+    return match ? normalizeFrbLicense(match[1]) : "";
+  }
+
   function initials(athlete) {
     return [athlete.firstName, athlete.lastName]
       .filter(Boolean)
@@ -248,13 +263,14 @@
         active: true,
         feeDue: 200,
         birthYear: "",
+        frbLicense: "",
         notes: "",
         joinMonth: new Date().toISOString().slice(0, 7),
         medicalVisaFrom: "",
         medicalVisaTo: ""
       };
 
-      return { ...base, birthYear: getBirthYear(base) };
+      return { ...base, birthYear: getBirthYear(base), frbLicense: getFrbLicense(base) };
     });
 
     function update(field, value) {
@@ -270,6 +286,7 @@
         lastName: form.lastName.trim(),
         group: form.group.trim(),
         birthYear: normalizeBirthYear(form.birthYear),
+        frbLicense: normalizeFrbLicense(form.frbLicense),
         feeDue: Number(
           form.feeDue === "" || form.feeDue === undefined || form.feeDue === null
             ? 200
@@ -291,6 +308,7 @@
       h(Field, { label: "Viză medicală până la" }, h("input", { type: "date", value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (e) => update("medicalVisaTo", e.target.value) })),
       h(Field, { label: "Anul nașterii" }, h("input", { type: "number", min: "1900", max: String(new Date().getFullYear()), step: "1", value: form.birthYear || "", onChange: (e) => update("birthYear", e.target.value), placeholder: "ex. 2012", inputMode: "numeric" })),
       h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
+      h(Field, { label: "Legitimație FRB" }, h("input", { value: form.frbLicense || "", onChange: (e) => update("frbLicense", e.target.value), placeholder: "ex. 5064219", inputMode: "numeric" })),
       h(Field, { label: "Observații" }, h("textarea", { value: form.notes || "", onChange: (e) => update("notes", e.target.value), rows: 3 })),
       h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salvează"), h("button", { type: "button", onClick: onCancel }, "Anulează"))
     );
@@ -620,6 +638,8 @@
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
     const expiry = getMedicalExpiry(athlete);
+    const birthYear = getBirthYear(athlete);
+    const frbLicense = getFrbLicense(athlete);
 
     function scrollToAttendance() {
       window.requestAnimationFrame(() => {
@@ -633,7 +653,13 @@
       h(
         "div",
         { className: "athlete-v2-profile-head" },
-        h("div", null, h("p", { className: "eyebrow" }, athlete.group), h("h2", null, athleteName(athlete))),
+        h(
+          "div",
+          null,
+          h("p", { className: "eyebrow" }, athlete.group),
+          h("h2", null, athleteName(athlete)),
+          h("p", { className: "athlete-v2-profile-meta" }, `${birthYear ? `Anul ${birthYear}` : "An necompletat"} • ${frbLicense ? `Legitimație FRB ${frbLicense}` : "Legitimație FRB necompletată"}`)
+        ),
         h(
           "div",
           { className: "athlete-v2-profile-head-actions" },
@@ -701,7 +727,7 @@
     const filtered = athletes
       .filter(matchesStatus)
       .filter((athlete) => viewMode !== "groups" || groupFilter === "toate" || athlete.group === groupFilter)
-      .filter((athlete) => `${athleteName(athlete)} ${athlete.group || ""} ${getBirthYear(athlete)}`.toLocaleLowerCase("ro").includes(query.toLocaleLowerCase("ro")));
+      .filter((athlete) => `${athleteName(athlete)} ${athlete.group || ""} ${getBirthYear(athlete)} ${getFrbLicense(athlete)}`.toLocaleLowerCase("ro").includes(query.toLocaleLowerCase("ro")));
 
     const birthYearGroups = getBirthYearGroups(filtered);
 
