@@ -697,6 +697,32 @@ button.athletes-v2-metric.selected small {
   gap: 8px;
 }
 
+.athletes-v2-filter-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.athletes-v2-view-switch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.athletes-v2-view-switch > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-right: 2px;
+}
+
+.athletes-v2-view-switch button.selected {
+  border-color: var(--text);
+  background: var(--text);
+  color: #fff;
+  font-weight: 800;
+}
+
 .athletes-v2-group-filters button {
   display: inline-flex;
   align-items: center;
@@ -740,6 +766,48 @@ button.athletes-v2-metric.selected small {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.athletes-v2-year-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--v2-card);
+  box-shadow: var(--shadow);
+}
+
+button.athletes-v2-year-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 0.35fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  padding: 13px 15px;
+  text-align: left;
+}
+
+button.athletes-v2-year-row:last-child {
+  border-bottom: 0;
+}
+
+button.athletes-v2-year-row:hover {
+  background: var(--surface-soft);
+  transform: none;
+}
+
+.athletes-v2-year-row span {
+  color: var(--muted);
+}
+
+.athletes-v2-year-row small {
+  color: var(--primary);
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .athlete-v2-card {
@@ -1350,6 +1418,23 @@ button.extra-income-v2-payer-summary.expanded {
   .athletes-v2-filterbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .athletes-v2-filter-controls,
+  .athletes-v2-view-switch {
+    width: 100%;
+  }
+
+  .athletes-v2-view-switch button {
+    flex: 1;
+  }
+
+  button.athletes-v2-year-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .athletes-v2-year-row small {
+    display: none;
   }
 
   .athlete-v2-actions button {

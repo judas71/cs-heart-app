@@ -31,6 +31,21 @@
     );
   }
 
+  function normalizeBirthYear(value) {
+    const match = String(value || "").match(/(?:^|\s)((?:19|20)\d{2})(?=\s|$)/);
+    return match ? match[1] : "";
+  }
+
+  function getBirthYear(athlete) {
+    return normalizeBirthYear(athlete?.birthYear) || normalizeBirthYear(athlete?.notes);
+  }
+
+  function getBirthYearGroups(athletes) {
+    const years = [...new Set(athletes.map(getBirthYear).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+    if (athletes.some((athlete) => !getBirthYear(athlete))) years.push("unknown");
+    return years;
+  }
+
   function initials(athlete) {
     return [athlete.firstName, athlete.lastName]
       .filter(Boolean)
@@ -224,20 +239,23 @@
   }
 
   function AthleteFormV2({ initialValue, onSave, onCancel, formRef }) {
-    const [form, setForm] = React.useState(
-      initialValue || {
+    const [form, setForm] = React.useState(() => {
+      const base = initialValue || {
         firstName: "",
         lastName: "",
         group: "",
         parentPhone: "",
         active: true,
         feeDue: 200,
+        birthYear: "",
         notes: "",
         joinMonth: new Date().toISOString().slice(0, 7),
         medicalVisaFrom: "",
         medicalVisaTo: ""
-      }
-    );
+      };
+
+      return { ...base, birthYear: getBirthYear(base) };
+    });
 
     function update(field, value) {
       setForm((current) => ({ ...current, [field]: value }));
@@ -251,6 +269,7 @@
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         group: form.group.trim(),
+        birthYear: normalizeBirthYear(form.birthYear),
         feeDue: Number(
           form.feeDue === "" || form.feeDue === undefined || form.feeDue === null
             ? 200
@@ -270,6 +289,7 @@
       h(Field, { label: "Luna înscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
       h(Field, { label: "Viză medicală de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
       h(Field, { label: "Viză medicală până la" }, h("input", { type: "date", value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (e) => update("medicalVisaTo", e.target.value) })),
+      h(Field, { label: "Anul nașterii" }, h("input", { type: "number", min: "1900", max: String(new Date().getFullYear()), step: "1", value: form.birthYear || "", onChange: (e) => update("birthYear", e.target.value), placeholder: "ex. 2012", inputMode: "numeric" })),
       h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
       h(Field, { label: "Observații" }, h("textarea", { value: form.notes || "", onChange: (e) => update("notes", e.target.value), rows: 3 })),
       h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salvează"), h("button", { type: "button", onClick: onCancel }, "Anulează"))
@@ -660,6 +680,7 @@
     const [query, setQuery] = React.useState("");
     const [statusFilter, setStatusFilter] = React.useState("active");
     const [groupFilter, setGroupFilter] = React.useState("toate");
+    const [viewMode, setViewMode] = React.useState("groups");
     const profileRef = React.useRef(null);
     const formRef = React.useRef(null);
     const effectiveTrainings =
@@ -679,8 +700,10 @@
 
     const filtered = athletes
       .filter(matchesStatus)
-      .filter((athlete) => groupFilter === "toate" || athlete.group === groupFilter)
-      .filter((athlete) => `${athleteName(athlete)} ${athlete.group || ""}`.toLocaleLowerCase("ro").includes(query.toLocaleLowerCase("ro")));
+      .filter((athlete) => viewMode !== "groups" || groupFilter === "toate" || athlete.group === groupFilter)
+      .filter((athlete) => `${athleteName(athlete)} ${athlete.group || ""} ${getBirthYear(athlete)}`.toLocaleLowerCase("ro").includes(query.toLocaleLowerCase("ro")));
+
+    const birthYearGroups = getBirthYearGroups(filtered);
 
     const metrics = [
       { id: "active", label: "Activi", value: athletes.filter(isActiveAthlete).length, detail: "în loturile curente" },
@@ -798,49 +821,87 @@
         { className: "athletes-v2-filterbar" },
         h(
           "div",
-          { className: "athletes-v2-group-filters", "aria-label": "Categorii" },
-          ["toate", ...groups].map((group) =>
-            h(
-              "button",
-              {
-                key: group,
-                className: groupFilter === group ? "selected" : "",
-                onClick: () => setGroupFilter(group),
-                "aria-pressed": groupFilter === group
-              },
-              group === "toate" ? "Toți" : group,
-              h("span", null, athletes.filter((athlete) => matchesStatus(athlete) && (group === "toate" || athlete.group === group)).length)
+          { className: "athletes-v2-filter-controls" },
+          h(
+            "div",
+            { className: "athletes-v2-view-switch", "aria-label": "Mod de vizualizare" },
+            h("span", null, "Vizualizare"),
+            h("button", { type: "button", className: viewMode === "groups" ? "selected" : "", onClick: () => setViewMode("groups"), "aria-pressed": viewMode === "groups" }, "Pe grupe"),
+            h("button", { type: "button", className: viewMode === "birthYear" ? "selected" : "", onClick: () => setViewMode("birthYear"), "aria-pressed": viewMode === "birthYear" }, "Pe anul nașterii")
+          ),
+          viewMode === "groups" && h(
+            "div",
+            { className: "athletes-v2-group-filters", "aria-label": "Categorii" },
+            ["toate", ...groups].map((group) =>
+              h(
+                "button",
+                {
+                  key: group,
+                  className: groupFilter === group ? "selected" : "",
+                  onClick: () => setGroupFilter(group),
+                  "aria-pressed": groupFilter === group
+                },
+                group === "toate" ? "Toți" : group,
+                h("span", null, athletes.filter((athlete) => matchesStatus(athlete) && (group === "toate" || athlete.group === group)).length)
+              )
             )
           )
         ),
         h("span", { className: "athletes-v2-result-count" }, `${filtered.length} ${filtered.length === 1 ? "sportiv" : "sportivi"}`)
       ),
       filtered.length
-        ? groups
-            .map((group) => ({ group, items: filtered.filter((athlete) => athlete.group === group) }))
-            .filter(({ items }) => items.length)
-            .map(({ group, items }) =>
-              h(
-                "section",
-                { className: "athletes-v2-group", key: group },
-                h("div", { className: "athletes-v2-group-head" }, h("h2", null, group), h("span", null, `${items.length} ${items.length === 1 ? "sportiv" : "sportivi"}`)),
+        ? viewMode === "groups"
+          ? groups
+              .map((group) => ({ group, items: filtered.filter((athlete) => athlete.group === group) }))
+              .filter(({ items }) => items.length)
+              .map(({ group, items }) =>
                 h(
-                  "div",
-                  { className: "athletes-v2-grid" },
-                  items.map((athlete) =>
-                    h(AthleteCard, {
-                      key: athlete.id,
-                      athlete,
-                      trainings: effectiveTrainings,
-                      fees,
-                      onEdit: () => { setEditingId(athlete.id); setProfileId(null); setAdding(false); },
-                      onProfile: () => openProfile(athlete.id),
-                      onTaxes: () => openProfile(athlete.id)
-                    })
+                  "section",
+                  { className: "athletes-v2-group", key: group },
+                  h("div", { className: "athletes-v2-group-head" }, h("h2", null, group), h("span", null, `${items.length} ${items.length === 1 ? "sportiv" : "sportivi"}`)),
+                  h(
+                    "div",
+                    { className: "athletes-v2-grid" },
+                    items.map((athlete) =>
+                      h(AthleteCard, {
+                        key: athlete.id,
+                        athlete,
+                        trainings: effectiveTrainings,
+                        fees,
+                        onEdit: () => { setEditingId(athlete.id); setProfileId(null); setAdding(false); },
+                        onProfile: () => openProfile(athlete.id),
+                        onTaxes: () => openProfile(athlete.id)
+                      })
+                    )
                   )
                 )
               )
-            )
+          : birthYearGroups.map((birthYear) => {
+              const items = filtered.filter((athlete) => birthYear === "unknown" ? !getBirthYear(athlete) : getBirthYear(athlete) === birthYear);
+              const title = birthYear === "unknown" ? "An necompletat" : `Anul ${birthYear}`;
+
+              return h(
+                "section",
+                { className: "athletes-v2-group athletes-v2-year-group", key: birthYear },
+                h("div", { className: "athletes-v2-group-head" }, h("h2", null, title), h("span", null, `${items.length} ${items.length === 1 ? "sportiv" : "sportivi"}`)),
+                h(
+                  "div",
+                  { className: "athletes-v2-year-list" },
+                  items
+                    .slice()
+                    .sort((first, second) => athleteName(first).localeCompare(athleteName(second), "ro"))
+                    .map((athlete) =>
+                      h(
+                        "button",
+                        { key: athlete.id, type: "button", className: "athletes-v2-year-row", onClick: () => openProfile(athlete.id) },
+                        h("strong", null, athleteName(athlete)),
+                        h("span", null, athlete.group || "Fără grupă"),
+                        h("small", null, "Deschide fișa →")
+                      )
+                    )
+                )
+              );
+            })
         : h("div", { className: "empty-state" }, h("strong", null, "Nu există sportivi în filtrul curent."), h("p", null, "Schimbă indicatorul, categoria sau textul căutat."))
     );
   }
