@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#172026" />
+    <title>CS HEART · Cerere de înscriere</title>
+    <link rel="icon" type="image/png" href="./assets/icon-phone-192-B6DQo7Sv.png" />
+    <script type="module" crossorigin src="./assets/inscriere-BBSAPkVD.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/firebase-CwIQM5pY.js">
+    <link rel="stylesheet" crossorigin href="./assets/inscriere-CrCsEDl3.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="brand-card">
+        <img src="./assets/icon-phone-192-B6DQo7Sv.png" alt="Sigla CS HEART" />
+        <div>
+          <p>Club Sportiv · Drobeta-Turnu Severin</p>
+          <h1 id="page-title">Cerere de înscriere</h1>
+          <span>Completează datele esențiale. Durează aproximativ 2 minute.</span>
+        </div>
+      </header>
+
+      <section class="form-card" aria-labelledby="form-title">
+        <div class="progress-head">
+          <div>
+            <p id="step-kicker">Pasul 1 din 3</p>
+            <h2 id="form-title">Datele sportivului</h2>
+          </div>
+          <span id="progress-value">33%</span>
+        </div>
+        <div class="progress-track" aria-hidden="true">
+          <span id="progress-bar"></span>
+        </div>
+
+        <form id="registration-form" novalidate>
+          <section class="form-step is-active" data-step="1">
+            <div class="intro-copy">
+              <strong>Începem cu sportivul</strong>
+              <p>Nu trebuie să cunoști anul nașterii. Îl completăm automat din CNP.</p>
+            </div>
+
+            <label class="field">
+              <span>Nume și prenume sportiv <b>*</b></span>
+              <input id="athlete-name" name="athleteName" autocomplete="name" placeholder="Exemplu: Andrei Popescu" />
+              <small class="error" data-error-for="athlete-name"></small>
+            </label>
+
+            <label class="field">
+              <span>CNP sportiv <b>*</b></span>
+              <div class="secure-input">
+                <input id="athlete-cnp" name="athleteCnp" inputmode="numeric" autocomplete="off" maxlength="13" placeholder="13 cifre" aria-describedby="cnp-help" />
+                <span aria-hidden="true">🔒</span>
+              </div>
+              <small id="cnp-help"><strong>Important:</strong> CNP-ul este verificat numai pe acest dispozitiv pentru aflarea datei nașterii. CNP-ul complet nu este trimis și nu este salvat.</small>
+              <small class="error" data-error-for="athlete-cnp"></small>
+            </label>
+
+            <div id="birth-result" class="auto-result" aria-live="polite" hidden>
+              <span>✓</span>
+              <div>
+                <small>Completat automat din CNP</small>
+                <strong id="birth-result-text"></strong>
+              </div>
+            </div>
+
+            <div class="two-fields">
+              <label class="field">
+                <span>Școala <em>opțional</em></span>
+                <input id="school" name="school" autocomplete="organization" placeholder="Exemplu: Școala nr. 3" />
+              </label>
+              <label class="field">
+                <span>Clasa <em>opțional</em></span>
+                <input id="school-class" name="schoolClass" placeholder="Exemplu: a V-a" />
+              </label>
+            </div>
+
+            <fieldset class="objective-group">
+              <legend>Ce vă doriți în acest moment pentru copil? <b>*</b></legend>
+              <label class="choice-card">
+                <input type="radio" name="objective" value="movement" />
+                <span><strong>Mișcare și dezvoltare</strong><small>Sănătate, socializare și dezvoltare generală.</small></span>
+              </label>
+              <label class="choice-card">
+                <input type="radio" name="objective" value="performance" />
+                <span><strong>Pregătire pentru performanță</strong><small>Antrenamente și competiții orientate spre progres sportiv.</small></span>
+              </label>
+              <label class="choice-card">
+                <input type="radio" name="objective" value="recommendation" />
+                <span><strong>Dorim recomandarea antrenorului</strong><small>Nu suntem siguri încă ce i se potrivește.</small></span>
+              </label>
+              <small>Opțiunea exprimă dorința familiei. Încadrarea finală este stabilită de club după evaluarea sportivului.</small>
+              <small class="error" id="objective-error"></small>
+            </fieldset>
+          </section>
+
+          <section class="form-step" data-step="2" hidden>
+            <div class="intro-copy">
+              <strong>Datele părintelui sau tutorelui</strong>
+              <p>Clubul va folosi numărul principal pentru comunicare.</p>
+            </div>
+
+            <label class="field">
+              <span>Nume și prenume părinte <b>*</b></span>
+              <input id="parent-name" name="parentName" autocomplete="name" placeholder="Exemplu: Maria Popescu" />
+              <small class="error" data-error-for="parent-name"></small>
+            </label>
+
+            <label class="field honeypot" aria-hidden="true">
+              <span>Nu completa acest câmp</span>
+              <input id="website" name="website" tabindex="-1" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span>Telefon principal <b>*</b></span>
+              <input id="parent-phone" name="parentPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="07xx xxx xxx" />
+              <small class="error" data-error-for="parent-phone"></small>
+            </label>
+
+            <label class="field">
+              <span>Al doilea telefon <em>opțional</em></span>
+              <input id="secondary-phone" name="secondaryPhone" type="tel" inputmode="tel" placeholder="Mama, tata sau tutore" />
+            </label>
+          </section>
+
+          <section class="form-step" data-step="3" hidden>
+            <div class="intro-copy">
+              <strong>Verificare și acorduri</strong>
+              <p>Confirmă datele înainte de trimiterea cererii către club.</p>
+            </div>
+
+            <div class="summary-card">
+              <div>
+                <span>Sportiv</span>
+                <strong id="summary-athlete">—</strong>
+              </div>
+              <div>
+                <span>Data nașterii</span>
+                <strong id="summary-birth">—</strong>
+              </div>
+              <div>
+                <span>Părinte</span>
+                <strong id="summary-parent">—</strong>
+              </div>
+              <div>
+                <span>Telefon</span>
+                <strong id="summary-phone">—</strong>
+              </div>
+              <div class="summary-wide">
+                <span>Dorința familiei</span>
+                <strong id="summary-objective">—</strong>
+              </div>
+            </div>
+
+            <label class="check-field">
+              <input id="correct-data" type="checkbox" />
+              <span>Confirm că datele completate sunt corecte. <b>*</b></span>
+            </label>
+
+            <div class="agreement-item">
+              <div class="read-actions">
+                <button class="read-button" type="button" data-document="rules">Citește regulamentul <span>›</span></button>
+                <button class="read-button" type="button" data-document="fees">Citește condițiile cotizației <span>›</span></button>
+              </div>
+              <label class="check-field">
+                <input id="accept-rules" type="checkbox" />
+                <span>Am citit și accept regulamentul și condițiile cotizației. <b>*</b></span>
+              </label>
+            </div>
+
+            <div class="agreement-item">
+              <button class="read-button" type="button" data-document="privacy">Citește informarea despre date <span>›</span></button>
+              <label class="check-field">
+                <input id="accept-data" type="checkbox" />
+                <span>Sunt de acord cu folosirea datelor pentru administrarea cererii de înscriere. <b>*</b></span>
+              </label>
+            </div>
+            <small class="error consent-error" id="consent-error"></small>
+
+            <div class="control-note">
+              <span>🛡️</span>
+              <p><strong>Important:</strong> cererea ajunge doar la administratorul CS HEART. Ea nu creează și nu modifică automat un sportiv.</p>
+            </div>
+          </section>
+
+          <footer class="form-actions">
+            <button id="back-button" class="secondary" type="button" hidden>Înapoi</button>
+            <button id="next-button" class="primary" type="button">Continuă</button>
+            <button id="submit-button" class="primary" type="submit" hidden>Trimite cererea</button>
+          </footer>
+        </form>
+      </section>
+
+      <section id="success-card" class="success-card" hidden>
+        <div class="success-icon">✓</div>
+        <p>CS HEART</p>
+        <h2>Cererea a fost trimisă</h2>
+        <span>A ajuns la administratorul CS HEART. Clubul va verifica datele înainte să creeze sau să actualizeze fișa sportivului.</span>
+        <div class="demo-warning" id="request-reference"></div>
+        <button id="restart-button" class="primary" type="button">Trimite o altă cerere</button>
+      </section>
+
+      <p class="privacy-line">Datele sunt folosite exclusiv pentru administrarea înscrierii în cadrul CS HEART.</p>
+    </main>
+
+    <div id="document-modal" class="document-modal" role="dialog" aria-modal="true" aria-labelledby="document-title" hidden>
+      <button class="modal-backdrop" type="button" aria-label="Închide documentul"></button>
+      <article class="document-sheet">
+        <header>
+          <div>
+            <p>CS HEART · Document informativ</p>
+            <h2 id="document-title"></h2>
+          </div>
+          <button id="modal-close-x" class="modal-close-x" type="button" aria-label="Închide">×</button>
+        </header>
+        <div id="document-content" class="document-content"></div>
+        <footer>
+          <button id="modal-close-button" class="primary" type="button">Am citit</button>
+        </footer>
+      </article>
+    </div>
+
+  </body>
+</html>
