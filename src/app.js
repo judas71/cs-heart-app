@@ -1,7 +1,22 @@
   const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
-  import { db, doc, getDoc, setDoc, auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
+  import {
+    db,
+    doc,
+    getDoc,
+    setDoc,
+    collection,
+    query,
+    orderBy,
+    onSnapshot,
+    updateDoc,
+    serverTimestamp,
+    auth,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut
+  } from "./firebase.js";
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -47,6 +62,9 @@
     const [attendanceDirty, setAttendanceDirty] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [authReady, setAuthReady] = React.useState(false);
+    const [registrationRequests, setRegistrationRequests] = React.useState([]);
+    const [registrationsLoading, setRegistrationsLoading] = React.useState(false);
+    const [registrationsError, setRegistrationsError] = React.useState("");
 
    const loadedRef = React.useRef(false);
 
@@ -95,6 +113,29 @@
   loadFromFirestore();
 }, [authReady, user?.uid]);
 
+  React.useEffect(() => {
+    if (!authReady || !user) {
+      setRegistrationRequests([]);
+      return;
+    }
+
+    setRegistrationsLoading(true);
+    setRegistrationsError("");
+    const registrationsQuery = query(collection(db, "registrationRequests"), orderBy("submittedAt", "desc"));
+    return onSnapshot(
+      registrationsQuery,
+      (snapshot) => {
+        setRegistrationRequests(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        setRegistrationsLoading(false);
+      },
+      (error) => {
+        console.error("Eroare la citirea cererilor de inscriere:", error);
+        setRegistrationsError("Cererile nu pot fi citite încă. Verifică publicarea regulilor Firebase.");
+        setRegistrationsLoading(false);
+      }
+    );
+  }, [authReady, user?.uid]);
+
 React.useEffect(() => {
   if (!authReady || !user || !loadedRef.current) return;
 
@@ -119,6 +160,97 @@ React.useEffect(() => {
     alert("Nu s-a salvat sportivul Ã®n Firebase.");
   }
 }
+
+    function registrationDocumentRef(request) {
+      return {
+        requestId: request.id,
+        requestType: request.requestType,
+        submittedAtClient: request.submittedAtClient || "",
+        documentVersions: request.documentVersions || {}
+      };
+    }
+
+    async function persistStateImmediately(nextState) {
+      setState(nextState);
+      saveState(nextState);
+      await setDoc(doc(db, "app", "state"), nextState);
+    }
+
+    async function finishRegistration(request, linkedAthleteId, adminDecision) {
+      await updateDoc(doc(db, "registrationRequests", request.id), {
+        status: adminDecision === "rejected" ? "rejected" : "accepted",
+        linkedAthleteId: linkedAthleteId || "",
+        processedAt: serverTimestamp(),
+        processedBy: user?.email || user?.uid || "administrator",
+        adminDecision
+      });
+    }
+
+    async function createAthleteFromRegistration(request, form) {
+      const existing = state.athletes.find((athlete) =>
+        (athlete.documentRefs || []).some((reference) => reference.requestId === request.id)
+      );
+
+      if (existing) {
+        await finishRegistration(request, existing.id, "created");
+        return;
+      }
+
+      const id = createId("athlete");
+      const now = new Date().toISOString();
+      const athlete = {
+        id,
+        lastName: String(form.lastName || "").trim(),
+        firstName: String(form.firstName || "").trim(),
+        group: String(form.group || "").trim(),
+        parentPhone: request.parentPhone || "",
+        secondaryPhone: request.secondaryPhone || "",
+        parentName: request.parentName || "",
+        active: form.active !== false,
+        feeDue: Number(form.feeDue ?? 250),
+        birthYear: String(request.birthYear || ""),
+        birthDate: request.birthDate || "",
+        school: request.school || "",
+        schoolClass: request.schoolClass || "",
+        activityObjective: request.objective || "recommendation",
+        frbLicense: "",
+        notes: "",
+        joinMonth: now.slice(0, 7),
+        medicalVisaFrom: "",
+        medicalVisaTo: "",
+        documentRefs: [registrationDocumentRef(request)],
+        createdAt: now,
+        createdByEmail: user?.email || "necunoscut",
+        createdById: user?.uid || ""
+      };
+      const nextState = { ...state, athletes: [athlete, ...state.athletes] };
+      await persistStateImmediately(nextState);
+      await finishRegistration(request, id, "created");
+    }
+
+    async function linkRegistrationToAthlete(request, athlete, options) {
+      const alreadyLinked = (athlete.documentRefs || []).some((reference) => reference.requestId === request.id);
+      const updatedAthlete = {
+        ...athlete,
+        ...(options.applyPhone ? { parentPhone: request.parentPhone || athlete.parentPhone || "", secondaryPhone: request.secondaryPhone || athlete.secondaryPhone || "", parentName: request.parentName || athlete.parentName || "" } : {}),
+        ...(options.applyBirthYear ? { birthYear: String(request.birthYear || athlete.birthYear || ""), birthDate: request.birthDate || athlete.birthDate || "" } : {}),
+        activityObjective: request.objective || athlete.activityObjective || "recommendation",
+        documentRefs: alreadyLinked ? (athlete.documentRefs || []) : [registrationDocumentRef(request), ...(athlete.documentRefs || [])],
+        updatedAt: new Date().toISOString(),
+        updatedByEmail: user?.email || "necunoscut",
+        updatedById: user?.uid || ""
+      };
+      const nextState = {
+        ...state,
+        athletes: state.athletes.map((item) => item.id === athlete.id ? updatedAthlete : item)
+      };
+      await persistStateImmediately(nextState);
+      await finishRegistration(request, athlete.id, "linked");
+    }
+
+    async function rejectRegistration(request) {
+      await finishRegistration(request, "", "rejected");
+    }
 
     function updateAthlete(id, athlete) {
       const changedAt = new Date().toISOString();
@@ -358,6 +490,7 @@ React.useEffect(() => {
     }
     const views = [
       ["sportivi", "Sportivi"],
+      ["inscrieri", `Înscrieri${registrationRequests.filter((item) => item.status === "pending").length ? ` (${registrationRequests.filter((item) => item.status === "pending").length})` : ""}`],
       ["prezenta", "PrezenÈ›Äƒ"],
       ["taxe", "Taxe"],
       ["alteIncasari", "Alte incasari"],
@@ -378,7 +511,8 @@ React.useEffect(() => {
         { className: "tabs", "aria-label": "SecÈ›iuni aplicaÈ›ie" },
         views.map(([id, label]) => h("button", { key: id, className: activeView === id ? "active" : "", onClick: () => changeView(id) }, label))
       ),
-      activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete, onNavigate: changeView }),
+      activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], registrationRequests, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete, onNavigate: changeView }),
+      activeView === "inscrieri" && h(window.RegistrationsAdminView, { requests: registrationRequests, athletes: state.athletes, loading: registrationsLoading, error: registrationsError, onCreate: createAthleteFromRegistration, onLink: linkRegistrationToAthlete, onReject: rejectRegistration }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining, onDirtyChange: setAttendanceDirty }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment, onSaveAction: saveOtherAction, onDeleteAction: deleteOtherAction }),

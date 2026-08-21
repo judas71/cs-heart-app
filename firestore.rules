@@ -2,8 +2,88 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isClubAdmin() {
+      return request.auth != null
+        && (request.auth.uid == 'w37LNso9ueRO2iHwKs5XdRUp04n2'
+          || request.auth.uid == 'ai0OG5YGFpRChMOlQJ02sBLfIiG3');
+    }
+
+    function validPublicRegistration() {
+      return request.resource.data.keys().hasOnly([
+          'schemaVersion', 'requestType', 'athleteName', 'birthDate', 'birthYear',
+          'school', 'schoolClass', 'objective', 'parentName', 'parentPhone',
+          'secondaryPhone', 'consents', 'documentVersions', 'status', 'source',
+          'submittedAt', 'submittedAtClient'
+        ])
+        && request.resource.data.keys().hasAll([
+          'schemaVersion', 'requestType', 'athleteName', 'birthDate', 'birthYear',
+          'school', 'schoolClass', 'objective', 'parentName', 'parentPhone',
+          'secondaryPhone', 'consents', 'documentVersions', 'status', 'source',
+          'submittedAt', 'submittedAtClient'
+        ])
+        && request.resource.data.schemaVersion == 1
+        && (request.resource.data.requestType == 'new' || request.resource.data.requestType == 'update')
+        && request.resource.data.athleteName is string
+        && request.resource.data.athleteName.size() >= 5
+        && request.resource.data.athleteName.size() <= 100
+        && request.resource.data.birthDate is string
+        && request.resource.data.birthDate.size() == 10
+        && request.resource.data.birthYear is int
+        && request.resource.data.birthYear >= 1900
+        && request.resource.data.birthYear <= 2100
+        && request.resource.data.school is string
+        && request.resource.data.school.size() <= 100
+        && request.resource.data.schoolClass is string
+        && request.resource.data.schoolClass.size() <= 30
+        && (request.resource.data.objective == 'movement'
+          || request.resource.data.objective == 'performance'
+          || request.resource.data.objective == 'recommendation')
+        && request.resource.data.parentName is string
+        && request.resource.data.parentName.size() >= 5
+        && request.resource.data.parentName.size() <= 100
+        && request.resource.data.parentPhone is string
+        && request.resource.data.parentPhone.size() >= 10
+        && request.resource.data.parentPhone.size() <= 30
+        && request.resource.data.secondaryPhone is string
+        && request.resource.data.secondaryPhone.size() <= 30
+        && request.resource.data.consents.keys().hasOnly(['correctData', 'rules', 'privacy'])
+        && request.resource.data.consents.correctData == true
+        && request.resource.data.consents.rules == true
+        && request.resource.data.consents.privacy == true
+        && request.resource.data.documentVersions.keys().hasOnly(['rules', 'fees', 'privacy'])
+        && request.resource.data.documentVersions.rules is string
+        && request.resource.data.documentVersions.fees is string
+        && request.resource.data.documentVersions.privacy is string
+        && request.resource.data.status == 'pending'
+        && request.resource.data.source == 'public-form'
+        && request.resource.data.submittedAt == request.time
+        && request.resource.data.submittedAtClient is string
+        && request.resource.data.submittedAtClient.size() <= 40;
+    }
+
     match /app/state {
-      allow read, write: if request.auth != null;
+      allow read, write: if isClubAdmin();
+    }
+
+    match /registrationRequests/{requestId} {
+      allow create: if validPublicRegistration();
+      allow read: if isClubAdmin();
+      allow update: if isClubAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'linkedAthleteId', 'processedAt', 'processedBy', 'adminDecision'
+        ])
+        && (request.resource.data.status == 'pending'
+          || request.resource.data.status == 'accepted'
+          || request.resource.data.status == 'rejected')
+        && request.resource.data.linkedAthleteId is string
+        && request.resource.data.linkedAthleteId.size() <= 80
+        && request.resource.data.processedBy is string
+        && request.resource.data.processedBy.size() <= 160
+        && (request.resource.data.adminDecision == 'created'
+          || request.resource.data.adminDecision == 'linked'
+          || request.resource.data.adminDecision == 'rejected')
+        && request.resource.data.processedAt == request.time;
+      allow delete: if false;
     }
 
     match /{document=**} {

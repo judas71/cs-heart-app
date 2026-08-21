@@ -1,0 +1,343 @@
+.registrations-admin {
+  --registration-red: #c5162e;
+  --registration-ink: #172026;
+  --registration-muted: #66727a;
+  --registration-line: #dbe3e8;
+}
+
+.registrations-hero {
+  border-radius: 18px;
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+  background: linear-gradient(135deg, #172026, #2a3941);
+  color: #fff;
+  box-shadow: 0 15px 36px rgba(23, 32, 38, 0.18);
+}
+
+.registrations-hero h2,
+.registrations-hero p {
+  margin: 0;
+}
+
+.registrations-hero .eyebrow {
+  margin-bottom: 5px;
+  color: #ffd200;
+}
+
+.registrations-hero h2 {
+  font-size: clamp(1.35rem, 3vw, 2rem);
+}
+
+.registrations-hero > div:first-child > p:last-child {
+  margin-top: 7px;
+  color: #d7e0e4;
+}
+
+.registrations-link-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.registrations-link-groups > div {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 13px;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.registrations-link-groups button {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.registrations-link-groups button.primary {
+  border-color: var(--registration-red);
+  background: var(--registration-red);
+}
+
+.registration-notice {
+  border-radius: 9px;
+  padding: 9px 11px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 800;
+}
+
+.registration-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.registration-filters button {
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 800;
+}
+
+.registration-filters button.selected {
+  border-color: var(--registration-ink);
+  background: var(--registration-ink);
+  color: #fff;
+}
+
+.registration-filters button span {
+  min-width: 23px;
+  margin-left: 7px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  display: inline-block;
+  background: rgba(102, 114, 122, 0.14);
+  font-size: 0.75rem;
+}
+
+.registration-card {
+  border: 1px solid var(--registration-line);
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  background: #fff;
+  box-shadow: 0 9px 24px rgba(23, 32, 38, 0.07);
+}
+
+.registration-card.processed {
+  background: #fbfcfc;
+}
+
+.registration-card-head,
+.registration-card-title,
+.registration-actions,
+.registration-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.registration-card-head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.registration-card-head h3,
+.registration-card-head p {
+  margin: 0;
+}
+
+.registration-card-head p {
+  margin-top: 4px;
+  color: var(--registration-muted);
+  font-size: 0.82rem;
+}
+
+.registration-status {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.registration-status.accepted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.registration-status.rejected {
+  background: #f1f5f9;
+  color: #52616a;
+}
+
+.registration-data-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.registration-data-grid > div {
+  border: 1px solid var(--registration-line);
+  border-radius: 11px;
+  padding: 10px 11px;
+  display: grid;
+  gap: 3px;
+  background: #f8fafb;
+}
+
+.registration-data-grid span,
+.registration-decision-form label > span,
+.registration-link-form label > span {
+  color: var(--registration-muted);
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.registration-actions {
+  padding-top: 2px;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  margin-left: auto;
+  border-color: #f4bdc4;
+  color: #a51127;
+  background: #fff7f8;
+}
+
+.registration-decision-form,
+.registration-link-form {
+  border: 1px solid #ecd86d;
+  border-radius: 13px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  background: #fffbea;
+}
+
+.registration-decision-form label,
+.registration-link-form > label {
+  display: grid;
+  gap: 6px;
+}
+
+.registration-decision-form input,
+.registration-decision-form select,
+.registration-link-form select {
+  width: 100%;
+  min-height: 43px;
+  border: 1px solid #cbd5db;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.registration-link-form {
+  grid-template-columns: minmax(260px, 1.4fr) 1fr auto;
+}
+
+.registration-link-checks {
+  display: grid;
+  gap: 6px;
+}
+
+.registration-link-checks label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+}
+
+.registration-link-checks input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--registration-red);
+}
+
+.registration-submit-row {
+  justify-content: flex-end;
+}
+
+.registration-error {
+  margin: 0;
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.registration-processed-note {
+  margin: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #eef3f5;
+  color: #52616a;
+}
+
+.athlete-v2-documents {
+  border: 1px solid #dbe3e8;
+  border-radius: 14px;
+  padding: 15px;
+  display: grid;
+  gap: 10px;
+  background: #fbfcfc;
+}
+
+.athlete-v2-documents h3,
+.athlete-v2-documents p {
+  margin: 0;
+}
+
+.athlete-v2-document-row {
+  border: 1px solid #dbe3e8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+}
+
+.athlete-v2-document-row span {
+  color: #66727a;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 920px) {
+  .registrations-link-groups,
+  .registration-data-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .registration-decision-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .registration-link-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .registrations-link-groups,
+  .registration-data-grid,
+  .registration-decision-form {
+    grid-template-columns: 1fr;
+  }
+
+  .registrations-link-groups > div {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .registrations-link-groups strong {
+    grid-column: 1 / -1;
+  }
+
+  .registration-card-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .registration-card-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .registration-actions > button {
+    flex: 1 1 46%;
+  }
+
+  .danger-button {
+    margin-left: 0;
+  }
+
+  .athlete-v2-document-row {
+    flex-direction: column;
+  }
+}

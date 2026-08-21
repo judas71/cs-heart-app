@@ -261,7 +261,7 @@
         group: "",
         parentPhone: "",
         active: true,
-        feeDue: 200,
+        feeDue: 250,
         birthYear: "",
         frbLicense: "",
         notes: "",
@@ -289,7 +289,7 @@
         frbLicense: normalizeFrbLicense(form.frbLicense),
         feeDue: Number(
           form.feeDue === "" || form.feeDue === undefined || form.feeDue === null
-            ? 200
+            ? (initialValue ? 200 : 250)
             : form.feeDue
         )
       });
@@ -634,7 +634,32 @@
     );
   }
 
-  function AthleteProfile({ athlete, trainings, fees, otherPayments, onClose, onEdit, onNavigate, profileRef }) {
+  function AthleteDocuments({ athlete, registrationRequests, onNavigate }) {
+    const references = athlete.documentRefs || [];
+    const documents = references.map((reference) => {
+      const request = registrationRequests.find((item) => item.id === reference.requestId);
+      return { ...reference, request };
+    });
+
+    return h(
+      "section",
+      { className: "athlete-v2-documents" },
+      h("div", null, h("h3", null, "Documente și acorduri"), h("p", null, "Cererile online legate de această fișă rămân în istoricul clubului.")),
+      documents.length
+        ? documents.map((document) => h(
+            "div",
+            { className: "athlete-v2-document-row", key: document.requestId },
+            h("div", null,
+              h("strong", null, document.requestType === "update" ? "Actualizare date și condiții" : "Cerere de înscriere"),
+              h("span", null, ` · ${document.submittedAtClient ? formatDate(document.submittedAtClient.slice(0, 10)) : "dată indisponibilă"}`)
+            ),
+            h("button", { type: "button", onClick: () => onNavigate("inscrieri") }, document.request ? "Deschide cererea" : "Vezi istoricul")
+          ))
+        : h("p", null, "Nu există încă documente online legate de această fișă.")
+    );
+  }
+
+  function AthleteProfile({ athlete, trainings, fees, otherPayments, registrationRequests, onClose, onEdit, onNavigate, profileRef }) {
     const attendance = getAttendance(athlete.id, trainings);
     const outstanding = getOutstanding(athlete, fees);
     const expiry = getMedicalExpiry(athlete);
@@ -694,12 +719,13 @@
         )
       ),
       athlete.notes && h("div", { className: "athlete-v2-notes" }, h("span", null, "Observații"), h("p", null, athlete.notes)),
+      h(AthleteDocuments, { athlete, registrationRequests, onNavigate }),
       h(AttendanceHistoryV2, { athlete, trainings }),
       h(PaymentHistoryV2, { athlete, fees, otherPayments })
     );
   }
 
-  function AthletesViewV2({ athletes, trainings = [], fees = [], otherPayments = [], onAdd, onUpdate, onNavigate = () => {} }) {
+  function AthletesViewV2({ athletes, trainings = [], fees = [], otherPayments = [], registrationRequests = [], onAdd, onUpdate, onNavigate = () => {} }) {
     const [editingId, setEditingId] = React.useState(null);
     const [profileId, setProfileId] = React.useState(null);
     const [isAdding, setAdding] = React.useState(false);
@@ -833,6 +859,7 @@
           trainings: effectiveTrainings,
           fees,
           otherPayments,
+          registrationRequests,
           onClose: () => setProfileId(null),
           onEdit: () => {
             setEditingId(profileAthlete.id);
