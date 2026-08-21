@@ -17,7 +17,7 @@
     onAuthStateChanged,
     signInWithEmailAndPassword,
     signOut
-  } from "./firebase.js";
+  } from "./firebase.js?v=20260821e";
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
