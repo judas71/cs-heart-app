@@ -509,7 +509,7 @@ React.useEffect(() => {
       h(
         "nav",
         { className: "tabs", "aria-label": "SecÈ›iuni aplicaÈ›ie" },
-        views.map(([id, label]) => h("button", { key: id, className: activeView === id ? "active" : "", onClick: () => changeView(id) }, label))
+        views.map(([id, label]) => h("button", { key: id, "data-view": id, className: activeView === id ? "active" : "", onClick: () => changeView(id) }, label))
       ),
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], registrationRequests, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete, onNavigate: changeView }),
       activeView === "inscrieri" && h(window.RegistrationsAdminView, { requests: registrationRequests, athletes: state.athletes, loading: registrationsLoading, error: registrationsError, onCreate: createAthleteFromRegistration, onLink: linkRegistrationToAthlete, onReject: rejectRegistration }),

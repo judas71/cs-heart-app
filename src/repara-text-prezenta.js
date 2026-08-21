@@ -1,7 +1,6 @@
 (function () {
   function fixPresenceTab() {
-    const buttons = document.querySelectorAll(".tabs button");
-    const presenceButton = buttons[1];
+    const presenceButton = document.querySelector('.tabs button[data-view="prezenta"]');
 
     if (presenceButton && presenceButton.textContent !== "Prezență") {
       presenceButton.textContent = "Prezență";
