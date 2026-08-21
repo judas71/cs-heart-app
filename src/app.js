@@ -11,6 +11,7 @@
     orderBy,
     onSnapshot,
     updateDoc,
+    writeBatch,
     serverTimestamp,
     auth,
     onAuthStateChanged,
@@ -184,6 +185,29 @@ React.useEffect(() => {
         processedBy: user?.email || user?.uid || "administrator",
         adminDecision
       });
+    }
+
+    async function deleteRegistrationRequest(request) {
+      const nextAthletes = state.athletes.map((athlete) => {
+        const documentRefs = Array.isArray(athlete.documentRefs) ? athlete.documentRefs : [];
+        if (!documentRefs.some((reference) => reference.requestId === request.id)) return athlete;
+        return {
+          ...athlete,
+          documentRefs: documentRefs.filter((reference) => reference.requestId !== request.id)
+        };
+      });
+      const stateChanged = nextAthletes.some((athlete, index) => athlete !== state.athletes[index]);
+      const nextState = stateChanged ? { ...state, athletes: nextAthletes } : state;
+      const batch = writeBatch(db);
+
+      if (stateChanged) batch.set(doc(db, "app", "state"), nextState);
+      batch.delete(doc(db, "registrationRequests", request.id));
+      await batch.commit();
+
+      if (stateChanged) {
+        setState(nextState);
+        saveState(nextState);
+      }
     }
 
     async function createAthleteFromRegistration(request, form) {
@@ -512,7 +536,7 @@ React.useEffect(() => {
         views.map(([id, label]) => h("button", { key: id, "data-view": id, className: activeView === id ? "active" : "", onClick: () => changeView(id) }, label))
       ),
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], registrationRequests, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete, onNavigate: changeView }),
-      activeView === "inscrieri" && h(window.RegistrationsAdminView, { requests: registrationRequests, athletes: state.athletes, loading: registrationsLoading, error: registrationsError, onCreate: createAthleteFromRegistration, onLink: linkRegistrationToAthlete, onReject: rejectRegistration }),
+      activeView === "inscrieri" && h(window.RegistrationsAdminView, { requests: registrationRequests, athletes: state.athletes, loading: registrationsLoading, error: registrationsError, onCreate: createAthleteFromRegistration, onLink: linkRegistrationToAthlete, onReject: rejectRegistration, onDelete: deleteRegistrationRequest }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining, onDirtyChange: setAttendanceDirty }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment, onSaveAction: saveOtherAction, onDeleteAction: deleteOtherAction }),

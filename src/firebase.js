@@ -10,6 +10,7 @@ import {
   orderBy,
   onSnapshot,
   updateDoc,
+  writeBatch,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -37,6 +38,7 @@ export {
   orderBy,
   onSnapshot,
   updateDoc,
+  writeBatch,
   serverTimestamp,
   onAuthStateChanged,
   signInWithEmailAndPassword,

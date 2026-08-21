@@ -83,7 +83,7 @@ service cloud.firestore {
           || request.resource.data.adminDecision == 'linked'
           || request.resource.data.adminDecision == 'rejected')
         && request.resource.data.processedAt == request.time;
-      allow delete: if false;
+      allow delete: if isClubAdmin();
     }
 
     match /{document=**} {

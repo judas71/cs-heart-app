@@ -81,7 +81,7 @@
     popup.document.close();
   }
 
-  function RegistrationCard({ request, athletes, onCreate, onLink, onReject }) {
+  function RegistrationCard({ request, athletes, onCreate, onLink, onReject, onDelete }) {
     const suggestion = React.useMemo(() => splitSuggestedName(request.athleteName), [request.athleteName]);
     const [mode, setMode] = React.useState("");
     const [busy, setBusy] = React.useState(false);
@@ -145,6 +145,21 @@
       }
     }
 
+    async function deleteRequest() {
+      const linkedWarning = request.status === "accepted"
+        ? " Sportivul, taxele și încasările lui NU vor fi șterse. Se elimină doar cererea și legătura ei din fișa sportivului."
+        : "";
+      if (!confirm(`Ștergi definitiv cererea pentru ${request.athleteName}? Nu va mai apărea în istoric și nu poate fi recuperată.${linkedWarning}`)) return;
+      setBusy(true);
+      setError("");
+      try {
+        await onDelete(request);
+      } catch (err) {
+        setError(err?.message || "Nu am putut șterge cererea.");
+        setBusy(false);
+      }
+    }
+
     const processed = request.status !== "pending";
 
     return h(
@@ -160,7 +175,10 @@
           ),
           h("p", null, `${request.requestType === "update" ? "Actualizare" : "Înscriere nouă"} · ${formatDate(request.submittedAt || request.submittedAtClient)}`)
         ),
-        h("button", { type: "button", onClick: () => printRequest(request) }, "Copia / PDF")
+        h("div", { className: "registration-card-head-actions" },
+          h("button", { type: "button", onClick: () => printRequest(request) }, "Copia / PDF"),
+          h("button", { type: "button", className: "danger-button", disabled: busy, onClick: deleteRequest }, busy ? "Se șterge…" : "Șterge")
+        )
       ),
       h(
         "div",
@@ -209,7 +227,7 @@
     );
   }
 
-  function RegistrationsAdminView({ requests = [], athletes = [], loading, error, onCreate, onLink, onReject }) {
+  function RegistrationsAdminView({ requests = [], athletes = [], loading, error, onCreate, onLink, onReject, onDelete }) {
     const [filter, setFilter] = React.useState("pending");
     const [notice, setNotice] = React.useState("");
     const counts = {
@@ -245,7 +263,7 @@
       loading && h("div", { className: "panel" }, "Se încarcă cererile…"),
       error && h("div", { className: "panel registration-error" }, error),
       !loading && !error && !filtered.length && h("div", { className: "panel empty-state" }, h("strong", null, filter === "pending" ? "Nu ai cereri de verificat." : "Nu există cereri în această categorie."), h("p", null, "Cererile transmise vor apărea aici automat.")),
-      filtered.map((request) => h(RegistrationCard, { key: request.id, request, athletes, onCreate, onLink, onReject }))
+      filtered.map((request) => h(RegistrationCard, { key: request.id, request, athletes, onCreate, onLink, onReject, onDelete }))
     );
   }
 

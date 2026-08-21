@@ -126,6 +126,16 @@
   align-items: flex-start;
 }
 
+.registration-card-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.registration-card-head-actions .danger-button {
+  margin-left: 0;
+}
+
 .registration-card-head h3,
 .registration-card-head p {
   margin: 0;
@@ -322,6 +332,14 @@
   .registration-card-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .registration-card-head-actions {
+    width: 100%;
+  }
+
+  .registration-card-head-actions > button {
+    flex: 1;
   }
 
   .registration-card-title {
