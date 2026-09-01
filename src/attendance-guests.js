@@ -719,7 +719,7 @@
               "div",
               { className: "row-actions" },
               h("button", { type: "button", className: "secondary", onClick: markAllPresent, disabled: !shownAthletes.length }, "Marcheaza toti prezenti"),
-              h("button", { type: "button", onClick: clearAllMarks, disabled: !markedCount }, "Sterge marcajele")
+              h("button", { type: "button", onClick: clearAllMarks, disabled: !markedCount }, "Reseteaza selectia")
             )
           ),
           !singleCorrection && canPickAthletes &&
