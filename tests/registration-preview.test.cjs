@@ -114,11 +114,30 @@ for (const type of ["new", "update"]) {
     assert.equal(payload.birthDate, "2014-03-15");
     assert.equal(payload.school, type === "new" ? "Școala Test" : "");
     assert.equal(payload.submittedAt, "test-server-time");
-    assert.equal(payload.documentVersions.fees, "2026-08-21");
+    assert.equal(payload.documentVersions.fees, "2026-09-03");
+    assert.equal(payload.documentVersions.rules, "2026-08-21");
+    assert.equal(payload.documentVersions.privacy, "2026-08-21");
     assert.equal(Object.keys(payload).some((key) => /cnp/i.test(key)), false);
     assert.equal(page.element("#success-card").hidden, false);
   });
 }
+
+test("payment instructions contain the supplied account, immediately after the monthly fee", () => {
+  const page = formHarness("?previzualizare=1");
+  page.click("document-fees");
+  const content = page.element("#document-content").innerHTML;
+  assert.ok(content.indexOf("250 lei și se achită") < content.indexOf("numerar (cash)"));
+  assert.ok(content.indexOf("payment-details") < content.indexOf("Pentru frații"));
+  assert.ok(content.includes("clubul preferă plata prin transfer bancar"));
+  assert.ok(content.includes("Clubul Sportiv C.S. HEART"));
+  assert.ok(content.includes("Banca Transilvania"));
+  assert.ok(content.includes("numele sportivului și luna"));
+  const iban = content.match(/class="payment-iban">([^<]+)</)[1].replace(/\s/g, "");
+  assert.equal(iban, "RO86BTRLRONCRT0250533201");
+  assert.equal(iban.length, 24);
+  const digits = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, (letter) => String(letter.charCodeAt(0) - 55));
+  assert.equal(BigInt(digits) % 97n, 1n);
+});
 
 test("admin reading links are separate from the links copied and sent to parents", async () => {
   const copies = [];

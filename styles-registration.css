@@ -714,6 +714,27 @@ button:disabled {
   font-weight: 800;
 }
 
+.payment-details {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.payment-details p {
+  margin: 6px 0;
+}
+
+.payment-iban {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+
 .preview-notice {
   margin: 22px 26px 0;
   border: 1px solid #eadc9b;

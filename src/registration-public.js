@@ -24,7 +24,7 @@ const isPreview = searchParams.get("previzualizare") === "1";
 const startedAt = Date.now();
 const documentVersions = {
   rules: "2026-08-21",
-  fees: "2026-08-21",
+  fees: "2026-09-03",
   privacy: "2026-08-21"
 };
 
@@ -45,6 +45,15 @@ const documents = {
         <li>Al doilea antrenament se achită cu 50 lei.</li>
         <li>Dacă sportivul continuă activitatea, cei 100 lei achitați se scad din cotizația lunară.</li>
         <li>Cotizația lunară este de 250 lei și se achită până la data de 15 a lunii, pentru luna în curs.</li>
+      </ul>
+      <p>Cotizația poate fi achitată în numerar (cash) sau prin transfer bancar. Pentru o evidență mai clară a plăților, clubul preferă plata prin transfer bancar.</p>
+      <div class="payment-details">
+        <p><strong>Beneficiar:</strong> Clubul Sportiv C.S. HEART</p>
+        <p><strong>Banca:</strong> Banca Transilvania</p>
+        <p><strong>IBAN:</strong> <span class="payment-iban">RO86 BTRL RONC RT02 5053 3201</span></p>
+      </div>
+      <p>La detaliile transferului, vă rugăm să menționați numele sportivului și luna pentru care achitați cotizația.</p>
+      <ul>
         <li>Pentru frații activi în aceeași lună, cotizația este de 250 lei pentru primul sportiv și 200 lei pentru al doilea.</li>
       </ul>
       <p><strong>Exemplu:</strong> după primele două antrenamente, pentru continuarea activității mai rămân 150 lei din cotizația lunară. Pentru al doilea frate mai rămân 100 lei din cotizația redusă.</p>
