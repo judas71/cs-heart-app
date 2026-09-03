@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Verificare locală · Înscrieri</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../styles-v2.css" />
+  <link rel="stylesheet" href="../styles-registrations.css" />
+</head>
+<body>
+  <main style="max-width:1200px;margin:24px auto;padding:16px">
+    <p>Verificare vizuală locală. Fără date reale și fără conexiune la baza de date.</p>
+    <div id="root"></div>
+  </main>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script type="module">
+    import "../src/registrations-admin.js";
+    // Use the real application path when resolving the public form links.
+    history.replaceState(null, "", "../");
+    ReactDOM.createRoot(document.querySelector("#root")).render(
+      React.createElement(window.RegistrationsAdminView, { requests: [], athletes: [] })
+    );
+  </script>
+</body>
+</html>

@@ -45,7 +45,7 @@
   border-radius: 13px;
   padding: 13px;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.08);
@@ -60,6 +60,38 @@
 .registrations-link-groups button.primary {
   border-color: var(--registration-red);
   background: var(--registration-red);
+}
+
+.registrations-link-groups strong,
+.registration-preview-link {
+  grid-column: 1 / -1;
+}
+
+.registration-preview-link {
+  min-height: 44px;
+  border: 1px solid #f2db70;
+  border-radius: 9px;
+  padding: 10px 13px;
+  background: #fff8d6;
+  color: #172026;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+
+.registration-preview-link:hover {
+  background: #ffefab;
+}
+
+.registration-preview-link:focus-visible {
+  outline: 3px solid #ffd200;
+  outline-offset: 3px;
+}
+
+.registrations-preview-help {
+  color: #d7e0e4;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .registration-notice {

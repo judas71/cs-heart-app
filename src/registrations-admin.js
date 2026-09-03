@@ -24,9 +24,10 @@
     return { lastName: parts[0], firstName: parts.slice(1).join(" ") };
   }
 
-  function publicUrl(type) {
+  function publicUrl(type, preview = false) {
     const url = new URL("./inscriere.html", window.location.href);
     if (type === "update") url.searchParams.set("tip", "actualizare");
+    if (preview) url.searchParams.set("previzualizare", "1");
     return url.href;
   }
 
@@ -252,9 +253,17 @@
         { className: "registrations-hero" },
         h("div", null, h("p", { className: "eyebrow" }, "Înscrieri online"), h("h2", null, "Cereri și actualizări"), h("p", null, "Părintele completează linkul public. Numai tu decizi ce intră în fișa sportivului.")),
         h("div", { className: "registrations-link-groups" },
-          h("div", null, h("strong", null, "Sportiv nou"), h("button", { type: "button", className: "primary", onClick: () => copyLink("new") }, "Copiază linkul"), h("button", { type: "button", onClick: () => openWhatsApp("new") }, "WhatsApp")),
-          h("div", null, h("strong", null, "Sportiv existent"), h("button", { type: "button", className: "primary", onClick: () => copyLink("update") }, "Copiază actualizarea"), h("button", { type: "button", onClick: () => openWhatsApp("update") }, "WhatsApp"))
+          [
+            ["new", "Sportiv nou", "Copiază linkul"],
+            ["update", "Sportiv existent", "Copiază actualizarea"]
+          ].map(([type, label, copyLabel]) => h("div", { key: type },
+            h("strong", null, label),
+            h("a", { className: "registration-preview-link", href: publicUrl(type, true), target: "_blank", rel: "noopener noreferrer", "aria-label": `Citește formularul — ${label.toLowerCase()} (filă nouă)` }, "Citește formularul", h("span", { "aria-hidden": "true" }, " ↗")),
+            h("button", { type: "button", className: "primary", onClick: () => copyLink(type) }, copyLabel),
+            h("button", { type: "button", onClick: () => openWhatsApp(type) }, "WhatsApp")
+          ))
         ),
+        h("p", { className: "registrations-preview-help" }, "Citește toate câmpurile, regulamentul și condițiile fără să completezi sau să trimiți o cerere. Se deschid într-o filă nouă."),
         notice && h("p", { className: "registration-notice" }, notice)
       ),
       h("div", { className: "registration-filters" }, [

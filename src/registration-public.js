@@ -1,5 +1,3 @@
-import { db, collection, addDoc, serverTimestamp } from "./firebase.js";
-
 const form = document.querySelector("#registration-form");
 const formCard = document.querySelector(".form-card");
 const successCard = document.querySelector("#success-card");
@@ -20,7 +18,9 @@ const documentTitle = document.querySelector("#document-title");
 const documentContent = document.querySelector("#document-content");
 const requestReference = document.querySelector("#request-reference");
 
-const requestType = new URLSearchParams(window.location.search).get("tip") === "actualizare" ? "update" : "new";
+const searchParams = new URLSearchParams(window.location.search);
+const requestType = searchParams.get("tip") === "actualizare" ? "update" : "new";
+const isPreview = searchParams.get("previzualizare") === "1";
 const startedAt = Date.now();
 const documentVersions = {
   rules: "2026-08-21",
@@ -179,6 +179,29 @@ function populateSummary() {
 }
 
 function updateStep() {
+  if (isPreview) {
+    document.body.classList.add("registration-preview");
+    document.querySelector("#preview-notice").hidden = false;
+    document.querySelector("#preview-documents").hidden = false;
+    document.querySelector(".progress-track").hidden = true;
+    progressValue.hidden = true;
+    stepKicker.textContent = requestType === "update" ? "Sportiv existent · Actualizare" : "Sportiv nou · Înscriere";
+    formTitle.textContent = "Formularul complet";
+    steps.forEach((step) => {
+      step.hidden = false;
+      step.classList.add("is-active");
+    });
+    form.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+    document.querySelector(".summary-card").hidden = true;
+    document.querySelector(".form-actions").hidden = true;
+    nextButton.hidden = true;
+    backButton.hidden = true;
+    submitButton.hidden = true;
+    submitButton.disabled = true;
+    document.querySelector("#preview-document-list").innerHTML = Object.values(documents)
+      .map((item) => `<article class="preview-document"><h3>${item.title}</h3>${item.content}</article>`).join("");
+    return;
+  }
   steps.forEach((step, index) => {
     const isActive = index + 1 === currentStep;
     step.hidden = !isActive;
@@ -211,7 +234,7 @@ function closeDocument() {
   document.body.style.overflow = "";
 }
 
-function buildPayload() {
+function buildPayload(submittedAt) {
   const selectedObjective = document.querySelector('input[name="objective"]:checked');
   return {
     schemaVersion: 1,
@@ -229,7 +252,7 @@ function buildPayload() {
     documentVersions,
     status: "pending",
     source: "public-form",
-    submittedAt: serverTimestamp(),
+    submittedAt,
     submittedAtClient: new Date().toISOString()
   };
 }
@@ -259,6 +282,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 nextButton.addEventListener("click", () => {
+  if (isPreview) return;
   const valid = currentStep === 1 ? validateStepOne() : validateStepTwo();
   if (!valid) return;
   currentStep += 1;
@@ -266,13 +290,14 @@ nextButton.addEventListener("click", () => {
 });
 
 backButton.addEventListener("click", () => {
+  if (isPreview) return;
   currentStep -= 1;
   updateStep();
 });
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (submitting || !validateStepThree()) return;
+  if (isPreview || submitting || !validateStepThree()) return;
   if (document.querySelector("#website").value || Date.now() - startedAt < 2500) {
     document.querySelector("#consent-error").textContent = "Cererea nu a putut fi trimisă. Reîncearcă peste câteva secunde.";
     return;
@@ -281,9 +306,10 @@ form.addEventListener("submit", async (event) => {
   submitting = true;
   submitButton.disabled = true;
   submitButton.textContent = "Se trimite…";
-  const payload = buildPayload();
-
   try {
+    // Reading the form must never initialise a connection to the club database.
+    const { db, collection, addDoc, serverTimestamp } = await import("./firebase.js?v=20260821e");
+    const payload = buildPayload(serverTimestamp());
     const result = await addDoc(collection(db, "registrationRequests"), payload);
     cnpInput.value = "";
     parsedBirth = null;
