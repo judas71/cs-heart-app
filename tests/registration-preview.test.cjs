@@ -114,7 +114,7 @@ for (const type of ["new", "update"]) {
     assert.equal(payload.birthDate, "2014-03-15");
     assert.equal(payload.school, type === "new" ? "Școala Test" : "");
     assert.equal(payload.submittedAt, "test-server-time");
-    assert.equal(payload.documentVersions.fees, "2026-09-03");
+    assert.equal(payload.documentVersions.fees, "2026-09-03-r2");
     assert.equal(payload.documentVersions.rules, "2026-08-21");
     assert.equal(payload.documentVersions.privacy, "2026-08-21");
     assert.equal(Object.keys(payload).some((key) => /cnp/i.test(key)), false);
@@ -126,7 +126,9 @@ test("payment instructions contain the supplied account, immediately after the m
   const page = formHarness("?previzualizare=1");
   page.click("document-fees");
   const content = page.element("#document-content").innerHTML;
-  assert.ok(content.indexOf("250 lei și se achită") < content.indexOf("numerar (cash)"));
+  const monthlyFeeIndex = content.indexOf("250 de lei și se achită");
+  assert.ok(monthlyFeeIndex >= 0);
+  assert.ok(monthlyFeeIndex < content.indexOf("numerar (cash)"));
   assert.ok(content.indexOf("payment-details") < content.indexOf("Pentru frații"));
   assert.ok(content.includes("clubul preferă plata prin transfer bancar"));
   assert.ok(content.includes("Clubul Sportiv C.S. HEART"));
@@ -137,6 +139,28 @@ test("payment instructions contain the supplied account, immediately after the m
   assert.equal(iban.length, 24);
   const digits = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, (letter) => String(letter.charCodeAt(0) - 55));
   assert.equal(BigInt(digits) % 97n, 1n);
+});
+
+test("the fourth fee condition states the effective date in both form types and reading modes", () => {
+  const expected = "Începând cu data de 01.10.2026, cotizația lunară va fi de 250 de lei și se achită până la data de 15 a lunii, pentru luna în curs.";
+  for (const query of ["?", "?tip=actualizare", "?previzualizare=1", "?tip=actualizare&previzualizare=1"]) {
+    const page = formHarness(query);
+    page.click("document-fees");
+    const content = page.element("#document-content").innerHTML;
+    const conditions = [...content.matchAll(/<li>(.*?)<\/li>/g)].map((match) => match[1]);
+    assert.deepEqual(conditions, [
+      "Primul antrenament se achită cu 50 lei.",
+      "Al doilea antrenament se achită cu 50 lei.",
+      "Dacă sportivul continuă activitatea, cei 100 lei achitați se scad din cotizația lunară.",
+      expected,
+      "Pentru frații activi în aceeași lună, cotizația este de 250 lei pentru primul sportiv și 200 lei pentru al doilea."
+    ]);
+    if (query.includes("previzualizare=1")) {
+      assert.ok(page.element("#preview-document-list").innerHTML.includes(expected));
+    }
+    assert.equal(page.imports(), 0);
+    assert.equal(page.writes.length, 0);
+  }
 });
 
 test("admin reading links are separate from the links copied and sent to parents", async () => {

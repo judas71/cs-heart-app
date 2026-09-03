@@ -24,7 +24,7 @@ const isPreview = searchParams.get("previzualizare") === "1";
 const startedAt = Date.now();
 const documentVersions = {
   rules: "2026-08-21",
-  fees: "2026-09-03",
+  fees: "2026-09-03-r2",
   privacy: "2026-08-21"
 };
 
@@ -44,7 +44,7 @@ const documents = {
         <li>Primul antrenament se achită cu 50 lei.</li>
         <li>Al doilea antrenament se achită cu 50 lei.</li>
         <li>Dacă sportivul continuă activitatea, cei 100 lei achitați se scad din cotizația lunară.</li>
-        <li>Cotizația lunară este de 250 lei și se achită până la data de 15 a lunii, pentru luna în curs.</li>
+        <li>Începând cu data de 01.10.2026, cotizația lunară va fi de 250 de lei și se achită până la data de 15 a lunii, pentru luna în curs.</li>
       </ul>
       <p>Cotizația poate fi achitată în numerar (cash) sau prin transfer bancar. Pentru o evidență mai clară a plăților, clubul preferă plata prin transfer bancar.</p>
       <div class="payment-details">
