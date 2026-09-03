@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#172026" />
     <title>CS HEART · Cerere de înscriere</title>
     <link rel="icon" type="image/png" href="./assets/icon-phone-192-B6DQo7Sv.png" />
-    <script type="module" crossorigin src="./assets/inscriere-SI30I9LC.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/firebase-DpJuylg6.js">
-    <link rel="stylesheet" crossorigin href="./assets/inscriere-CrCsEDl3.css">
+    <script type="module" crossorigin src="./assets/inscriere-mU0c0xUS.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-wMinxHhO.js">
+    <link rel="stylesheet" crossorigin href="./assets/inscriere-BokiXWbp.css">
   </head>
   <body>
     <main class="page-shell">
@@ -22,6 +22,12 @@
       </header>
 
       <section class="form-card" aria-labelledby="form-title">
+        <aside id="preview-notice" class="preview-notice" hidden>
+          <strong>Previzualizare · Doar pentru citire</strong>
+          <p>Acesta este formularul pe care îl primește părintele. Poți citi toate secțiunile fără să completezi nimic. Nu se trimite și nu se salvează nicio cerere.</p>
+          <a href="#preview-documents">Mergi direct la regulament și condiții ↓</a>
+          <small>Pentru a reveni în aplicație, închide această filă.</small>
+        </aside>
         <div class="progress-head">
           <div>
             <p id="step-kicker">Pasul 1 din 3</p>
@@ -189,6 +195,11 @@
             <button id="submit-button" class="primary" type="submit" hidden>Trimite cererea</button>
           </footer>
         </form>
+        <section id="preview-documents" class="preview-documents" aria-labelledby="preview-documents-title" hidden>
+          <h2 id="preview-documents-title">Regulament și condiții</h2>
+          <p>Textele de mai jos sunt aceleași pe care le poate citi și accepta părintele.</p>
+          <div id="preview-document-list"></div>
+        </section>
       </section>
 
       <section id="success-card" class="success-card" hidden>
