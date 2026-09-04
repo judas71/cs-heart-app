@@ -2,6 +2,7 @@
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   const { migrateInactiveAthletes, applyStatusChange } = window.CSHeartMembershipFees;
+  const appVersion = window.CSHeartReleaseHistory?.currentVersion || "4-9-26";
   import {
     db,
     doc,
@@ -546,7 +547,7 @@ React.useEffect(() => {
       h(
         "header",
         { className: "topbar" },
-        h("div", null, h("p", { className: "eyebrow" }, "Administrare club"), h("h1", null, "CS HEART")),
+        h("div", { className: "app-brand" }, h("p", { className: "eyebrow" }, "Administrare club"), h("h1", null, "CS HEART"), h("p", { className: "app-version" }, `Versiunea ${appVersion}`)),
         h("button", { onClick: logout }, "Iesire")
       ),
       h(

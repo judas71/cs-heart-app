@@ -341,6 +341,100 @@
         margin: 0;
         color: var(--muted, #66727a);
       }
+      .cs-changelog {
+        display: grid;
+        gap: 16px;
+      }
+      .cs-changelog-intro {
+        border-left: 5px solid #c5162e;
+      }
+      .cs-changelog-intro h2,
+      .cs-changelog-intro p {
+        margin-bottom: 0;
+      }
+      .cs-changelog-intro p {
+        margin-top: 7px;
+        color: #66727a;
+        line-height: 1.5;
+      }
+      .cs-release-list {
+        display: grid;
+        gap: 14px;
+      }
+      .cs-release-card {
+        overflow: hidden;
+        border: 1px solid #d9e0e5;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(23, 32, 38, 0.07);
+      }
+      .cs-release-card.current {
+        border-color: #efb3bc;
+        box-shadow: 0 12px 28px rgba(197, 22, 46, 0.1);
+      }
+      .cs-release-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        border-bottom: 1px solid #e5eaee;
+        background: #f8fafb;
+        padding: 15px 17px;
+      }
+      .cs-release-card.current .cs-release-head {
+        background: #fff6f7;
+      }
+      .cs-release-version {
+        display: grid;
+        gap: 3px;
+      }
+      .cs-release-version strong {
+        font-size: 1.08rem;
+      }
+      .cs-release-version time {
+        color: #66727a;
+        font-size: 0.82rem;
+      }
+      .cs-release-current {
+        border-radius: 999px;
+        background: #c5162e;
+        color: #fff;
+        padding: 5px 9px;
+        font-size: 0.7rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+      .cs-release-changes {
+        list-style: none;
+        display: grid;
+        gap: 0;
+        margin: 0;
+        padding: 0 17px;
+      }
+      .cs-release-changes li {
+        border-bottom: 1px solid #edf0f2;
+        padding: 14px 0;
+      }
+      .cs-release-changes li:last-child {
+        border-bottom: 0;
+      }
+      .cs-release-changes strong,
+      .cs-release-changes span {
+        display: block;
+      }
+      .cs-release-changes span {
+        margin-top: 4px;
+        color: #56636b;
+        line-height: 1.5;
+      }
+      .cs-release-best {
+        margin: 0;
+        border-top: 1px solid #f0d65d;
+        background: #fffbea;
+        color: #634f00;
+        padding: 12px 17px;
+        line-height: 1.45;
+      }
       .cs-report-sublist {
         display: grid;
         gap: 8px;
@@ -4680,6 +4774,45 @@
     );
   }
 
+  function ChangeLogView() {
+    const releaseHistory = window.CSHeartReleaseHistory || { currentVersion: "-", releases: [] };
+
+    return h(
+      "section",
+      { className: "cs-changelog" },
+      h(
+        "div",
+        { className: "panel cs-changelog-intro" },
+        h("h2", null, "Modificări și versiuni"),
+        h("p", null, "Aici păstrăm ce s-a schimbat, când s-a schimbat și ce trebuie verificat înainte ca modificarea să fie preluată în BEST Arad.")
+      ),
+      releaseHistory.releases.length
+        ? h(
+            "div",
+            { className: "cs-release-list" },
+            releaseHistory.releases.map((release) =>
+              h(
+                "article",
+                { key: release.version, className: `cs-release-card ${release.current ? "current" : ""}` },
+                h(
+                  "header",
+                  { className: "cs-release-head" },
+                  h("div", { className: "cs-release-version" }, h("strong", null, `Versiunea ${release.version}`), h("time", null, release.date)),
+                  release.current && h("span", { className: "cs-release-current" }, "Versiunea curentă")
+                ),
+                h(
+                  "ul",
+                  { className: "cs-release-changes" },
+                  release.changes.map((change) => h("li", { key: change.title }, h("strong", null, change.title), h("span", null, change.description)))
+                ),
+                h("p", { className: "cs-release-best" }, h("strong", null, "BEST Arad: "), release.bestArad)
+              )
+            )
+          )
+        : h(EmptyReportLine, { text: "Nu există încă modificări înregistrate." })
+    );
+  }
+
   function ReportsView(props) {
     const [section, setSection] = React.useState("balanta");
     const initialMonth = currentMonth();
@@ -4692,7 +4825,8 @@
       { value: "vizeMedicale", label: "Vize medicale", description: "Valabile si expirate" },
       { value: "alteIncasari", label: "Alte incasari", description: "Actiuni si categorii" },
       { value: "platiEfectuate", label: "Plati", description: "Toate cheltuielile" },
-      { value: "tot", label: "Privire completa", description: "Toate rapoartele" }
+      { value: "tot", label: "Privire completa", description: "Toate rapoartele" },
+      { value: "modificari", label: "Modificări", description: "Versiuni și noutăți" }
     ];
 
     return h(
@@ -4739,7 +4873,8 @@
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
       (section === "vizeMedicale" || section === "tot") && h(MedicalVisaReportsView, props),
       (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props),
-      section === "platiEfectuate" && h(PaymentsMadeReport, { ...props, dateFrom: paymentDateFrom, dateTo: paymentDateTo })
+      section === "platiEfectuate" && h(PaymentsMadeReport, { ...props, dateFrom: paymentDateFrom, dateTo: paymentDateTo }),
+      section === "modificari" && h(ChangeLogView)
     );
   }
 

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verificare versiuni CS HEART</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="app-brand">
+          <p class="eyebrow">Administrare club</p>
+          <h1>CS HEART</h1>
+          <p class="app-version">Versiunea 4-9-26</p>
+        </div>
+      </header>
+      <div id="root"></div>
+    </main>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script>
+      window.CSHeartComponents = {};
+      window.CSHeartMembershipFees = { isFeeDueForMonth: () => true };
+    </script>
+    <script type="module" src="../src/release-history.js"></script>
+    <script type="module" src="../src/extra-payments.js"></script>
+    <script type="module">
+      const h = React.createElement;
+      ReactDOM.createRoot(document.getElementById("root")).render(h(window.ReportsView, { athletes: [], trainings: [], fees: [], otherPayments: [], otherActions: [], taxPayments: [] }));
+    </script>
+  </body>
+</html>

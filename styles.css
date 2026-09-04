@@ -152,6 +152,24 @@ tr.row-present td:first-child {
   margin-bottom: 18px;
 }
 
+.app-brand {
+  display: grid;
+  gap: 2px;
+}
+
+.app-version {
+  width: fit-content;
+  margin: 5px 0 0;
+  border: 1px solid #d7dee3;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  padding: 4px 9px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--muted);
