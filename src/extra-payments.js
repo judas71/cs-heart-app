@@ -1,5 +1,6 @@
 (function () {
   const h = React.createElement;
+  const { isFeeDueForMonth } = window.CSHeartMembershipFees;
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
@@ -941,6 +942,7 @@
   }
 
   function getDefaultAmountDue(fees, athlete, month) {
+    if (!isFeeDueForMonth(athlete, month)) return 0;
     const normalDue = athlete.feeDue !== undefined && athlete.feeDue !== null && athlete.feeDue !== "" ? Number(athlete.feeDue) : 200;
 
     return normalDue;
@@ -2075,7 +2077,7 @@
     const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
-      if (!athlete.active) return false;
+      if (!isFeeDueForMonth(athlete, month)) return false;
       if (group !== "toate" && athlete.group !== group) return false;
       if (!athlete.joinMonth) return false;
 
@@ -4248,7 +4250,7 @@
     const groups = getGroups(athletes);
     const athletesInFilter = athletes.filter(
       (athlete) =>
-        shouldShowAthleteInReports(athlete) &&
+        isFeeDueForMonth(athlete, month) &&
         (group === "toate" || athlete.group === group) &&
         (!athlete.joinMonth || athlete.joinMonth <= month)
     ).sort(compareAthletesByName);

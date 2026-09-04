@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verificare sportivi inactivi</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="stylesheet" href="../styles-v2.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="../src/membership-fees.js"></script>
+    <script src="../src/athletes-v2.js"></script>
+    <script>
+      const athletes = [
+        { id: "active-test", firstName: "Activ", lastName: "Sportiv", group: "Test", active: true, feeDue: 200, joinMonth: "2026-09" },
+        {
+          id: "inactive-test",
+          firstName: "Inactiv",
+          lastName: "Sportiv",
+          group: "Test",
+          active: false,
+          feeDue: 200,
+          joinMonth: "2026-06",
+          inactiveMonth: "2026-06",
+          membershipPeriods: [{ startMonth: "2026-06", endMonth: "2026-06" }]
+        }
+      ];
+      ReactDOM.createRoot(document.getElementById("root")).render(
+        React.createElement(window.AthletesView, {
+          athletes,
+          trainings: [],
+          fees: [],
+          otherPayments: [],
+          taxPayments: [],
+          registrationRequests: [],
+          onAdd() {},
+          onUpdate() {},
+          onDelete() {},
+          onNavigate() {}
+        })
+      );
+    </script>
+  </body>
+</html>

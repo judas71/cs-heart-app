@@ -1,5 +1,6 @@
 (function () {
   const h = React.createElement;
+  const { isFeeDueForMonth } = window.CSHeartMembershipFees;
 
   function athleteName(athlete) {
     return `${athlete.lastName || ""} ${athlete.firstName || ""}`.trim();
@@ -177,7 +178,9 @@
     while (cursor <= end) {
       const month = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`;
       const fee = fees.find((item) => item.athleteId === athlete.id && item.month === month);
-      const due = Number(fee?.amountDue ?? athlete.feeDue ?? 200);
+      const due = isFeeDueForMonth(athlete, month)
+        ? Number(fee?.amountDue ?? athlete.feeDue ?? 200)
+        : 0;
       const paid = Number(fee?.amountPaid || 0);
 
       balance += due - paid;
@@ -277,6 +280,17 @@
       setForm((current) => ({ ...current, [field]: value }));
     }
 
+    function updateStatus(value) {
+      const active = value === "active";
+      setForm((current) => ({
+        ...current,
+        active,
+        ...(!active && !current.inactiveMonth
+          ? { inactiveMonth: new Date().toISOString().slice(0, 7) }
+          : {})
+      }));
+    }
+
     function submit(event) {
       event.preventDefault();
       if (!form.firstName.trim() || !form.lastName.trim() || !form.group.trim()) return;
@@ -307,7 +321,8 @@
       h(Field, { label: "Viză medicală de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
       h(Field, { label: "Viză medicală până la" }, h("input", { type: "date", value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (e) => update("medicalVisaTo", e.target.value) })),
       h(Field, { label: "Anul nașterii" }, h("input", { type: "number", min: "1900", max: String(new Date().getFullYear()), step: "1", value: form.birthYear || "", onChange: (e) => update("birthYear", e.target.value), placeholder: "ex. 2012", inputMode: "numeric" })),
-      h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => update("active", e.target.value === "active") }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
+      h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => updateStatus(e.target.value) }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
+      !form.active && h(Field, { label: "Inactiv începând cu luna" }, h("input", { type: "month", value: form.inactiveMonth || new Date().toISOString().slice(0, 7), min: form.joinMonth || undefined, onChange: (e) => update("inactiveMonth", e.target.value), required: true })),
       h(Field, { label: "Legitimație FRB" }, h("input", { value: form.frbLicense || "", onChange: (e) => update("frbLicense", e.target.value), placeholder: "ex. 5064219", inputMode: "numeric" })),
       h(Field, { label: "Observații" }, h("textarea", { value: form.notes || "", onChange: (e) => update("notes", e.target.value), rows: 3 })),
       h("div", { className: "form-actions" }, h("button", { className: "primary", type: "submit" }, "Salvează"), h("button", { type: "button", onClick: onCancel }, "Anulează"))

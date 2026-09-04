@@ -1,6 +1,7 @@
   const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
+  const { migrateInactiveAthletes, applyStatusChange } = window.CSHeartMembershipFees;
   import {
     db,
     doc,
@@ -91,7 +92,7 @@
 
       if (snapshot.exists()) {
         const data = snapshot.data();
-        setState({
+        const loadedState = {
           athletes: Array.isArray(data.athletes) ? data.athletes : [],
           trainings: Array.isArray(data.trainings) ? data.trainings : [],
           fees: Array.isArray(data.fees) ? data.fees : [],
@@ -99,7 +100,15 @@
           taxPayments: Array.isArray(data.taxPayments) ? data.taxPayments : [],
           otherActions: Array.isArray(data.otherActions) ? data.otherActions : [],
           athleteRevisions: Array.isArray(data.athleteRevisions) ? data.athleteRevisions : []
-        });
+        };
+        const migration = migrateInactiveAthletes(loadedState);
+
+        if (migration.changed) {
+          await setDoc(appRef, migration.state);
+          console.info(`Au fost corectate perioadele de taxare pentru ${migration.changes.length} sportivi inactivi.`);
+        }
+
+        setState(migration.state);
       } else {
         await setDoc(appRef, state);
       }
@@ -151,10 +160,16 @@ React.useEffect(() => {
     async function addAthlete(athlete) {
   try {
     const docRef = { id: Date.now().toString() };
+    const changedAt = new Date().toISOString();
+    const newAthlete = applyStatusChange(
+      { active: true, joinMonth: athlete.joinMonth },
+      { ...athlete, id: docRef.id },
+      changedAt
+    );
 
     setState((current) => ({
       ...current,
-      athletes: [{ ...athlete, id: docRef.id }, ...current.athletes]
+      athletes: [newAthlete, ...current.athletes]
     }));
   } catch (error) {
     console.error("Eroare la salvarea sportivului:", error);
@@ -292,14 +307,18 @@ React.useEffect(() => {
           ...current,
           athletes: current.athletes.map((item) =>
             item.id === id
-              ? {
-                  ...item,
-                  ...athlete,
-                  id,
-                  updatedAt: changedAt,
-                  updatedByEmail: user?.email || "necunoscut",
-                  updatedById: user?.uid || ""
-                }
+              ? applyStatusChange(
+                  item,
+                  {
+                    ...item,
+                    ...athlete,
+                    id,
+                    updatedAt: changedAt,
+                    updatedByEmail: user?.email || "necunoscut",
+                    updatedById: user?.uid || ""
+                  },
+                  changedAt
+                )
               : item
           ),
           athleteRevisions: revision
