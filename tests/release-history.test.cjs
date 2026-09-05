@@ -15,17 +15,25 @@ function loadReleaseHistory() {
 test("the visible version matches the latest release date", () => {
   const history = loadReleaseHistory();
 
-  assert.equal(history.currentVersion, "4-9-26");
+  assert.equal(history.currentVersion, "5-9-26");
   assert.equal(history.releases[0].version, history.currentVersion);
   assert.equal(history.releases[0].current, true);
 });
 
-test("the release history records the inactive-fee correction and BEST Arad follow-up", () => {
+test("the release history records the athlete identity correction and BEST Arad follow-up", () => {
   const history = loadReleaseHistory();
   const current = history.releases[0];
 
-  assert.match(current.changes.map((item) => item.description).join(" "), /lunile următoare nu mai generează cotizații/i);
+  assert.match(current.changes.map((item) => item.description).join(" "), /Alina.*alina.*ALINA/i);
   assert.match(current.bestArad, /De preluat/i);
+});
+
+test("the inactive-fee correction remains in the previous release", () => {
+  const history = loadReleaseHistory();
+  const release = history.releases.find((item) => item.version === "4-9-26");
+
+  assert.ok(release);
+  assert.match(release.changes.map((item) => item.description).join(" "), /lunile următoare nu mai generează cotizații/i);
 });
 
 test("release history loads before the application scripts", () => {

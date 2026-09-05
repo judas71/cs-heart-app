@@ -1,5 +1,16 @@
 (function () {
   const h = React.createElement;
+  const normalizePersonName = window.CSHeartAthleteNormalization?.normalizePersonName
+    || ((value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("ro-RO"));
+  const normalizeGroupLabel = window.CSHeartAthleteNormalization?.normalizeGroupLabel
+    || ((value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("ro-RO"));
+  const normalizeAthleteRecord = window.CSHeartAthleteNormalization?.normalizeAthleteRecord
+    || ((athlete) => ({
+      ...athlete,
+      lastName: normalizePersonName(athlete.lastName),
+      firstName: normalizePersonName(athlete.firstName),
+      group: normalizeGroupLabel(athlete.group)
+    }));
 
   const objectiveLabels = {
     movement: "Mișcare și dezvoltare",
@@ -19,7 +30,7 @@
   }
 
   function splitSuggestedName(value) {
-    const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+    const parts = normalizePersonName(value).split(/\s+/).filter(Boolean);
     if (parts.length < 2) return { lastName: parts[0] || "", firstName: "" };
     return { lastName: parts[0], firstName: parts.slice(1).join(" ") };
   }
@@ -97,6 +108,8 @@
     const [existingId, setExistingId] = React.useState("");
     const [applyPhone, setApplyPhone] = React.useState(true);
     const [applyBirthYear, setApplyBirthYear] = React.useState(true);
+    const groupOptions = [...new Set(athletes.map((athlete) => normalizeGroupLabel(athlete.group)).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "ro", { numeric: true }));
 
     async function createAthlete(event) {
       event.preventDefault();
@@ -107,7 +120,7 @@
       }
       setBusy(true);
       try {
-        await onCreate(request, createForm);
+        await onCreate(request, normalizeAthleteRecord(createForm));
       } catch (err) {
         setError(err?.message || "Nu am putut crea sportivul.");
       } finally {
@@ -208,7 +221,11 @@
               { className: "registration-decision-form", onSubmit: createAthlete },
               h("label", null, h("span", null, "Nume"), h("input", { value: createForm.lastName, onChange: (e) => setCreateForm({ ...createForm, lastName: e.target.value }), required: true })),
               h("label", null, h("span", null, "Prenume"), h("input", { value: createForm.firstName, onChange: (e) => setCreateForm({ ...createForm, firstName: e.target.value }), required: true })),
-              h("label", null, h("span", null, "Grupa stabilită de club"), h("input", { value: createForm.group, onChange: (e) => setCreateForm({ ...createForm, group: e.target.value }), placeholder: "ex. U14", required: true })),
+              h("label", null,
+                h("span", null, "Grupa stabilită de club"),
+                h("input", { list: `registration-groups-${request.id}`, value: createForm.group, onChange: (e) => setCreateForm({ ...createForm, group: e.target.value }), placeholder: "Alege sau scrie grupa", required: true }),
+                h("datalist", { id: `registration-groups-${request.id}` }, groupOptions.map((group) => h("option", { key: group, value: group })))
+              ),
               h("label", null, h("span", null, "Cotizația lunară"), h("select", { value: createForm.feeDue, onChange: (e) => setCreateForm({ ...createForm, feeDue: Number(e.target.value) }) }, h("option", { value: 250 }, "250 lei"), h("option", { value: 200 }, "200 lei · al doilea frate"))),
               h("label", null, h("span", null, "Status"), h("select", { value: createForm.active ? "active" : "inactive", onChange: (e) => setCreateForm({ ...createForm, active: e.target.value === "active" }) }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
               h("div", { className: "registration-submit-row" }, h("button", { type: "submit", className: "primary", disabled: busy }, busy ? "Se salvează…" : "Confirmă și creează"))

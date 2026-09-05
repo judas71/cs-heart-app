@@ -90,6 +90,8 @@ if (requestType === "update") {
 
 const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
 const cleanText = (value, limit = 120) => String(value || "").trim().replace(/\s+/g, " ").slice(0, limit);
+const normalizePersonName = window.CSHeartAthleteNormalization?.normalizePersonName
+  || ((value) => cleanText(value).toLocaleUpperCase("ro-RO"));
 
 function ageAt(date) {
   const today = new Date();
@@ -144,7 +146,11 @@ function showError(inputId, message) {
 
 function validateName(inputId, label) {
   clearError(inputId);
-  const value = cleanText(document.querySelector(`#${inputId}`).value);
+  const input = document.querySelector(`#${inputId}`);
+  const value = inputId === "athlete-name"
+    ? normalizePersonName(input.value)
+    : cleanText(input.value);
+  input.value = value;
   if (value.length < 5 || !value.includes(" ")) {
     showError(inputId, `Completează numele și prenumele ${label}.`);
     return false;
@@ -179,7 +185,7 @@ function validateStepThree() {
 }
 
 function populateSummary() {
-  document.querySelector("#summary-athlete").textContent = cleanText(document.querySelector("#athlete-name").value);
+  document.querySelector("#summary-athlete").textContent = normalizePersonName(document.querySelector("#athlete-name").value);
   document.querySelector("#summary-birth").textContent = parsedBirth ? `${formatDate(parsedBirth.date)} · ${parsedBirth.age} ani` : "—";
   document.querySelector("#summary-parent").textContent = cleanText(document.querySelector("#parent-name").value);
   document.querySelector("#summary-phone").textContent = cleanText(document.querySelector("#parent-phone").value);
@@ -248,7 +254,7 @@ function buildPayload(submittedAt) {
   return {
     schemaVersion: 1,
     requestType,
-    athleteName: cleanText(document.querySelector("#athlete-name").value, 100),
+    athleteName: normalizePersonName(cleanText(document.querySelector("#athlete-name").value, 100)),
     birthDate: parsedBirth.iso,
     birthYear: parsedBirth.year,
     school: requestType === "new" ? cleanText(document.querySelector("#school").value, 100) : "",
@@ -272,6 +278,10 @@ cnpInput.addEventListener("input", () => {
   parsedBirth = parseCnp(cnpInput.value);
   birthResult.hidden = !parsedBirth;
   if (parsedBirth) birthResultText.textContent = `${formatDate(parsedBirth.date)} · ${parsedBirth.age} ani`;
+});
+
+document.querySelector("#athlete-name").addEventListener("blur", (event) => {
+  event.currentTarget.value = normalizePersonName(event.currentTarget.value);
 });
 
 form.querySelectorAll("input").forEach((input) => {

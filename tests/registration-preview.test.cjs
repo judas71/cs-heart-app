@@ -88,7 +88,7 @@ for (const type of ["new", "update"]) {
     assert.deepEqual(page.steps.map((step) => step.hidden), [false, true, true]);
     page.click("#next-button");
     assert.deepEqual(page.steps.map((step) => step.hidden), [false, true, true]);
-    page.element("#athlete-name").value = "Sportiv Test";
+    page.element("#athlete-name").value = "  sportiv   test  ";
     // Synthetic local-only identifier; it is never sent, even to the fake backend.
     const prefix = "514031501001";
     const checksum = [...prefix].reduce((sum, digit, i) => sum + Number(digit) * Number("279146358279"[i]), 0) % 11;
@@ -110,7 +110,7 @@ for (const type of ["new", "update"]) {
     const { collection, payload } = page.writes[0];
     assert.equal(collection, "registrationRequests");
     assert.equal(payload.requestType, type);
-    assert.equal(payload.athleteName, "Sportiv Test");
+    assert.equal(payload.athleteName, "SPORTIV TEST");
     assert.equal(payload.birthDate, "2014-03-15");
     assert.equal(payload.school, type === "new" ? "Școala Test" : "");
     assert.equal(payload.submittedAt, "test-server-time");

@@ -2,7 +2,8 @@
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   const { migrateInactiveAthletes, applyStatusChange } = window.CSHeartMembershipFees;
-  const appVersion = window.CSHeartReleaseHistory?.currentVersion || "4-9-26";
+  const { normalizeAthleteRecord, athleteIdentityKey, migrateAthleteIdentities } = window.CSHeartAthleteNormalization;
+  const appVersion = window.CSHeartReleaseHistory?.currentVersion || "5-9-26";
   import {
     db,
     doc,
@@ -102,14 +103,17 @@
           otherActions: Array.isArray(data.otherActions) ? data.otherActions : [],
           athleteRevisions: Array.isArray(data.athleteRevisions) ? data.athleteRevisions : []
         };
-        const migration = migrateInactiveAthletes(loadedState);
+        const feeMigration = migrateInactiveAthletes(loadedState);
+        const identityMigration = migrateAthleteIdentities(feeMigration.state);
+        const migratedState = identityMigration.state;
 
-        if (migration.changed) {
-          await setDoc(appRef, migration.state);
-          console.info(`Au fost corectate perioadele de taxare pentru ${migration.changes.length} sportivi inactivi.`);
+        if (feeMigration.changed || identityMigration.changed) {
+          await setDoc(appRef, migratedState);
+          if (feeMigration.changed) console.info(`Au fost corectate perioadele de taxare pentru ${feeMigration.changes.length} sportivi inactivi.`);
+          if (identityMigration.changed) console.info(`Au fost uniformizate numele și grupele pentru ${identityMigration.changes.length} sportivi.`);
         }
 
-        setState(migration.state);
+        setState(migratedState);
       } else {
         await setDoc(appRef, state);
       }
@@ -162,9 +166,10 @@ React.useEffect(() => {
   try {
     const docRef = { id: Date.now().toString() };
     const changedAt = new Date().toISOString();
+    const normalizedAthlete = normalizeAthleteRecord(athlete);
     const newAthlete = applyStatusChange(
-      { active: true, joinMonth: athlete.joinMonth },
-      { ...athlete, id: docRef.id },
+      { active: true, joinMonth: normalizedAthlete.joinMonth },
+      { ...normalizedAthlete, id: docRef.id },
       changedAt
     );
 
@@ -238,11 +243,11 @@ React.useEffect(() => {
 
       const id = createId("athlete");
       const now = new Date().toISOString();
-      const athlete = {
+      const athlete = normalizeAthleteRecord({
         id,
-        lastName: String(form.lastName || "").trim(),
-        firstName: String(form.firstName || "").trim(),
-        group: String(form.group || "").trim(),
+        lastName: form.lastName,
+        firstName: form.firstName,
+        group: form.group,
         parentPhone: request.parentPhone || "",
         secondaryPhone: request.secondaryPhone || "",
         parentName: request.parentName || "",
@@ -262,7 +267,14 @@ React.useEffect(() => {
         createdAt: now,
         createdByEmail: user?.email || "necunoscut",
         createdById: user?.uid || ""
-      };
+      });
+      const duplicate = state.athletes.find((item) =>
+        athleteIdentityKey(item) === athleteIdentityKey(athlete)
+        && String(item.birthYear || "") === String(athlete.birthYear || "")
+      );
+      if (duplicate) {
+        throw new Error(`Există deja sportivul ${duplicate.lastName} ${duplicate.firstName}. Folosește „Leagă de sportiv existent”.`);
+      }
       const nextState = { ...state, athletes: [athlete, ...state.athletes] };
       await persistStateImmediately(nextState);
       await finishRegistration(request, id, "created");
@@ -310,14 +322,14 @@ React.useEffect(() => {
             item.id === id
               ? applyStatusChange(
                   item,
-                  {
+                  normalizeAthleteRecord({
                     ...item,
                     ...athlete,
                     id,
                     updatedAt: changedAt,
                     updatedByEmail: user?.email || "necunoscut",
                     updatedById: user?.uid || ""
-                  },
+                  }),
                   changedAt
                 )
               : item

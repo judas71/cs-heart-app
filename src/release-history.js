@@ -1,9 +1,28 @@
 (function () {
   const releases = [
     {
+      version: "5-9-26",
+      date: "5 septembrie 2026",
+      current: true,
+      changes: [
+        {
+          title: "Numele sportivilor sunt uniformizate automat",
+          description: "Părintele poate completa numele cu litere mici sau mari; în evidența sportivilor, numele și prenumele sunt salvate automat cu majuscule."
+        },
+        {
+          title: "Grupele nu se mai dublează din cauza literelor",
+          description: "Denumirea grupei este uniformizată automat, astfel încât «Alina», «alina» și «ALINA» sunt tratate ca aceeași grupă: ALINA."
+        },
+        {
+          title: "Aceeași regulă la creare și editare",
+          description: "Protecția se aplică sportivilor creați din cererile online, celor adăugați manual și modificărilor ulterioare din fișa sportivului."
+        }
+      ],
+      bestArad: "De preluat: aceeași uniformizare automată a numelor și grupelor."
+    },
+    {
       version: "4-9-26",
       date: "4 septembrie 2026",
-      current: true,
       changes: [
         {
           title: "Taxele sportivilor inactivi",

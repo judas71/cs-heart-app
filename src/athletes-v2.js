@@ -1,6 +1,10 @@
 (function () {
   const h = React.createElement;
   const { isFeeDueForMonth } = window.CSHeartMembershipFees;
+  const normalizePersonName = window.CSHeartAthleteNormalization?.normalizePersonName
+    || ((value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("ro-RO"));
+  const normalizeGroupLabel = window.CSHeartAthleteNormalization?.normalizeGroupLabel
+    || ((value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("ro-RO"));
 
   function athleteName(athlete) {
     return `${athlete.lastName || ""} ${athlete.firstName || ""}`.trim();
@@ -296,9 +300,9 @@
       if (!form.firstName.trim() || !form.lastName.trim() || !form.group.trim()) return;
       onSave({
         ...form,
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        group: form.group.trim(),
+        firstName: normalizePersonName(form.firstName),
+        lastName: normalizePersonName(form.lastName),
+        group: normalizeGroupLabel(form.group),
         birthYear: normalizeBirthYear(form.birthYear),
         frbLicense: normalizeFrbLicense(form.frbLicense),
         feeDue: Number(
