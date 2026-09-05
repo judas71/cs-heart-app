@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test taxe lunare CS HEART</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="stylesheet" href="../styles-v2.css" />
+  </head>
+  <body>
+    <main id="root" class="app-main"></main>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="../src/membership-fees.js"></script>
+    <script src="../src/monthly-fee-options.js"></script>
+    <script src="../src/release-history.js"></script>
+    <script src="../src/extra-payments.js"></script>
+    <script>
+      const h = React.createElement;
+      const athletes = [
+        { id: "david", lastName: "TEST", firstName: "DAVID", group: "ALINA", active: true, feeDue: 250, joinMonth: "2026-09" },
+        { id: "sofia", lastName: "ARICIU", firstName: "SOFIA", group: "ALINA", active: true, feeDue: 250, joinMonth: "2026-09" }
+      ];
+
+      function TestPage() {
+        const [fees, setFees] = React.useState([
+          { id: "fee-david", athleteId: "david", month: "2026-09", amountDue: 250, amountPaid: 0, payments: [], status: "neplătită", method: "cash", notes: "" },
+          { id: "fee-sofia", athleteId: "sofia", month: "2026-09", amountDue: 0, amountPaid: 0, payments: [], status: "plătită", method: "cash", notes: "" }
+        ]);
+
+        function saveFee(fee) {
+          setFees((current) => {
+            const existing = current.find((item) => item.athleteId === fee.athleteId && item.month === fee.month);
+            const normalized = { ...fee, id: existing?.id || `fee-${fee.athleteId}-${fee.month}` };
+            return existing
+              ? current.map((item) => item.id === existing.id ? normalized : item)
+              : [normalized, ...current];
+          });
+        }
+
+        return h(window.FeesView, {
+          athletes,
+          fees,
+          taxPayments: [],
+          onSaveFee: saveFee,
+          onSaveTaxPayment: () => {},
+          onDeleteTaxPayment: () => {}
+        });
+      }
+
+      ReactDOM.createRoot(document.querySelector("#root")).render(h(TestPage));
+    </script>
+  </body>
+</html>

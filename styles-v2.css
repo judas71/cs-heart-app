@@ -43,6 +43,54 @@
   color: #66727a;
 }
 
+.cs-monthly-fee-notice {
+  border: 1px solid #e8d16a;
+  border-radius: 14px;
+  background: #fffbea;
+  padding: 13px 16px;
+  display: grid;
+  gap: 3px;
+}
+
+.cs-monthly-fee-notice strong {
+  color: #172026;
+}
+
+.cs-monthly-fee-notice p {
+  margin: 0;
+  color: #5f6770;
+}
+
+.cs-monthly-fee-editor {
+  min-width: 210px;
+  display: grid;
+  gap: 7px;
+}
+
+.cs-monthly-fee-editor > input {
+  width: 100%;
+}
+
+.cs-monthly-fee-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cs-monthly-fee-presets button {
+  min-height: 28px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.cs-monthly-fee-presets button.selected {
+  border-color: #c5162e;
+  background: #fff0f2;
+  color: #9f1025;
+}
+
 .cs-fee-payment-summary {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -131,6 +179,10 @@
 
   .cs-fee-payment-history .cs-fee-payment-actions {
     justify-content: flex-start;
+  }
+
+  .cs-monthly-fee-editor {
+    min-width: 0;
   }
 }
 

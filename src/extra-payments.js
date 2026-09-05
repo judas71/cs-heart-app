@@ -1,6 +1,7 @@
 (function () {
   const h = React.createElement;
   const { isFeeDueForMonth } = window.CSHeartMembershipFees;
+  const { getMonthlyFeePresets, normalizeMonthlyFeeAmount } = window.CSHeartMonthlyFeeOptions;
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
@@ -2169,6 +2170,7 @@
     const [feePaymentPendingDeleteId, setFeePaymentPendingDeleteId] = React.useState("");
     const [taxReceiptPreview, setTaxReceiptPreview] = React.useState(null);
     const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
+    const [feeDueDrafts, setFeeDueDrafts] = React.useState({});
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!isFeeDueForMonth(athlete, month)) return false;
@@ -2204,6 +2206,7 @@
       setTaxPaymentForm((current) => ({ ...current, month: value }));
       setFeePaymentForm(null);
       setFeeHistoryAthleteId("");
+      setFeeDueDrafts({});
     }
 
     function getFee(athleteId) {
@@ -2225,6 +2228,39 @@
     function updateFee(athleteId, field, value) {
       const fee = getFee(athleteId);
       onSaveFee({ ...fee, athleteId, month, [field]: value });
+    }
+
+    function feeDueDraftKey(athleteId) {
+      return `${month}:${athleteId}`;
+    }
+
+    function updateFeeDueDraft(athleteId, value) {
+      const key = feeDueDraftKey(athleteId);
+      setFeeDueDrafts((current) => ({ ...current, [key]: value }));
+    }
+
+    function clearFeeDueDraft(athleteId) {
+      const key = feeDueDraftKey(athleteId);
+      setFeeDueDrafts((current) => {
+        if (!(key in current)) return current;
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    }
+
+    function commitFeeDueDraft(athleteId) {
+      const key = feeDueDraftKey(athleteId);
+      if (!(key in feeDueDrafts)) return;
+      const amount = normalizeMonthlyFeeAmount(feeDueDrafts[key]);
+      clearFeeDueDraft(athleteId);
+      if (amount === null) return;
+      updateFee(athleteId, "amountDue", amount);
+    }
+
+    function applyFeeDuePreset(athlete, amount) {
+      clearFeeDueDraft(athlete.id);
+      updateFee(athlete.id, "amountDue", amount);
     }
 
     function openFeePaymentForm(athlete) {
@@ -2506,6 +2542,12 @@
           )
         ),
       h(
+        "aside",
+        { className: "cs-monthly-fee-notice" },
+        h("strong", null, "Taxa lunii se modifică numai pentru luna aleasă"),
+        h("p", null, `O taxă normală, redusă sau zero stabilită aici este valabilă doar pentru ${formatMonthLabel(month)}. În luna următoare aplicația revine automat la taxa normală din fișa sportivului.`)
+      ),
+      h(
         "div",
         { className: "metrics" },
         h("div", null, h("span", null, "Total incasari luna"), h("strong", null, formatMoney(monthlyCollected))),
@@ -2676,6 +2718,9 @@
               const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
               const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
               const feePayments = getFeePayments(fee);
+              const dueDraftKey = feeDueDraftKey(athlete.id);
+              const dueInputValue = dueDraftKey in feeDueDrafts ? feeDueDrafts[dueDraftKey] : String(fee.amountDue ?? fallbackDue);
+              const duePresets = getMonthlyFeePresets(athlete);
 
               return h(
                 "tr",
@@ -2691,7 +2736,45 @@
                   { "data-label": "Status" },
                   h("span", { className: "pill " + getFeeStatusTone(automaticStatus) }, automaticStatus)
                 ),
-                h("td", { "data-label": "Taxa lunii" }, h("input", { type: "number", min: "0", value: fee.amountDue, onChange: (event) => updateFee(athlete.id, "amountDue", Number(event.target.value)) })),
+                h(
+                  "td",
+                  { "data-label": "Taxa lunii" },
+                  h(
+                    "div",
+                    { className: "cs-monthly-fee-editor" },
+                    h("input", {
+                      type: "number",
+                      min: "0",
+                      step: "0.01",
+                      value: dueInputValue,
+                      onChange: (event) => updateFeeDueDraft(athlete.id, event.target.value),
+                      onBlur: () => commitFeeDueDraft(athlete.id),
+                      onKeyDown: (event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      },
+                      "aria-label": `Taxa pentru ${athleteName(athlete)} în ${formatMonthLabel(month)}`
+                    }),
+                    h(
+                      "div",
+                      { className: "cs-monthly-fee-presets", "aria-label": `Alegeri rapide pentru ${athleteName(athlete)}` },
+                      duePresets.map((preset) =>
+                        h(
+                          "button",
+                          {
+                            key: preset.id,
+                            type: "button",
+                            className: Number(fee.amountDue ?? fallbackDue) === preset.amount ? "selected" : "",
+                            onClick: () => applyFeeDuePreset(athlete, preset.amount),
+                            title: `${preset.label}: ${formatMoney(preset.amount)} — doar în ${formatMonthLabel(month)}`
+                          },
+                          `${preset.shortLabel} ${formatMoney(preset.amount)}`
+                        )
+                      )
+                    )
+                  )
+                ),
                 h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
                 h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(feePaymentsTotal(fee))), feePayments.length > 1 && h("small", null, feePayments.length + " incasari")),
                 h("td", { "data-label": "Ramas" }, h("strong", { className: outstanding > 0 ? "arrears" : "" }, creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding))),

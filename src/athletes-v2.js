@@ -320,7 +320,7 @@
       h(Field, { label: "Prenume" }, h("input", { value: form.firstName || "", onChange: (e) => update("firstName", e.target.value), required: true })),
       h(Field, { label: "Grupa" }, h("input", { value: form.group || "", onChange: (e) => update("group", e.target.value), placeholder: "U14", required: true })),
       h(Field, { label: "Telefon părinte" }, h("input", { value: form.parentPhone || "", onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
-      h(Field, { label: "Taxă lunară" }, h("input", { type: "number", min: "0", step: "1", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value), inputMode: "numeric" })),
+      h(Field, { label: "Taxă normală lunară" }, h("input", { type: "number", min: "0", step: "1", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value), inputMode: "numeric" })),
       h(Field, { label: "Luna înscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
       h(Field, { label: "Viză medicală de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
       h(Field, { label: "Viză medicală până la" }, h("input", { type: "date", value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (e) => update("medicalVisaTo", e.target.value) })),

@@ -16,9 +16,17 @@
         {
           title: "Aceeași regulă la creare și editare",
           description: "Protecția se aplică sportivilor creați din cererile online, celor adăugați manual și modificărilor ulterioare din fișa sportivului."
+        },
+        {
+          title: "Taxă diferită doar într-o anumită lună",
+          description: "În Taxe se poate alege rapid taxa normală, jumătate de taxă sau fără taxă. Modificarea se aplică numai lunii alese, iar luna următoare revine automat la taxa normală a sportivului."
+        },
+        {
+          title: "Editarea taxei lunii nu mai întrerupe scrierea",
+          description: "Suma se salvează după ce este completată, astfel încât rândul sportivului nu mai sare în listă după introducerea primei cifre."
         }
       ],
-      bestArad: "De preluat: aceeași uniformizare automată a numelor și grupelor."
+      bestArad: "De preluat: uniformizarea automată a numelor și grupelor, plus excepțiile de taxă valabile doar în luna aleasă."
     },
     {
       version: "4-9-26",

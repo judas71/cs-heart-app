@@ -25,6 +25,7 @@ test("the release history records the athlete identity correction and BEST Arad 
   const current = history.releases[0];
 
   assert.match(current.changes.map((item) => item.description).join(" "), /Alina.*alina.*ALINA/i);
+  assert.match(current.changes.map((item) => item.description).join(" "), /numai lunii alese.*luna următoare revine automat/i);
   assert.match(current.bestArad, /De preluat/i);
 });
 
