@@ -11,12 +11,22 @@ vm.runInNewContext(
 );
 const options = context.window.CSHeartMonthlyFeeOptions;
 
-test("monthly fee presets use the athlete standard fee without changing it", () => {
+test("monthly fee presets cover trial sessions and use the athlete standard fee without changing it", () => {
   const athlete = { id: "sofia", feeDue: 250 };
   const presets = options.getMonthlyFeePresets(athlete);
 
-  assert.deepEqual(Array.from(presets, (preset) => preset.amount), [250, 125, 0]);
+  assert.deepEqual(Array.from(presets, (preset) => preset.amount), [50, 100, 250, 125, 0]);
   assert.equal(athlete.feeDue, 250);
+});
+
+test("trial payments remain credited when the athlete continues the month", () => {
+  const athlete = { id: "sofia", feeDue: 250 };
+  const presets = options.getMonthlyFeePresets(athlete);
+  const amount = (id) => presets.find((preset) => preset.id === id).amount;
+
+  assert.equal(amount("trial-one") - 50, 0);
+  assert.equal(amount("trial-two") - 50, 50);
+  assert.equal(amount("standard") - 100, 150);
 });
 
 test("a monthly exception can be zero or half while the next month remains standard", () => {
@@ -27,7 +37,7 @@ test("a monthly exception can be zero or half while the next month remains stand
 
   assert.equal(due(septemberFee), 0);
   assert.equal(due(octoberFee), 250);
-  septemberFee.amountDue = options.getMonthlyFeePresets(athlete)[1].amount;
+  septemberFee.amountDue = options.getMonthlyFeePresets(athlete).find((preset) => preset.id === "half").amount;
   assert.equal(due(septemberFee), 125);
   assert.equal(due(octoberFee), 250);
 });

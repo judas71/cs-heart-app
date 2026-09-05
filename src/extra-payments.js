@@ -2545,7 +2545,7 @@
         "aside",
         { className: "cs-monthly-fee-notice" },
         h("strong", null, "Taxa lunii se modifică numai pentru luna aleasă"),
-        h("p", null, `O taxă normală, redusă sau zero stabilită aici este valabilă doar pentru ${formatMonthLabel(month)}. În luna următoare aplicația revine automat la taxa normală din fișa sportivului.`)
+        h("p", null, `Pentru un sportiv nou poți trece succesiv 1 antrenament (50 lei), 2 antrenamente (100 lei), apoi Continuă luna. Încasările deja făcute se păstrează și se scad automat din taxa normală. Orice alegere este valabilă doar pentru ${formatMonthLabel(month)}, iar luna următoare aplicația revine automat la taxa normală din fișa sportivului.`)
       ),
       h(
         "div",

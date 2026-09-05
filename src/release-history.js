@@ -19,14 +19,14 @@
         },
         {
           title: "Taxă diferită doar într-o anumită lună",
-          description: "În Taxe se poate alege rapid taxa normală, jumătate de taxă sau fără taxă. Modificarea se aplică numai lunii alese, iar luna următoare revine automat la taxa normală a sportivului."
+          description: "În Taxe se poate alege rapid primul antrenament (50 lei), primele două antrenamente (100 lei), continuarea lunii la taxa normală, jumătate de taxă sau fără taxă. Alegerea se aplică numai lunii alese, încasările deja făcute se scad automat, iar luna următoare revine automat la taxa normală a sportivului."
         },
         {
           title: "Editarea taxei lunii nu mai întrerupe scrierea",
           description: "Suma se salvează după ce este completată, astfel încât rândul sportivului nu mai sare în listă după introducerea primei cifre."
         }
       ],
-      bestArad: "De preluat: uniformizarea automată a numelor și grupelor, plus excepțiile de taxă valabile doar în luna aleasă."
+      bestArad: "De preluat: uniformizarea automată a numelor și grupelor, plus etapele de taxare pentru primele antrenamente și excepțiile valabile doar în luna aleasă."
     },
     {
       version: "4-9-26",
