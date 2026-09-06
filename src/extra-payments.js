@@ -2171,6 +2171,7 @@
     const [taxReceiptPreview, setTaxReceiptPreview] = React.useState(null);
     const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
     const [feeDueDrafts, setFeeDueDrafts] = React.useState({});
+    const [feeDueEditorAthleteId, setFeeDueEditorAthleteId] = React.useState("");
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!isFeeDueForMonth(athlete, month)) return false;
@@ -2207,6 +2208,7 @@
       setFeePaymentForm(null);
       setFeeHistoryAthleteId("");
       setFeeDueDrafts({});
+      setFeeDueEditorAthleteId("");
     }
 
     function getFee(athleteId) {
@@ -2261,6 +2263,7 @@
     function applyFeeDuePreset(athlete, amount) {
       clearFeeDueDraft(athlete.id);
       updateFee(athlete.id, "amountDue", amount);
+      setFeeDueEditorAthleteId("");
     }
 
     function openFeePaymentForm(athlete) {
@@ -2721,6 +2724,8 @@
               const dueDraftKey = feeDueDraftKey(athlete.id);
               const dueInputValue = dueDraftKey in feeDueDrafts ? feeDueDrafts[dueDraftKey] : String(fee.amountDue ?? fallbackDue);
               const duePresets = getMonthlyFeePresets(athlete);
+              const dueAmount = Number(fee.amountDue ?? fallbackDue);
+              const isDueEditorOpen = feeDueEditorAthleteId === athlete.id;
 
               return h(
                 "tr",
@@ -2741,38 +2746,61 @@
                   { "data-label": "Taxa lunii" },
                   h(
                     "div",
-                    { className: "cs-monthly-fee-editor" },
-                    h("input", {
-                      type: "number",
-                      min: "0",
-                      step: "0.01",
-                      value: dueInputValue,
-                      onChange: (event) => updateFeeDueDraft(athlete.id, event.target.value),
-                      onBlur: () => commitFeeDueDraft(athlete.id),
-                      onKeyDown: (event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        event.currentTarget.blur();
-                      },
-                      "aria-label": `Taxa pentru ${athleteName(athlete)} în ${formatMonthLabel(month)}`
-                    }),
+                    { className: "cs-monthly-fee-cell" },
                     h(
                       "div",
-                      { className: "cs-monthly-fee-presets", "aria-label": `Alegeri rapide pentru ${athleteName(athlete)}` },
-                      duePresets.map((preset) =>
-                        h(
-                          "button",
-                          {
-                            key: preset.id,
-                            type: "button",
-                            className: Number(fee.amountDue ?? fallbackDue) === preset.amount ? "selected" : "",
-                            onClick: () => applyFeeDuePreset(athlete, preset.amount),
-                            title: `${preset.label}: ${formatMoney(preset.amount)} — doar în ${formatMonthLabel(month)}`
+                      { className: "cs-monthly-fee-summary" },
+                      h("strong", null, formatMoney(dueAmount)),
+                      h(
+                        "button",
+                        {
+                          type: "button",
+                          className: "cs-monthly-fee-toggle",
+                          onClick: () => setFeeDueEditorAthleteId((current) => current === athlete.id ? "" : athlete.id),
+                          "aria-expanded": isDueEditorOpen,
+                          "aria-controls": `fee-editor-${athlete.id}`
+                        },
+                        isDueEditorOpen ? "Închide" : "Modifică taxa lunii"
+                      )
+                    ),
+                    isDueEditorOpen &&
+                      h(
+                        "div",
+                        { className: "cs-monthly-fee-editor", id: `fee-editor-${athlete.id}` },
+                        h("label", null, "Sumă specială pentru luna aleasă"),
+                        h("input", {
+                          type: "number",
+                          min: "0",
+                          step: "0.01",
+                          value: dueInputValue,
+                          onChange: (event) => updateFeeDueDraft(athlete.id, event.target.value),
+                          onBlur: () => commitFeeDueDraft(athlete.id),
+                          onKeyDown: (event) => {
+                            if (event.key !== "Enter") return;
+                            event.preventDefault();
+                            event.currentTarget.blur();
+                            setFeeDueEditorAthleteId("");
                           },
-                          `${preset.shortLabel} ${formatMoney(preset.amount)}`
+                          "aria-label": `Taxa pentru ${athleteName(athlete)} în ${formatMonthLabel(month)}`
+                        }),
+                        h(
+                          "div",
+                          { className: "cs-monthly-fee-presets", "aria-label": `Alegeri rapide pentru ${athleteName(athlete)}` },
+                          duePresets.map((preset) =>
+                            h(
+                              "button",
+                              {
+                                key: preset.id,
+                                type: "button",
+                                className: dueAmount === preset.amount ? "selected" : "",
+                                onClick: () => applyFeeDuePreset(athlete, preset.amount),
+                                title: `${preset.label}: ${formatMoney(preset.amount)} — doar în ${formatMonthLabel(month)}`
+                              },
+                              `${preset.shortLabel} ${formatMoney(preset.amount)}`
+                            )
+                          )
                         )
                       )
-                    )
                   )
                 ),
                 h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),

@@ -1,9 +1,25 @@
 (function () {
   const releases = [
     {
+      version: "6-9-26",
+      date: "6 septembrie 2026",
+      current: true,
+      changes: [
+        {
+          title: "Taxele sunt mai ușor de folosit",
+          description: "În lista sportivilor se văd doar taxa stabilită și butonul «Modifică taxa lunii». Variantele pentru primele antrenamente, continuarea lunii, jumătate de taxă sau fără taxă apar numai când sunt necesare."
+        },
+        {
+          title: "Încasarea obișnuită rămâne simplă",
+          description: "Pentru un sportiv cu taxa stabilită nu trebuie schimbat nimic: se folosește direct butonul «Încasează»."
+        }
+      ],
+      bestArad: "De preluat: afișarea simplificată a taxei lunii și opțiunile ascunse până la apăsarea butonului de modificare."
+    },
+    {
       version: "5-9-26",
       date: "5 septembrie 2026",
-      current: true,
+      current: false,
       changes: [
         {
           title: "Numele sportivilor sunt uniformizate automat",

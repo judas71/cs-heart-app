@@ -61,10 +61,43 @@
   color: #5f6770;
 }
 
-.cs-monthly-fee-editor {
-  min-width: 210px;
+.cs-monthly-fee-cell {
+  min-width: 185px;
   display: grid;
   gap: 7px;
+}
+
+.cs-monthly-fee-summary {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.cs-monthly-fee-summary > strong {
+  font-size: 1rem;
+}
+
+.cs-monthly-fee-toggle {
+  min-height: 30px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  font-size: 0.74rem;
+}
+
+.cs-monthly-fee-editor {
+  min-width: 210px;
+  border: 1px solid #e1e7eb;
+  border-radius: 10px;
+  background: #f8fafb;
+  padding: 9px;
+  display: grid;
+  gap: 7px;
+}
+
+.cs-monthly-fee-editor > label {
+  color: #66727a;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .cs-monthly-fee-editor > input {
@@ -182,6 +215,10 @@
   }
 
   .cs-monthly-fee-editor {
+    min-width: 0;
+  }
+
+  .cs-monthly-fee-cell {
     min-width: 0;
   }
 }

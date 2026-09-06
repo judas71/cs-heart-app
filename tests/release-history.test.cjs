@@ -15,17 +15,27 @@ function loadReleaseHistory() {
 test("the visible version matches the latest release date", () => {
   const history = loadReleaseHistory();
 
-  assert.equal(history.currentVersion, "5-9-26");
+  assert.equal(history.currentVersion, "6-9-26");
   assert.equal(history.releases[0].version, history.currentVersion);
   assert.equal(history.releases[0].current, true);
 });
 
 test("the release history records the athlete identity correction and BEST Arad follow-up", () => {
   const history = loadReleaseHistory();
-  const current = history.releases[0];
+  const current = history.releases.find((item) => item.version === "5-9-26");
 
+  assert.ok(current);
   assert.match(current.changes.map((item) => item.description).join(" "), /Alina.*alina.*ALINA/i);
   assert.match(current.changes.map((item) => item.description).join(" "), /numai lunii alese.*luna următoare revine automat/i);
+  assert.match(current.bestArad, /De preluat/i);
+});
+
+test("the current release records the simplified monthly fee controls", () => {
+  const history = loadReleaseHistory();
+  const current = history.releases[0];
+
+  assert.match(current.changes.map((item) => item.description).join(" "), /Modifică taxa lunii/i);
+  assert.match(current.changes.map((item) => item.description).join(" "), /Încasează/i);
   assert.match(current.bestArad, /De preluat/i);
 });
 

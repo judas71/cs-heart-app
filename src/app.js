@@ -3,7 +3,7 @@
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
   const { migrateInactiveAthletes, applyStatusChange } = window.CSHeartMembershipFees;
   const { normalizeAthleteRecord, athleteIdentityKey, migrateAthleteIdentities } = window.CSHeartAthleteNormalization;
-  const appVersion = window.CSHeartReleaseHistory?.currentVersion || "5-9-26";
+  const appVersion = window.CSHeartReleaseHistory?.currentVersion || "6-9-26";
   import {
     db,
     doc,
