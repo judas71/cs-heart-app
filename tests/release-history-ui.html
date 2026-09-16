@@ -23,6 +23,8 @@
     <script>
       window.CSHeartComponents = {};
       window.CSHeartMembershipFees = { isFeeDueForMonth: () => true };
+      window.CSHeartMonthlyFeeOptions = { getMonthlyFeePresets: () => [], normalizeMonthlyFeeAmount: () => null };
+      window.CSHeartFeeLedger = { getPreviousBalanceBreakdown: () => ({ debts: [], credits: [], months: [], balance: 0 }), getFeeAdjustments: () => [], cancelOutstandingFee: () => ({ changed: false }) };
     </script>
     <script type="module" src="../src/release-history.js"></script>
     <script type="module" src="../src/extra-payments.js"></script>

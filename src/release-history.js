@@ -1,9 +1,29 @@
 (function () {
   const releases = [
     {
+      version: "15-9-26",
+      date: "15 septembrie 2026",
+      current: true,
+      changes: [
+        {
+          title: "Restanța este explicată pe luni",
+          description: "În coloana «Restanță / Avans» se poate vedea exact din ce luni provine suma, iar butonul «Corectează» deschide direct luna aleasă pentru sportivul respectiv."
+        },
+        {
+          title: "Taxa poate fi anulată cu istoric",
+          description: "Din «Modifică taxa lunii» se poate anula partea rămasă din taxa acelei luni. Motivul, suma, data și persoana care a făcut anularea rămân în istoricul sportivului, iar încasările existente nu sunt modificate."
+        },
+        {
+          title: "Datele existente sunt păstrate",
+          description: "Noua funcție nu schimbă automat taxele sau încasările deja înregistrate; corectarea se face numai la alegerea utilizatorului."
+        }
+      ],
+      bestArad: "De preluat: detalierea restanței pe luni și anularea taxei cu motiv păstrat în istoric."
+    },
+    {
       version: "6-9-26",
       date: "6 septembrie 2026",
-      current: true,
+      current: false,
       changes: [
         {
           title: "Taxele sunt mai ușor de folosit",

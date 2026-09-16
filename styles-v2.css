@@ -124,6 +124,111 @@
   color: #9f1025;
 }
 
+.cs-fee-cancel-toggle {
+  justify-self: start;
+  min-height: 31px;
+  border-color: #efb5bd;
+  background: #fff7f8;
+  color: #a31327;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.cs-fee-cancel-form {
+  border-top: 1px solid #ead6d9;
+  padding-top: 9px;
+  display: grid;
+  gap: 7px;
+}
+
+.cs-fee-cancel-form > strong {
+  color: #9f1025;
+  font-size: 0.78rem;
+}
+
+.cs-fee-cancel-form > small,
+.cs-fee-month-adjustments small {
+  color: #66727a;
+  line-height: 1.35;
+}
+
+.cs-fee-cancel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cs-fee-cancel-actions button {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 0.72rem;
+}
+
+.cs-fee-month-adjustments {
+  border-top: 1px solid #e1e7eb;
+  padding-top: 8px;
+  display: grid;
+  gap: 3px;
+}
+
+.cs-fee-month-adjustments > strong {
+  font-size: 0.74rem;
+}
+
+.cs-fee-balance-cell {
+  min-width: 155px;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.cs-fee-balance-toggle {
+  min-height: 29px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+}
+
+.cs-fee-balance-details {
+  width: 100%;
+  min-width: 205px;
+  border: 1px solid #f0c9cf;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+  display: grid;
+  gap: 7px;
+}
+
+.cs-fee-balance-details > small {
+  color: #66727a;
+}
+
+.cs-fee-balance-source {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 3px 8px;
+}
+
+.cs-fee-balance-source span {
+  color: #66727a;
+  font-size: 0.76rem;
+}
+
+.cs-fee-balance-source strong {
+  color: #9f1025;
+  font-size: 0.8rem;
+}
+
+.cs-fee-balance-source button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-height: 28px;
+  padding: 4px 7px;
+  font-size: 0.7rem;
+}
+
 .cs-fee-payment-summary {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -161,7 +266,13 @@
   gap: 8px;
 }
 
-.cs-fee-payment-history article {
+.cs-fee-adjustment-history {
+  display: grid;
+  gap: 8px;
+}
+
+.cs-fee-payment-history article,
+.cs-fee-adjustment-history article {
   border: 1px solid #dbe2e7;
   border-radius: 12px;
   background: #fff;
@@ -172,7 +283,8 @@
   gap: 12px;
 }
 
-.cs-fee-payment-history article > div {
+.cs-fee-payment-history article > div,
+.cs-fee-adjustment-history article > div {
   display: grid;
   gap: 2px;
 }
@@ -185,7 +297,9 @@
 }
 
 .cs-fee-payment-history span,
-.cs-fee-payment-history small {
+.cs-fee-payment-history small,
+.cs-fee-adjustment-history span,
+.cs-fee-adjustment-history small {
   color: #66727a;
 }
 
@@ -205,7 +319,8 @@
     grid-template-columns: 1fr;
   }
 
-  .cs-fee-payment-history article {
+  .cs-fee-payment-history article,
+  .cs-fee-adjustment-history article {
     align-items: stretch;
     flex-direction: column;
   }
@@ -219,6 +334,11 @@
   }
 
   .cs-monthly-fee-cell {
+    min-width: 0;
+  }
+
+  .cs-fee-balance-cell,
+  .cs-fee-balance-details {
     min-width: 0;
   }
 }

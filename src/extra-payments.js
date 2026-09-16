@@ -2,6 +2,7 @@
   const h = React.createElement;
   const { isFeeDueForMonth } = window.CSHeartMembershipFees;
   const { getMonthlyFeePresets, normalizeMonthlyFeeAmount } = window.CSHeartMonthlyFeeOptions;
+  const { getPreviousBalanceBreakdown, getFeeAdjustments, cancelOutstandingFee } = window.CSHeartFeeLedger;
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
@@ -2121,12 +2122,40 @@
     return previousText + " / Taxa luna: " + formatMoney(row.amountDue) + " / Platit: " + formatMoney(row.amountPaid);
   }
 
-  function BalanceCell({ previousBalance }) {
+  function BalanceCell({ previousBalance, breakdown, expanded, onToggle, onOpenMonth }) {
     const previousDebt = Math.max(previousBalance, 0);
     const previousCredit = Math.max(-previousBalance, 0);
 
     if (previousDebt > 0) {
-      return h("strong", { className: "arrears" }, formatMoney(previousDebt));
+      const debtTotal = (breakdown?.debts || []).reduce((sum, item) => sum + Number(item.balance || 0), 0);
+      const creditsUsed = Math.max(debtTotal - previousDebt, 0);
+
+      return h(
+        "div",
+        { className: "cs-fee-balance-cell" },
+        h("strong", { className: "arrears" }, formatMoney(previousDebt)),
+        h(
+          "button",
+          { type: "button", className: "cs-fee-balance-toggle", onClick: onToggle, "aria-expanded": expanded },
+          expanded ? "Ascunde lunile" : "Vezi lunile"
+        ),
+        expanded &&
+          h(
+            "div",
+            { className: "cs-fee-balance-details" },
+            h("small", null, "Restanța provine din:"),
+            (breakdown?.debts || []).map((item) =>
+              h(
+                "div",
+                { key: item.month, className: "cs-fee-balance-source" },
+                h("span", null, formatMonthLabel(item.month)),
+                h("strong", null, formatMoney(item.balance)),
+                h("button", { type: "button", onClick: () => onOpenMonth(item.month) }, "Corectează")
+              )
+            ),
+            creditsUsed > 0 && h("small", null, "Avansuri deja scăzute: " + formatMoney(creditsUsed))
+          )
+      );
     }
 
     if (previousCredit > 0) {
@@ -2159,7 +2188,7 @@
     return String(payment?.recipient || "").trim();
   }
 
-  function FeesView({ athletes, fees, taxPayments = [], onSaveFee, onSaveTaxPayment, onDeleteTaxPayment }) {
+  function FeesView({ athletes, fees, taxPayments = [], operatorEmail = "", onSaveFee, onSaveTaxPayment, onDeleteTaxPayment }) {
     const monthNow = currentMonth();
     const [month, setMonth] = React.useState(monthNow);
     const [group, setGroup] = React.useState("toate");
@@ -2172,6 +2201,8 @@
     const [taxReminderPreview, setTaxReminderPreview] = React.useState(null);
     const [feeDueDrafts, setFeeDueDrafts] = React.useState({});
     const [feeDueEditorAthleteId, setFeeDueEditorAthleteId] = React.useState("");
+    const [balanceDetailsAthleteId, setBalanceDetailsAthleteId] = React.useState("");
+    const [feeCancellationForm, setFeeCancellationForm] = React.useState(null);
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!isFeeDueForMonth(athlete, month)) return false;
@@ -2209,6 +2240,8 @@
       setFeeHistoryAthleteId("");
       setFeeDueDrafts({});
       setFeeDueEditorAthleteId("");
+      setBalanceDetailsAthleteId("");
+      setFeeCancellationForm(null);
     }
 
     function getFee(athleteId) {
@@ -2264,6 +2297,46 @@
       clearFeeDueDraft(athlete.id);
       updateFee(athlete.id, "amountDue", amount);
       setFeeDueEditorAthleteId("");
+      setFeeCancellationForm(null);
+    }
+
+    function openBalanceSourceMonth(athlete, sourceMonth) {
+      updateMonth(sourceMonth);
+      setFeeDueEditorAthleteId(athlete.id);
+      window.setTimeout(() => document.getElementById(`fee-row-${athlete.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+    }
+
+    function beginFeeCancellation(athlete, fee, fallbackDue) {
+      const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
+      const amountPaid = Number(fee?.amountPaid || 0);
+      const amount = Math.max(amountDue - amountPaid, 0);
+      if (amount <= 0) return;
+
+      setFeeCancellationForm({
+        athleteId: athlete.id,
+        month,
+        amount,
+        reason: ""
+      });
+    }
+
+    function confirmFeeCancellation(event, athlete) {
+      event.preventDefault();
+      if (!feeCancellationForm || feeCancellationForm.athleteId !== athlete.id || feeCancellationForm.month !== month) return;
+
+      const reason = String(feeCancellationForm.reason || "").trim();
+      if (!reason) return;
+
+      const fee = getFee(athlete.id);
+      const result = cancelOutstandingFee(fee, {
+        fallbackDue: getDefaultAmountDue(fees, athlete, month),
+        reason,
+        canceledByEmail: operatorEmail
+      });
+
+      if (!result.changed) return;
+      onSaveFee(result.fee);
+      setFeeCancellationForm(null);
     }
 
     function openFeePaymentForm(athlete) {
@@ -2491,6 +2564,7 @@
     const feePanelTotalToPay = feePanelFee ? getTotalToPay(feePanelFee, feePanelPreviousBalance, feePanelFallbackDue) : 0;
     const feePanelOutstanding = feePanelFee ? getOutstandingAmount(feePanelFee, feePanelPreviousBalance, feePanelFallbackDue) : 0;
     const feePanelPayments = feePanelFee ? [...getFeePayments(feePanelFee)].sort((first, second) => compareFeePayments(second, first)) : [];
+    const feePanelAdjustments = feePanelAthlete ? getFeeAdjustments(fees, feePanelAthlete.id) : [];
 
     return h(
       "section",
@@ -2667,6 +2741,26 @@
                 )
               )
             : h("p", { className: "cs-fee-payment-empty" }, "Nu exista inca nicio incasare in aceasta luna."),
+          feePanelAdjustments.length > 0 && h("h4", null, "Istoric taxe anulate (" + feePanelAdjustments.length + ")"),
+          feePanelAdjustments.length > 0 &&
+            h(
+              "div",
+              { className: "cs-fee-adjustment-history" },
+              feePanelAdjustments.map((adjustment) =>
+                h(
+                  "article",
+                  { key: adjustment.id },
+                  h(
+                    "div",
+                    null,
+                    h("strong", null, "Taxă anulată: " + formatMoney(adjustment.amount)),
+                    h("span", null, formatMonthLabel(adjustment.month) + " / " + formatDateTime(adjustment.canceledAt)),
+                    h("small", null, "Motiv: " + (adjustment.reason || "necompletat"))
+                  ),
+                  h("span", { className: "pill muted" }, operatorLabel(adjustment.canceledByEmail))
+                )
+              )
+            ),
           h("small", { className: "cs-fee-payment-note" }, "Fiecare plata ramane separata, cu data si metoda ei. Soldul anterior continua sa fie afisat in luna curenta.")
         ),
       monthlyTaxPayments.length > 0 &&
@@ -2726,10 +2820,15 @@
               const duePresets = getMonthlyFeePresets(athlete);
               const dueAmount = Number(fee.amountDue ?? fallbackDue);
               const isDueEditorOpen = feeDueEditorAthleteId === athlete.id;
+              const balanceBreakdown = getPreviousBalanceBreakdown(fees, athlete, month);
+              const isBalanceDetailsOpen = balanceDetailsAthleteId === athlete.id;
+              const monthlyAdjustments = Array.isArray(fee.feeAdjustments) ? fee.feeAdjustments : [];
+              const cancellableAmount = Math.max(dueAmount - feePaymentsTotal(fee), 0);
+              const isCancellationOpen = feeCancellationForm?.athleteId === athlete.id && feeCancellationForm?.month === month;
 
               return h(
                 "tr",
-                { key: athlete.id, className: outstanding > 0 ? "row-unpaid" : "" },
+                { key: athlete.id, id: `fee-row-${athlete.id}`, className: outstanding > 0 ? "row-unpaid" : "" },
                 h(
                   "td",
                   { "data-label": "Sportiv" },
@@ -2799,11 +2898,65 @@
                               `${preset.shortLabel} ${formatMoney(preset.amount)}`
                             )
                           )
-                        )
+                        ),
+                        cancellableAmount > 0 && !isCancellationOpen &&
+                          h(
+                            "button",
+                            {
+                              type: "button",
+                              className: "cs-fee-cancel-toggle",
+                              onClick: () => beginFeeCancellation(athlete, fee, fallbackDue)
+                            },
+                            "Anulează taxa"
+                          ),
+                        isCancellationOpen &&
+                          h(
+                            "form",
+                            { className: "cs-fee-cancel-form", onSubmit: (event) => confirmFeeCancellation(event, athlete) },
+                            h("strong", null, "Anulezi " + formatMoney(feeCancellationForm.amount) + " din taxa acestei luni"),
+                            h("small", null, "Încasările rămân neschimbate, iar anularea va fi păstrată în istoric."),
+                            h("input", {
+                              value: feeCancellationForm.reason,
+                              onChange: (event) => setFeeCancellationForm((current) => ({ ...current, reason: event.target.value })),
+                              placeholder: "Motivul anulării (ex: pauză)",
+                              "aria-label": `Motiv anulare taxă pentru ${athleteName(athlete)}`,
+                              autoFocus: true,
+                              required: true
+                            }),
+                            h(
+                              "div",
+                              { className: "cs-fee-cancel-actions" },
+                              h("button", { className: "danger", type: "submit" }, "Confirmă anularea"),
+                              h("button", { type: "button", onClick: () => setFeeCancellationForm(null) }, "Renunță")
+                            )
+                          ),
+                        monthlyAdjustments.length > 0 &&
+                          h(
+                            "div",
+                            { className: "cs-fee-month-adjustments" },
+                            h("strong", null, "Istoric anulări"),
+                            monthlyAdjustments.map((adjustment) =>
+                              h(
+                                "small",
+                                { key: adjustment.id },
+                                `${formatMoney(adjustment.amount)} · ${adjustment.reason || "Fără motiv"} · ${formatDateTime(adjustment.canceledAt)}`
+                              )
+                            )
+                          )
                       )
                   )
                 ),
-                h("td", { "data-label": "Restanta / Avans" }, h(BalanceCell, { previousBalance })),
+                h(
+                  "td",
+                  { "data-label": "Restanta / Avans" },
+                  h(BalanceCell, {
+                    previousBalance,
+                    breakdown: balanceBreakdown,
+                    expanded: isBalanceDetailsOpen,
+                    onToggle: () => setBalanceDetailsAthleteId((current) => current === athlete.id ? "" : athlete.id),
+                    onOpenMonth: (sourceMonth) => openBalanceSourceMonth(athlete, sourceMonth)
+                  })
+                ),
                 h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(feePaymentsTotal(fee))), feePayments.length > 1 && h("small", null, feePayments.length + " incasari")),
                 h("td", { "data-label": "Ramas" }, h("strong", { className: outstanding > 0 ? "arrears" : "" }, creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding))),
                 h(
