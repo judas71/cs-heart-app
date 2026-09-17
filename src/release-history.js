@@ -1,9 +1,19 @@
 (function () {
   const releases = [
     {
+      version: "17-9-26",
+      date: "17 septembrie 2026",
+      current: true,
+      changes: [
+        { title: "Plățile sting întâi datoriile vechi", description: "Încasările acoperă taxele începând cu cea mai veche lună neachitată. Regula se aplică și plăților existente, fără schimbarea sumelor, datelor sau confirmărilor." },
+        { title: "Istoric recalculat pe luni", description: "În Taxe și în fișa încasărilor se vede ce luni acoperă fiecare plată și ce mai este de achitat. Anularea taxei ține cont de plățile repartizate acelei luni." }
+      ],
+      bestArad: "De preluat: repartizarea plăților pe cele mai vechi datorii și istoricul recalculat."
+    },
+    {
       version: "15-9-26",
       date: "15 septembrie 2026",
-      current: true,
+      current: false,
       changes: [
         {
           title: "Restanța este explicată pe luni",

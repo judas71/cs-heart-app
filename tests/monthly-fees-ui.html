@@ -19,12 +19,14 @@
     <script>
       const h = React.createElement;
       const athletes = [
+        { id: "fifo", lastName: "TEST", firstName: "RESTANȚĂ IUNIE", group: "ALINA", active: true, feeDue: 200, joinMonth: "2026-06" },
         { id: "david", lastName: "TEST", firstName: "DAVID", group: "ALINA", active: true, feeDue: 250, joinMonth: "2026-09" },
         { id: "sofia", lastName: "ARICIU", firstName: "SOFIA", group: "ALINA", active: true, feeDue: 250, joinMonth: "2026-09" }
       ];
 
       function TestPage() {
         const [fees, setFees] = React.useState([
+          { id: "fifo-july", athleteId: "fifo", month: "2026-07", amountDue: 200, amountPaid: 200, payments: [{ id: "fifo-payment", amount: 200, date: "2026-07-10", method: "cash", confirmationCount: 1 }] },
           { id: "fee-david", athleteId: "david", month: "2026-09", amountDue: 250, amountPaid: 0, payments: [], status: "neplătită", method: "cash", notes: "" },
           { id: "fee-sofia", athleteId: "sofia", month: "2026-09", amountDue: 0, amountPaid: 0, payments: [], status: "plătită", method: "cash", notes: "" }
         ]);

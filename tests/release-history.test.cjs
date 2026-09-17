@@ -15,7 +15,7 @@ function loadReleaseHistory() {
 test("the visible version matches the latest release date", () => {
   const history = loadReleaseHistory();
 
-  assert.equal(history.currentVersion, "15-9-26");
+  assert.equal(history.currentVersion, "17-9-26");
   assert.equal(history.releases[0].version, history.currentVersion);
   assert.equal(history.releases[0].current, true);
 });
@@ -42,7 +42,7 @@ test("the current release records the simplified monthly fee controls", () => {
 
 test("the current release records fee balance sources and auditable cancellations", () => {
   const history = loadReleaseHistory();
-  const current = history.releases[0];
+  const current = history.releases.find((item) => item.version === "15-9-26");
   const description = current.changes.map((item) => item.description).join(" ");
 
   assert.match(description, /din ce luni provine/i);

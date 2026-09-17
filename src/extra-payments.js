@@ -2,7 +2,7 @@
   const h = React.createElement;
   const { isFeeDueForMonth } = window.CSHeartMembershipFees;
   const { getMonthlyFeePresets, normalizeMonthlyFeeAmount } = window.CSHeartMonthlyFeeOptions;
-  const { getPreviousBalanceBreakdown, getFeeAdjustments, cancelOutstandingFee } = window.CSHeartFeeLedger;
+  const { getSettlement, allocationLabel, SettlementHistory, getFeeAdjustments, cancelOutstandingFee } = window.CSHeartFeeLedger;
 
   const categories = ["echipament", "cantonament", "turneu", "legitimatie", "transport", "sponsorizare", "parteneriat", "altele"];
   const payerTypes = ["sportiv", "partener", "altul"];
@@ -1227,8 +1227,8 @@
     ].join("\n");
   }
 
-  function taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue) {
-    const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
+  function taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue, settledOutstanding) {
+    const outstanding = settledOutstanding ?? getOutstandingAmount(fee, previousBalance, fallbackDue);
 
     return [
       "CS HEART - Reamintire taxă",
@@ -1553,7 +1553,7 @@
     if (!data) return null;
 
     const { athlete, fee, previousBalance, fallbackDue } = data;
-    const [message, setMessage] = React.useState(() => taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue));
+    const [message, setMessage] = React.useState(() => taxFeeReminderMessage(athlete, fee, previousBalance, fallbackDue, data.settledOutstanding));
     const reminderCount = Number(fee.reminderCount || 0);
 
     return h(
@@ -2205,7 +2205,7 @@
     const [feeCancellationForm, setFeeCancellationForm] = React.useState(null);
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
-      if (!isFeeDueForMonth(athlete, month)) return false;
+      if (!isFeeDueForMonth(athlete, month) && !fees.some((fee) => fee.athleteId === athlete.id && fee.month === month)) return false;
       if (group !== "toate" && athlete.group !== group) return false;
       if (!athlete.joinMonth) return false;
 
@@ -2308,7 +2308,7 @@
 
     function beginFeeCancellation(athlete, fee, fallbackDue) {
       const amountDue = Number(fee?.amountDue ?? fallbackDue ?? 0);
-      const amountPaid = Number(fee?.amountPaid || 0);
+      const amountPaid = settlementFor(athlete).months.find((row) => row.month === month)?.amountPaid || 0;
       const amount = Math.max(amountDue - amountPaid, 0);
       if (amount <= 0) return;
 
@@ -2330,6 +2330,7 @@
       const fee = getFee(athlete.id);
       const result = cancelOutstandingFee(fee, {
         fallbackDue: getDefaultAmountDue(fees, athlete, month),
+        allocatedPaid: settlementFor(athlete).months.find((row) => row.month === month)?.amountPaid || 0,
         reason,
         canceledByEmail: operatorEmail
       });
@@ -2430,8 +2431,9 @@
     }
 
     function openTaxReminder(athlete, fee, previousBalance, fallbackDue) {
-      if (getOutstandingAmount(fee, previousBalance, fallbackDue) <= 0) return;
-      setTaxReminderPreview({ athlete, fee, previousBalance, fallbackDue });
+      const settledOutstanding = settlementFor(athlete).outstanding;
+      if (settledOutstanding <= 0) return;
+      setTaxReminderPreview({ athlete, fee, previousBalance, fallbackDue, settledOutstanding });
     }
 
     function markTaxReceiptGenerated(preview) {
@@ -2533,25 +2535,13 @@
       }
     }
 
-    const monthlyOutstanding = listedAthletes.reduce((sum, athlete) => {
-      const fee = getFee(athlete.id);
-      const previousBalance = getPreviousBalance(fees, athlete, month);
-      const fallbackDue = getDefaultAmountDue(fees, athlete, month);
-
-      return sum + getOutstandingAmount(fee, previousBalance, fallbackDue);
-    }, 0);
+    const settlements = new Map(athletes.map((athlete) => [athlete.id, getSettlement(fees, athlete, month)]));
+    function settlementFor(athlete) { return settlements.get(athlete.id); }
+    const monthlyOutstanding = listedAthletes.reduce((sum, athlete) => sum + settlementFor(athlete).outstanding, 0);
     const originalOrder = new Map(listedAthletes.map((athlete, index) => [athlete.id, index]));
     const displayedAthletes = [...listedAthletes].sort((first, second) => {
-      const firstOutstanding = getOutstandingAmount(
-        getFee(first.id),
-        getPreviousBalance(fees, first, month),
-        getDefaultAmountDue(fees, first, month)
-      );
-      const secondOutstanding = getOutstandingAmount(
-        getFee(second.id),
-        getPreviousBalance(fees, second, month),
-        getDefaultAmountDue(fees, second, month)
-      );
+      const firstOutstanding = settlementFor(first).outstanding;
+      const secondOutstanding = settlementFor(second).outstanding;
       const firstIsUnpaid = firstOutstanding > 0 ? 1 : 0;
       const secondIsUnpaid = secondOutstanding > 0 ? 1 : 0;
 
@@ -2562,7 +2552,7 @@
     const feePanelPreviousBalance = feePanelAthlete ? getPreviousBalance(fees, feePanelAthlete, month) : 0;
     const feePanelFallbackDue = feePanelAthlete ? getDefaultAmountDue(fees, feePanelAthlete, month) : 0;
     const feePanelTotalToPay = feePanelFee ? getTotalToPay(feePanelFee, feePanelPreviousBalance, feePanelFallbackDue) : 0;
-    const feePanelOutstanding = feePanelFee ? getOutstandingAmount(feePanelFee, feePanelPreviousBalance, feePanelFallbackDue) : 0;
+    const feePanelOutstanding = feePanelAthlete ? settlementFor(feePanelAthlete).outstanding : 0;
     const feePanelPayments = feePanelFee ? [...getFeePayments(feePanelFee)].sort((first, second) => compareFeePayments(second, first)) : [];
     const feePanelAdjustments = feePanelAthlete ? getFeeAdjustments(fees, feePanelAthlete.id) : [];
 
@@ -2652,6 +2642,7 @@
           h("small", null, "Incasari taxe - salarii/chirii")
         )
       ),
+      h("p", { className: "cs-fee-payment-note" }, "Plățile acoperă întâi cele mai vechi restanțe. Sumele rămase și istoricul lunilor includ toate încasările înregistrate, inclusiv cele din luni ulterioare. Data încasării se păstrează."),
       feePanelAthlete && feePanelFee &&
         h(
           "section",
@@ -2671,9 +2662,9 @@
           h(
             "div",
             { className: "cs-fee-payment-summary" },
-            h("div", null, h("span", null, "Rest anterior"), h("strong", null, feePanelPreviousBalance < 0 ? "Avans " + formatMoney(Math.abs(feePanelPreviousBalance)) : formatMoney(feePanelPreviousBalance))),
+            h("div", null, h("span", null, "Restanțe vechi încă neachitate"), h("strong", null, formatMoney(settlementFor(feePanelAthlete).previousDebt))),
             h("div", null, h("span", null, "Taxa lunii"), h("strong", null, formatMoney(feePanelFee.amountDue ?? feePanelFallbackDue))),
-            h("div", null, h("span", null, "Sold inainte de plati"), h("strong", null, formatMoney(feePanelTotalToPay))),
+            h("div", null, h("span", null, "Acoperit din taxa lunii"), h("strong", null, formatMoney(settlementFor(feePanelAthlete).months.find((row) => row.month === month)?.amountPaid || 0))),
             h("div", null, h("span", null, "Incasat luna aceasta"), h("strong", null, formatMoney(feePaymentsTotal(feePanelFee)))),
             h("div", null, h("span", null, "Ramas de achitat"), h("strong", { className: feePanelOutstanding > 0 ? "arrears" : "" }, formatMoney(feePanelOutstanding)))
           ),
@@ -2702,6 +2693,7 @@
             ),
           !feePaymentForm &&
             h("button", { className: "primary", type: "button", onClick: () => openFeePaymentForm(feePanelAthlete) }, "+ Inregistreaza o incasare"),
+          h(SettlementHistory, { settlement: settlementFor(feePanelAthlete) }),
           h("h4", null, "Istoric plati (" + feePanelPayments.length + ")"),
           feePanelPayments.length
             ? h(
@@ -2711,7 +2703,7 @@
                   h(
                     "article",
                     { key: payment.id },
-                    h("div", null, h("strong", null, formatMoney(payment.amount)), h("span", null, formatDate(payment.date) + " / " + (payment.method || "-")), payment.notes && h("small", null, payment.notes)),
+                    h("div", null, h("strong", null, formatMoney(payment.amount)), h("span", null, formatDate(payment.date) + " / " + (payment.method || "-")), h("small", null, "Acoperă: " + allocationLabel(settlementFor(feePanelAthlete), month, payment.id)), payment.notes && h("small", null, payment.notes)),
                     h(
                       "div",
                       { className: "cs-fee-payment-actions" },
@@ -2810,20 +2802,21 @@
               const fee = getFee(athlete.id);
               const previousBalance = getPreviousBalance(fees, athlete, month);
               const fallbackDue = getDefaultAmountDue(fees, athlete, month);
-              const outstanding = getOutstandingAmount(fee, previousBalance, fallbackDue);
-              const automaticStatus = getAutomaticFeeStatus(fee, previousBalance, fallbackDue);
-              const balanceAfterMonth = getBalanceAfterMonth(fee, previousBalance, fallbackDue);
-              const creditAfterMonth = Math.max(-balanceAfterMonth, 0);
+              const settlement = settlementFor(athlete);
+              const settledMonth = settlement.months.find((row) => row.month === month);
+              const outstanding = settlement.outstanding;
+              const automaticStatus = outstanding <= 0 ? "plătită" : settledMonth?.amountPaid > 0 ? "parțial plătită" : "neplătită";
+              const creditAfterMonth = month >= settlement.horizon ? settlement.credit : 0;
               const feePayments = getFeePayments(fee);
               const dueDraftKey = feeDueDraftKey(athlete.id);
               const dueInputValue = dueDraftKey in feeDueDrafts ? feeDueDrafts[dueDraftKey] : String(fee.amountDue ?? fallbackDue);
               const duePresets = getMonthlyFeePresets(athlete);
               const dueAmount = Number(fee.amountDue ?? fallbackDue);
               const isDueEditorOpen = feeDueEditorAthleteId === athlete.id;
-              const balanceBreakdown = getPreviousBalanceBreakdown(fees, athlete, month);
+              const balanceBreakdown = { debts: settlement.months.filter((row) => row.month < month && row.balance > 0) };
               const isBalanceDetailsOpen = balanceDetailsAthleteId === athlete.id;
               const monthlyAdjustments = Array.isArray(fee.feeAdjustments) ? fee.feeAdjustments : [];
-              const cancellableAmount = Math.max(dueAmount - feePaymentsTotal(fee), 0);
+              const cancellableAmount = settledMonth?.balance || 0;
               const isCancellationOpen = feeCancellationForm?.athleteId === athlete.id && feeCancellationForm?.month === month;
 
               return h(
@@ -2950,20 +2943,20 @@
                   "td",
                   { "data-label": "Restanta / Avans" },
                   h(BalanceCell, {
-                    previousBalance,
+                    previousBalance: settlement.previousDebt,
                     breakdown: balanceBreakdown,
                     expanded: isBalanceDetailsOpen,
                     onToggle: () => setBalanceDetailsAthleteId((current) => current === athlete.id ? "" : athlete.id),
                     onOpenMonth: (sourceMonth) => openBalanceSourceMonth(athlete, sourceMonth)
                   })
                 ),
-                h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(feePaymentsTotal(fee))), feePayments.length > 1 && h("small", null, feePayments.length + " incasari")),
+                h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(settledMonth?.amountPaid || 0)), h("small", null, "Acoperit pentru această lună"), h("small", null, "Încasat în luna selectată: " + formatMoney(feePaymentsTotal(fee)))),
                 h("td", { "data-label": "Ramas" }, h("strong", { className: outstanding > 0 ? "arrears" : "" }, creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding))),
                 h(
                   "td",
                   { "data-label": "Incasari", className: "row-actions" },
                   h("button", { className: "primary", type: "button", onClick: () => openFeePaymentForm(athlete) }, "Incaseaza"),
-                  feePayments.length > 0 && h("button", { type: "button", onClick: () => toggleFeeHistory(athlete.id) }, "Istoric (" + feePayments.length + ")")
+                  h("button", { type: "button", onClick: () => toggleFeeHistory(athlete.id) }, "Istoric")
                 ),
                 h(
                   "td",

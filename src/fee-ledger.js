@@ -35,7 +35,7 @@
 
   function getDefaultAmountDue(athlete, month) {
     if (!window.CSHeartMembershipFees?.isFeeDueForMonth(athlete, month)) return 0;
-    return Number(athlete?.feeDue ?? 200);
+    return athlete?.feeDue === "" ? 200 : Number(athlete?.feeDue ?? 200);
   }
 
   function getAmountDue(athlete, fee, month) {
@@ -76,6 +76,49 @@
     };
   }
 
+  // Derived allocation only: original receipts, dates and confirmations are never rewritten.
+  function getSettlement(fees, athlete, selectedMonth, nowMonth = new Date().toISOString().slice(0, 7)) {
+    const ownFees = (fees || []).filter((fee) => fee.athleteId === athlete.id);
+    const horizon = [normalizeMonth(selectedMonth), normalizeMonth(nowMonth), ...ownFees.map((fee) => normalizeMonth(fee.month))].filter(Boolean).sort().pop();
+    const start = [normalizeMonth(athlete.joinMonth), ...ownFees.map((fee) => normalizeMonth(fee.month))].filter(Boolean).sort()[0] || horizon;
+    const months = [...monthRange(start, horizon), horizon].map((month) => {
+      const fee = getFeeForMonth(ownFees, athlete.id, month);
+      const amountDue = Math.max(0, Math.round(getAmountDue(athlete, fee, month) * 100));
+      return { month, dueCents: amountDue, remainingCents: amountDue, allocations: [] };
+    });
+    const payments = ownFees.flatMap((fee) => {
+      const rows = Array.isArray(fee.payments) ? fee.payments : [{
+        id: `legacy-${fee.id || `${fee.athleteId}-${fee.month}`}`,
+        amount: Number(fee.amountPaid || 0), date: fee.paymentDate || "", method: fee.method || "cash"
+      }];
+      return rows.filter((payment) => Number(payment.amount) > 0).map((payment, index) => ({
+        ...payment, id: payment.id || `${fee.month}-${index}`, sourceMonth: fee.month,
+        allocations: [], credit: 0
+      }));
+    }).sort((a, b) => String(a.date || a.sourceMonth).localeCompare(String(b.date || b.sourceMonth)) || String(a.createdAt || "").localeCompare(String(b.createdAt || "")) || String(a.id).localeCompare(String(b.id)));
+    let creditCents = 0;
+    for (const payment of payments) {
+      let available = Math.round(Number(payment.amount) * 100);
+      for (const row of months) {
+        if (!available) break;
+        const used = Math.min(available, row.remainingCents);
+        if (!used) continue;
+        row.remainingCents -= used;
+        available -= used;
+        payment.allocations.push({ month: row.month, amount: used / 100 });
+        row.allocations.push({ paymentId: payment.id, sourceMonth: payment.sourceMonth, date: payment.date, amount: used / 100 });
+      }
+      payment.credit = available / 100;
+      creditCents += available;
+    }
+    const resultMonths = months.map((row) => ({ month: row.month, amountDue: row.dueCents / 100, amountPaid: (row.dueCents - row.remainingCents) / 100, balance: row.remainingCents / 100, allocations: row.allocations }));
+    return {
+      horizon, months: resultMonths, payments, credit: creditCents / 100,
+      outstanding: resultMonths.filter((row) => row.month <= selectedMonth).reduce((sum, row) => sum + Math.round(row.balance * 100), 0) / 100,
+      previousDebt: resultMonths.filter((row) => row.month < selectedMonth).reduce((sum, row) => sum + Math.round(row.balance * 100), 0) / 100
+    };
+  }
+
   function getFeeAdjustments(fees, athleteId) {
     return (Array.isArray(fees) ? fees : [])
       .filter((fee) => fee?.athleteId === athleteId)
@@ -91,7 +134,8 @@
   function cancelOutstandingFee(fee, options = {}) {
     const previousAmountDue = Number(fee?.amountDue ?? options.fallbackDue ?? 0);
     const amountPaid = Number(fee?.amountPaid || 0);
-    const canceledAmount = Math.max(previousAmountDue - amountPaid, 0);
+    const allocatedPaid = Number(options.allocatedPaid ?? amountPaid);
+    const canceledAmount = Math.max(Math.round((previousAmountDue - allocatedPaid) * 100), 0) / 100;
     if (canceledAmount <= 0) return { changed: false, fee, adjustment: null };
 
     const canceledAt = options.canceledAt || new Date().toISOString();
@@ -100,7 +144,7 @@
       type: "anulare-taxa",
       month: normalizeMonth(fee?.month),
       previousAmountDue,
-      amountDue: previousAmountDue - canceledAmount,
+      amountDue: Math.round((previousAmountDue - canceledAmount) * 100) / 100,
       amount: canceledAmount,
       reason: String(options.reason || "").trim(),
       canceledAt,
@@ -118,7 +162,34 @@
     };
   }
 
+  function allocationLabel(settlement, sourceMonth, paymentId) {
+    const payment = settlement.payments.find((item) => item.sourceMonth === sourceMonth && item.id === paymentId);
+    if (!payment) return "";
+    return payment.allocations.map((item) => `${item.month}: ${item.amount.toLocaleString("ro-RO")} lei`).concat(payment.credit > 0 ? [`Avans: ${payment.credit.toLocaleString("ro-RO")} lei`] : []).join(" / ");
+  }
+
+  function SettlementHistory({ settlement }) {
+    const h = React.createElement;
+    const money = (value) => `${value.toLocaleString("ro-RO")} lei`;
+    return h("details", { className: "panel" },
+      h("summary", null, "Situația taxelor pe luni — plățile acoperă întâi restanțele vechi"),
+      h("p", null, "Situație recalculată folosind toate încasările înregistrate. O lună poate fi achitată printr-o plată făcută mai târziu."),
+      h("div", { className: "table-wrap" }, h("table", null,
+        h("thead", null, h("tr", null, ["Luna", "Taxă", "Acoperit prin plăți", "Rămas", "Încasările care au acoperit taxa"].map((label) => h("th", { key: label }, label)))),
+        h("tbody", null, settlement.months.map((row) => h("tr", { key: row.month },
+          h("td", { "data-label": "Luna" }, row.month),
+          h("td", { "data-label": "Taxă" }, money(row.amountDue)),
+          h("td", { "data-label": "Acoperit prin plăți" }, money(row.amountPaid)),
+          h("td", { "data-label": "Rămas" }, money(row.balance)),
+          h("td", { "data-label": "Încasări" }, row.allocations.map((item) => `${item.date || item.sourceMonth}: ${money(item.amount)}`).join(" / ") || "—")
+        )))
+      )), settlement.credit > 0 && h("p", null, "Avans disponibil: " + money(settlement.credit)));
+  }
+
   window.CSHeartFeeLedger = {
+    getSettlement,
+    allocationLabel,
+    SettlementHistory,
     getPreviousBalanceBreakdown,
     getFeeAdjustments,
     cancelOutstandingFee

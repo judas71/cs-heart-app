@@ -329,6 +329,8 @@
   }
 
   function PaymentHistory({ athlete, fees, otherPayments = [] }) {
+    const ledger = window.CSHeartFeeLedger;
+    const settlement = ledger.getSettlement(fees, athlete, new Date().toISOString().slice(0, 7));
     const rows = fees
       .filter((fee) => fee.athleteId === athlete.id)
       .flatMap(feePaymentRows)
@@ -374,6 +376,7 @@
         h("strong", null, "Echipamente primite"),
         h(EquipmentSummary, { athlete })
       ),
+      h(ledger.SettlementHistory, { settlement }),
       rows.length
         ? h(
             "div",
@@ -387,7 +390,7 @@
                 h(
                   "tr",
                   null,
-                  ["Luna", "Taxa lunii", "Platit", "Data platii", "Metoda", "Status", "Operat de", "Modificat la"].map((head) => h("th", { key: head }, head))
+                  ["Luna înregistrării", "Acoperă taxele", "Încasat", "Data platii", "Metoda", "Operat de", "Modificat la"].map((head) => h("th", { key: head }, head))
                 )
               ),
               h(
@@ -397,12 +400,11 @@
                   h(
                     "tr",
                     { key: payment.id || `${fee.athleteId}-${fee.month}-${payment.date}-${payment.amount}` },
-                    h("td", { "data-label": "Luna" }, fee.month || "-"),
-                    h("td", { "data-label": "Taxa lunii" }, formatMoney(fee.amountDue)),
+                    h("td", { "data-label": "Luna înregistrării" }, fee.month || "-"),
+                    h("td", { "data-label": "Acoperă taxele" }, ledger.allocationLabel(settlement, fee.month, payment.id)),
                     h("td", { "data-label": "Platit" }, h("strong", null, formatMoney(payment.amount))),
                     h("td", { "data-label": "Data platii" }, formatDate(payment.date)),
                     h("td", { "data-label": "Metoda" }, payment.method || "-"),
-                    h("td", { "data-label": "Status" }, fee.status || "-"),
                     h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail || fee.updatedByEmail || fee.updatedBy)),
                     h("td", { "data-label": "Modificat la" }, formatDateTime(payment.createdAt || fee.updatedAt))
                   )
