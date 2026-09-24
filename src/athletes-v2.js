@@ -506,6 +506,7 @@
     const [shareText, setShareText] = React.useState("");
     const [shareNotice, setShareNotice] = React.useState("");
     const details = getAttendanceDetails(athlete.id, trainings, month);
+    const daysOff = trainings.filter((training) => training.date?.startsWith(month) && window.CSHeartNoTraining?.affected(training, athlete)).sort((a, b) => a.date.localeCompare(b.date));
     const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("ro-RO", {
       month: "long",
       year: "numeric"
@@ -536,7 +537,8 @@
         `Procent prezenta: ${details.percentage === null ? "-" : details.percentage + "%"}`,
         "",
         "Detalii:",
-        dates
+        dates,
+        ...daysOff.map((row) => `${formatDate(row.date)} - Nu s-a ținut antrenamentul${row.reason ? ": " + row.reason : ""} (nu influențează procentul)`)
       ].join("\n");
     }
 
@@ -631,6 +633,10 @@
             h("button", { type: "button", onClick: () => { setShareText(""); setShareNotice(""); } }, "Inchide")
           )
         ),
+      daysOff.length > 0 && h("div", { className: "athlete-v2-attendance-list" }, daysOff.map((row) => h("article", { key: row.id, className: "athlete-v2-attendance-row" },
+        h("div", null, h("strong", null, formatDate(row.date)), h("small", null, row.reason || "Fără antrenament")),
+        h("span", null, "Nu s-a ținut — fără absențe")
+      ))),
       details.rows.length
         ? h(
             "div",

@@ -15,7 +15,7 @@ function loadReleaseHistory() {
 test("the visible version matches the latest release date", () => {
   const history = loadReleaseHistory();
 
-  assert.equal(history.currentVersion, "17-9-26");
+  assert.equal(history.currentVersion, "24-9-26");
   assert.equal(history.releases[0].version, history.currentVersion);
   assert.equal(history.releases[0].current, true);
 });

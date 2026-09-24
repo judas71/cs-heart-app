@@ -1,9 +1,14 @@
 (function () {
   const releases = [
     {
+      version: "24-9-26", date: "24 septembrie 2026", current: true,
+      changes: [{ title: "Zile fără antrenament", description: "În Prezență poți marca o zi fără antrenament pentru grupele alese sau întregul club, cu motiv opțional. Marcajele apar în istoric și în fișa lunară a sportivului, fără absențe și fără influență asupra procentului. Prezențele existente nu sunt suprascrise." }],
+      bestArad: "De preluat: marcarea zilelor fără antrenament."
+    },
+    {
       version: "17-9-26",
       date: "17 septembrie 2026",
-      current: true,
+      current: false,
       changes: [
         { title: "Plățile sting întâi datoriile vechi", description: "Încasările acoperă taxele începând cu cea mai veche lună neachitată. Regula se aplică și plăților existente, fără schimbarea sumelor, datelor sau confirmărilor." },
         { title: "Istoric recalculat pe luni", description: "În Taxe și în fișa încasărilor se vede ce luni acoperă fiecare plată și ce mai este de achitat. Anularea taxei ține cont de plățile repartizate acelei luni." }

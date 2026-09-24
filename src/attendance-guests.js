@@ -177,6 +177,7 @@
     const [attendance, setAttendance] = React.useState({});
     const [baselineAttendance, setBaselineAttendance] = React.useState({});
     const [savedNotice, setSavedNotice] = React.useState(false);
+    const [noTrainingOpen, setNoTrainingOpen] = React.useState(false);
     const activeAthletes = athletes.filter((athlete) => athlete.active !== false).sort(compareAthletes);
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
     const selectedTraining = findTraining(trainings, date, mode, group, activeAthletes, editingTrainingId);
@@ -204,14 +205,14 @@
       attendanceSignature(attendance, mode) !== attendanceSignature(baselineAttendance, mode) ||
       (mode === "mixt" && listSignature(selectedMixedGroups) !== listSignature(baselineMixedGroups));
     const historyRows = [...trainings]
-      .filter((training) => Object.keys(training.attendance || {}).length > 0)
+      .filter((training) => training.type === "no-training" || Object.keys(training.attendance || {}).length > 0)
       .sort((first, second) => {
         const byDate = String(second.date || "").localeCompare(String(first.date || ""));
         if (byDate !== 0) return byDate;
         return String(first.group || "").localeCompare(String(second.group || ""), "ro");
       });
     const today = new Date().toISOString().slice(0, 10);
-    const todayRows = historyRows.filter((training) => training.date === today);
+    const todayRows = historyRows.filter((training) => training.date === today && training.type !== "no-training");
     const historyMonths = historyRows.reduce((months, training) => {
       const monthKey = String(training.date || "").slice(0, 7) || "fara-data";
       const currentMonth = months.find((month) => month.key === monthKey);
@@ -354,6 +355,10 @@
         nextTraining.groups = [...selectedMixedGroups];
       }
 
+      if (trainings.some((record) => record.type === "no-training" && window.CSHeartNoTraining.conflicts([nextTraining], record, athletes))) {
+        alert("Există un marcaj fără antrenament pentru această zi și aceste grupe. Verifică istoricul și elimină marcajul dacă antrenamentul s-a ținut.");
+        return;
+      }
       onSaveTraining(nextTraining);
       setAttendance(cleanedAttendance);
       setBaselineAttendance(cleanedAttendance);
@@ -558,7 +563,9 @@
           )
         )
       ),
-      screen === "marcare" &&
+      h("button", { type: "button", onClick: () => { if (confirmDiscardDraft()) setNoTrainingOpen(true); } }, "Nu s-a ținut antrenamentul"),
+      noTrainingOpen && h(window.CSHeartNoTraining.Form, { athletes, trainings, date, onSave: (record) => { onSaveTraining(record); setScreen("istoric"); setOpenHistoryMonth(record.date.slice(0, 7)); }, onClose: () => setNoTrainingOpen(false) }),
+      screen === "marcare" && !noTrainingOpen &&
         h(
           React.Fragment,
           null,
@@ -893,7 +900,7 @@
                           return effectiveCurrent === month.key ? "" : month.key;
                         })
                     },
-                    h("span", null, h("strong", null, month.label), h("small", null, `${month.rows.length} ${month.rows.length === 1 ? "antrenament" : "antrenamente"}`)),
+                    h("span", null, h("strong", null, month.label), h("small", null, `${month.rows.filter((row) => row.type !== "no-training").length} antrenamente / ${month.rows.filter((row) => row.type === "no-training").length} marcaje fără antrenament`)),
                     h("span", { className: "attendance-v2-history-month-action" }, isOpen ? "Ascunde" : "Deschide")
                   ),
                   isOpen &&
@@ -901,6 +908,13 @@
                       "div",
                       { className: "attendance-v2-history" },
                       month.rows.map((training) => {
+                        if (training.type === "no-training") return h("article", { key: training.id, className: "attendance-v2-history-card" },
+                          h("strong", null, formatDate(training.date) + " — Nu s-a ținut antrenamentul"),
+                          h("p", null, training.scope === "all" ? "Întreaga zi — toate grupele" : "Grupe: " + (training.groups || []).join(" + ")),
+                          training.reason && h("p", null, "Motiv: " + training.reason),
+                          h("small", null, "Fără absențe; nu intră în calculul prezenței."),
+                          h("button", { type: "button", onClick: () => deleteHistory(training) }, "Șterge marcajul")
+                        );
                         const historyCounts = countStatuses(training.attendance);
                         const label = displayTrainingLabel(training, activeAthletes);
 
