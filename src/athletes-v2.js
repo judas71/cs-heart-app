@@ -543,7 +543,7 @@
     }
 
     function prepareShare() {
-      if (!details.rows.length) return;
+      if (!details.rows.length && !daysOff.length) return;
       setShareText(attendanceMessage());
       setShareNotice("");
     }
@@ -598,7 +598,7 @@
               onChange: (event) => changeMonth(event.target.value)
             })
           ),
-          h("button", { type: "button", className: "primary", onClick: prepareShare, disabled: !details.rows.length }, "Trimite parintelui")
+          h("button", { type: "button", className: "primary", onClick: prepareShare, disabled: !details.rows.length && !daysOff.length }, "Trimite parintelui")
         )
       ),
       h(

@@ -827,7 +827,7 @@
     return status || "-";
   }
 
-  function attendanceShareMessage(athlete, month, entries) {
+  function attendanceShareMessage(athlete, month, entries, daysOff = []) {
     const counts = entries.reduce(
       (result, training) => {
         const status = training.attendance?.[athlete.id];
@@ -841,8 +841,8 @@
     );
     const percentage = entries.length ? Math.round((counts.present / entries.length) * 100) : 0;
     const monthLabel = new Date(`${month}-01T00:00:00`).toLocaleDateString("ro-RO", { month: "long", year: "numeric" });
-    const dates = entries
-      .map((training) => `${formatDate(training.date)} - ${attendanceStatusText(training.attendance?.[athlete.id])}`)
+    const dates = [...entries, ...daysOff].sort((a, b) => a.date.localeCompare(b.date))
+      .map((training) => `${formatDate(training.date)} - ${training.type === "no-training" ? "Nu s-a ținut antrenamentul" + (training.reason ? ": " + training.reason : "") + " (nu influențează procentul)" : attendanceStatusText(training.attendance?.[athlete.id])}`)
       .join("\n");
 
     return [
@@ -862,8 +862,8 @@
     ].join("\n");
   }
 
-  async function shareAttendanceReport(athlete, month, entries) {
-    const text = attendanceShareMessage(athlete, month, entries);
+  async function shareAttendanceReport(athlete, month, entries, daysOff = []) {
+    const text = attendanceShareMessage(athlete, month, entries, daysOff);
 
     if (openParentWhatsApp(athlete, text)) return;
 
@@ -4800,7 +4800,8 @@
         .filter((training) => training.attendance?.[athlete.id] && training.date.startsWith(month))
         .sort((first, second) => first.date.localeCompare(second.date));
       const present = entries.filter((training) => training.attendance[athlete.id] === "prezent").length;
-      return { athlete, total: entries.length, present, entries };
+      const daysOff = trainings.filter((training) => training.date?.startsWith(month) && window.CSHeartNoTraining?.affected(training, athlete));
+      return { athlete, total: entries.length, present, entries, daysOff };
     });
     const normalizedQuery = query.trim().toLocaleLowerCase("ro");
     const visibleRows = (mode === "sub50" ? rows.filter((row) => row.total > 0 && row.present / row.total < 0.5) : rows)
@@ -4859,31 +4860,31 @@
           ? h(
               "ul",
               { className: "cs-report-list" },
-              visibleRows.map(({ athlete, present, total, entries }) =>
+              visibleRows.map(({ athlete, present, total, entries, daysOff }) =>
                 h(
                   ExpandableReportItem,
                   {
                     key: athlete.id,
                     title: athleteName(athlete),
-                    subtitle: total > 0 ? "Deschide fisa lunara" : "Fara prezenta in luna aleasa",
+                    subtitle: total > 0 || daysOff.length > 0 ? "Deschide fisa lunara" : "Fara prezenta in luna aleasa",
                     amount: total > 0 ? `${Math.round((present / total) * 100)}% (${present}/${total})` : "-"
                   },
-                  entries.length > 0 && [
+                  (entries.length > 0 || daysOff.length > 0) && [
                     h(
                       "div",
                       { key: "dates", className: "cs-attendance-report-dates" },
-                      entries.map((training) =>
+                      [...entries, ...daysOff].sort((a, b) => a.date.localeCompare(b.date)).map((training) =>
                         h(
                           "span",
-                          { key: training.id || training.date, style: { color: attendanceColor(training.attendance[athlete.id]) } },
+                          { key: training.id || training.date, style: { color: attendanceColor(training.attendance?.[athlete.id]) } },
                           h("strong", null, formatAttendanceDay(training.date)),
-                          attendanceStatusText(training.attendance[athlete.id])
+                          training.type === "no-training" ? "Nu s-a ținut antrenamentul" + (training.reason ? ": " + training.reason : "") : attendanceStatusText(training.attendance[athlete.id])
                         )
                       )
                     ),
                     h(
                       "button",
-                      { key: "share", type: "button", className: "primary", onClick: () => shareAttendanceReport(athlete, month, entries) },
+                      { key: "share", type: "button", className: "primary", onClick: () => shareAttendanceReport(athlete, month, entries, daysOff) },
                       whatsappPhone(athlete.parentPhone) ? "Deschide WhatsApp" : "Trimite părintelui"
                     )
                   ]
