@@ -19,6 +19,27 @@ test('empty inventory does not require migration or touch athletes or money',()=
   assert.equal(available(state,state.items[0].id),10);
   assert.equal(state.movements[0].recordedBy,'operator@example.test');
 });
+test('delete removes stock without destroying history, supports restore and re-entry',()=>{
+  let state=add(5); const itemId=state.items[0].id; const original=JSON.stringify(state);
+  state=act(state,cmd({type:'delete-item',itemId}));
+  assert.ok(state.items[0].deletedAt); assert.equal(available(state,itemId),0);
+  assert.equal(state.movements.length,1); validateState(state);
+  assert.throws(()=>act(state,cmd({type:'in',itemId,quantity:1})),/șters/);
+  state=act(state,cmd({type:'in',quantity:2,item:{name:'Trening',size:'M'}}));
+  assert.equal(state.items.length,2); assert.notEqual(state.items[1].id,itemId);
+  state=act(state,cmd({type:'restore-item',itemId}));
+  assert.equal(available(state,itemId),5); assert.equal(state.items[0].deletedAt,undefined);
+  assert.ok(original.includes('movements'));
+});
+test('delete refuses active handovers and does not revive previously canceled entries',()=>{
+  let state=add(); const itemId=state.items[0].id;
+  state=act(state,cmd({type:'gift',itemId,quantity:1,recipient:external}));
+  assert.throws(()=>act(state,cmd({type:'delete-item',itemId})),/predări/);
+  state=act(state,cmd({type:'cancel',movementId:state.movements[1].id,reason:'Greșeală'}));
+  state=act(state,cmd({type:'delete-item',itemId}));
+  state=act(state,cmd({type:'restore-item',itemId}));
+  assert.ok(state.movements[1].canceledAt); assert.equal(available(state,itemId),10);
+});
 test('gift to external is free, reduces stock and retains person without a club athlete',()=>{
   const state=add(); const before=JSON.stringify(state); const itemId=state.items[0].id;
   const next=act(state,cmd({type:'gift',itemId,quantity:2,recipient:external}));

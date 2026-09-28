@@ -30,6 +30,25 @@
     if (!clean(command.id)) throw Error("Operațiunea nu are identificator.");
     if (current.movements.some(m => m.id === command.id || m.cancellationId === command.id)) return current;
     const data = JSON.parse(JSON.stringify(current));
+    if (command.type === "delete-item" || command.type === "restore-item") {
+      const item = data.items.find(i => i.id === command.itemId);
+      if (!item) throw Error("Articolul nu mai există.");
+      if (command.type === "delete-item") {
+        if (item.deletedAt) return current;
+        if (active(data).some(m => m.itemId === item.id && ["gift", "loan", "return"].includes(m.type))) throw Error("Articolul are predări înregistrate. Corectează întâi predările din Istoric; nu le ștergem automat.");
+        item.deletedAt = now; item.deletedBy = actor; item.deletionId = command.id;
+        data.movements.filter(m => m.itemId === item.id && !m.canceledAt).forEach(m => {
+          m.canceledAt = now; m.canceledBy = actor; m.cancellationReason = "Articol introdus greșit — șters din stoc"; m.deletedWithItem = command.id;
+        });
+      } else {
+        if (!item.deletedAt) return current;
+        data.movements.filter(m => m.deletedWithItem === item.deletionId).forEach(m => {
+          delete m.canceledAt; delete m.canceledBy; delete m.cancellationReason; delete m.deletedWithItem;
+        });
+        delete item.deletedAt; delete item.deletedBy; delete item.deletionId;
+      }
+      return data;
+    }
     if (command.type === "cancel") {
       const movement = data.movements.find(m => m.id === command.movementId);
       if (!movement || movement.canceledAt) throw Error("Operațiunea este deja anulată sau nu mai există.");
@@ -47,11 +66,11 @@
       const fields = command.item || {};
       if (!clean(fields.name)) throw Error("Completează denumirea articolului.");
       const candidate = { id: `item-${command.id}`, name: clean(fields.name), category: clean(fields.category) || "Echipament", size: clean(fields.size), personalization: clean(fields.personalization), unit: clean(fields.unit) || "buc." };
-      const duplicate = data.items.find(i => ["name","category","size","personalization","unit"].every(field => key(i[field]) === key(candidate[field])));
+      const duplicate = data.items.find(i => !i.deletedAt && ["name","category","size","personalization","unit"].every(field => key(i[field]) === key(candidate[field])));
       if (duplicate) movement.itemId = duplicate.id;
       else { data.items.push(candidate); movement.itemId = candidate.id; }
     }
-    if (!data.items.some(i => i.id === movement.itemId)) throw Error("Selectează un articol din stoc.");
+    if (!data.items.some(i => i.id === movement.itemId && !i.deletedAt)) throw Error("Selectează un articol din stoc. Articolul ales poate fi șters între timp.");
     if (command.type === "adjust") {
       const count = Number(command.count);
       if (!Number.isSafeInteger(count) || count < 0 || count > 1000000) throw Error("Stocul numărat trebuie să fie un număr întreg, cel puțin zero.");
@@ -104,7 +123,16 @@
       window.addEventListener("beforeunload", guard);
       return () => window.removeEventListener("beforeunload", guard);
     }, [Boolean(form)]);
-    const items = [...data.items].sort((a,b) => itemLabel(a).localeCompare(itemLabel(b), "ro"));
+    const items = data.items.filter(i => !i.deletedAt).sort((a,b) => itemLabel(a).localeCompare(itemLabel(b), "ro"));
+    async function removeItem(item, restore = false) {
+      if (busy) return;
+      if (form) { alert("Salvează sau închide formularul înainte de această operațiune."); return; }
+      if (!confirm(restore ? `Restabilești articolul «${itemLabel(item)}» și cantitatea lui în stoc?` : `Ștergi articolul «${itemLabel(item)}» și cantitatea introdusă? Îl poți introduce din nou corect. Istoricul se păstrează și îl poți restabili din Istoric.`)) return;
+      setBusy(true); setNotice(""); setError("");
+      try { await onCommand({id:`eq-${Date.now()}-${Math.random().toString(36).slice(2,10)}`,type:restore?"restore-item":"delete-item",itemId:item.id}); setNotice(restore?"Articolul a fost restabilit.":"Articolul a fost șters din stoc. Îl poți introduce din nou corect."); }
+      catch(e) { setError(e.message || "Operațiunea nu s-a salvat. Încearcă din nou."); }
+      finally { setBusy(false); }
+    }
     const lookup = id => data.items.find(i => i.id === id);
     const matching = text => !search || key(text).includes(key(search));
     const loans = active(data).filter(m => m.type === "loan");
@@ -144,6 +172,9 @@
         buttons([h("button",{key:"in",className:"primary",onClick:()=>start("in"),disabled:busy},"Adaugă în stoc"),h("button",{key:"out",onClick:()=>start("gift"),disabled:busy || !items.length},"Predă echipament")])
       ),
       notice && h("p",{role:"status",className:"panel"},notice),
+      error && !form && h("p",{role:"alert",className:"panel auth-error"},error),
+      tab === "stock" && items.length > 0 && h("details",{className:"panel"},h("summary",null,"Șterge un articol introdus greșit"),h("p",null,"Articolele cu predări active sunt protejate. Ștergerea poate fi anulată din Istoric."),items.filter(i=>matching(itemLabel(i))).map(i=>h("div",{key:i.id,className:"equipment-actions"},h("span",null,itemLabel(i)),h("button",{disabled:busy,onClick:()=>removeItem(i)},"Șterge articolul")))),
+      tab === "history" && data.items.some(i=>i.deletedAt) && h("details",{className:"panel"},h("summary",null,"Articole șterse"),data.items.filter(i=>i.deletedAt).map(i=>h("div",{key:i.id,className:"equipment-actions"},h("span",null,`${itemLabel(i)} — șters ${i.deletedAt.slice(0,10)}`),h("button",{disabled:busy,onClick:()=>removeItem(i,true)},"Restabilește articolul")))),
       form && h("form",{id:"equipment-form",className:"panel stack",onSubmit:submit},
         h("h3",null, form.type === "cancel" ? "Anulează operațiunea cu motiv" : types[form.type]),
         h("fieldset",{disabled:busy,className:"equipment-fieldset"},h("div",{className:"compact-grid"},
