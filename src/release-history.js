@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "24-9-26", date: "24 septembrie 2026", current: true,
+      version: "28-9-26", date: "28 septembrie 2026", current: true,
+      changes: [{ title: "Încasări lunare pe operator", description: "În Rapoarte se văd taxele și alte încasări pe persoană, separat cash/transfer și lei/euro, după data efectivă a încasării. Autorul încasărilor noi se păstrează la modificări. Încasările vechi fără autor inițial confirmat apar separat, fără atribuiri presupuse și fără modificarea sumelor." }],
+      bestArad: "De preluat: raportul pe operator și păstrarea autorului inițial al încasărilor."
+    },
+    {
+      version: "24-9-26", date: "24 septembrie 2026", current: false,
       changes: [{ title: "Zile fără antrenament", description: "În Prezență poți marca o zi fără antrenament pentru grupele alese sau întregul club, cu motiv opțional. Marcajele apar în istoric și în fișa lunară a sportivului, fără absențe și fără influență asupra procentului. Prezențele existente nu sunt suprascrise." }],
       bestArad: "De preluat: marcarea zilelor fără antrenament."
     },

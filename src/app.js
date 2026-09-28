@@ -372,7 +372,7 @@ React.useEffect(() => {
       setState((current) => {
         const existing = current.fees.find((item) => item.athleteId === fee.athleteId && item.month === fee.month);
         const normalized = {
-          ...fee,
+          ...window.CSHeartOperatorReceipts.stampFee(fee, existing, user, new Date().toISOString()),
           id: existing?.id || createId("fee"),
           updatedAt: new Date().toISOString(),
           updatedByEmail: user?.email || "necunoscut",
@@ -389,7 +389,7 @@ React.useEffect(() => {
       setState((current) => {
         const existing = (current.otherPayments || []).find((item) => item.id === payment.id);
         const normalized = {
-          ...payment,
+          ...window.CSHeartOperatorReceipts.stampReceipt(payment, existing, user, new Date().toISOString()),
           id: payment.id || createId("other"),
           updatedAt: new Date().toISOString(),
           updatedByEmail: user?.email || "necunoscut",
