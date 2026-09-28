@@ -1,0 +1,109 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const context = {window:{},React:{createElement(){}}};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/equipment.js'),'utf8'),context);
+const {empty,applyCommand:apply,available,outstanding,validateState} = context.window.CSHeartEquipment;
+let sequence=0;
+const cmd = data => ({id:`command-${++sequence}`,date:'2026-09-01',...data});
+const act = (state, command) => apply(state,command,'operator@example.test','2026-09-28T12:00:00Z');
+const add = (quantity=10, item={name:'Trening',size:'M'}) => act(empty(),cmd({type:'in',quantity,item}));
+const external = {type:'external',name:'TEST EXTERN',club:'Club Test'};
+
+test('empty inventory does not require migration or touch athletes or money',()=>{
+  assert.equal(empty().items.length,0);
+  assert.equal(Object.keys(empty()).sort().join(','),'items,movements,people,schemaVersion');
+  const state = add();
+  assert.equal(available(state,state.items[0].id),10);
+  assert.equal(state.movements[0].recordedBy,'operator@example.test');
+});
+test('gift to external is free, reduces stock and retains person without a club athlete',()=>{
+  const state=add(); const before=JSON.stringify(state); const itemId=state.items[0].id;
+  const next=act(state,cmd({type:'gift',itemId,quantity:2,recipient:external}));
+  assert.equal(available(next,itemId),8);
+  assert.equal(next.people.length,1);
+  assert.equal(next.movements[1].recipient.name,'TEST EXTERN');
+  assert.equal(JSON.stringify(state),before);
+  assert.equal(next.fees,undefined);
+  assert.equal(next.athletes,undefined);
+});
+test('loan supports partial and full return, never returns more than issued',()=>{
+  let state=add(); const itemId=state.items[0].id;
+  state=act(state,cmd({type:'loan',itemId,quantity:3,recipient:external}));
+  const loan=state.movements[1];
+  state=act(state,cmd({type:'return',itemId,quantity:1,loanId:loan.id}));
+  assert.equal(available(state,itemId),8); assert.equal(outstanding(state,loan),2);
+  assert.throws(()=>act(state,cmd({type:'return',itemId,quantity:3,loanId:loan.id})),/depășește/);
+  state=act(state,cmd({type:'return',itemId,quantity:2,loanId:loan.id}));
+  assert.equal(outstanding(state,loan),0); assert.equal(available(state,itemId),10);
+  assert.throws(()=>act(state,cmd({type:'return',itemId,quantity:1,loanId:loan.id})),/depășește/);
+});
+test('insufficient stock and sequential concurrent issues are rejected',()=>{
+  let state=add(1);const itemId=state.items[0].id;
+  state=act(state,cmd({type:'gift',itemId,quantity:1,recipient:external}));
+  assert.throws(()=>act(state,cmd({type:'loan',itemId,quantity:1,recipient:external})),/suficiente/);
+  assert.equal(available(state,itemId),0);
+});
+test('stock corrections and cancellations are auditable and cannot create negative stock',()=>{
+  let state=add(5);const itemId=state.items[0].id;const incoming=state.movements[0];
+  state=act(state,cmd({type:'gift',itemId,quantity:2,recipient:external}));
+  assert.throws(()=>act(state,cmd({type:'cancel',movementId:incoming.id,reason:'Eroare'})),/sub zero/);
+  state=act(state,cmd({type:'adjust',itemId,count:1,note:'Articole deteriorate'}));
+  assert.equal(available(state,itemId),1);
+  const correction=state.movements[2];
+  state=act(state,cmd({type:'cancel',movementId:correction.id,reason:'Corecție introdusă greșit'}));
+  assert.equal(available(state,itemId),3);
+  assert.equal(state.movements.length,3);
+  assert.equal(state.movements[2].cancellationReason,'Corecție introdusă greșit');
+});
+test('cannot cancel loan with active returns or return a gift',()=>{
+  let state=add();const itemId=state.items[0].id;
+  state=act(state,cmd({type:'loan',itemId,quantity:2,recipient:external})); const loan=state.movements[1];
+  state=act(state,cmd({type:'return',itemId,quantity:1,loanId:loan.id}));
+  assert.throws(()=>act(state,cmd({type:'cancel',movementId:loan.id,reason:'Eroare'})),/returnări/);
+  state=act(state,cmd({type:'gift',itemId,quantity:1,recipient:external}));
+  assert.throws(()=>act(state,cmd({type:'return',itemId,quantity:1,loanId:state.movements[3].id})),/Împrumutul/);
+});
+test('retries are idempotent; same variants and external person reuse identities',()=>{
+  let state=add();const itemId=state.items[0].id;
+  const command=cmd({type:'gift',itemId,quantity:1,recipient:external});
+  state=act(state,command); assert.equal(act(state,command),state);
+  state=act(state,cmd({type:'gift',itemId,quantity:1,recipient:{...external,name:'test extern'}}));
+  assert.equal(state.people.length,1);
+  state=act(state,cmd({type:'in',quantity:1,item:{name:' TRENING ',size:'m'}}));
+  assert.equal(state.items.length,1);
+  state=act(state,cmd({type:'in',quantity:1,item:{name:'Trening',size:'L'}}));
+  assert.equal(state.items.length,2);
+});
+test('invalid quantity, missing reasons and invalid dates cannot alter the ledger',()=>{
+  const state=add();const itemId=state.items[0].id;
+  for(const quantity of [0,-1,1.5,'wrong']) assert.throws(()=>act(state,cmd({type:'in',itemId,quantity})),/Cantitatea/);
+  assert.throws(()=>act(state,cmd({type:'in',itemId,quantity:1,date:'2026-02-30'})),/dată validă/);
+  assert.throws(()=>act(state,cmd({type:'adjust',itemId,count:0})),/motivul/);
+  assert.throws(()=>validateState({items:[],people:[],movements:[]}),/format/);
+});
+test('club recipient is captured without modifying athlete records and unknown ids are rejected',()=>{
+  const state=add();const itemId=state.items[0].id;
+  const result=act(state,cmd({type:'loan',itemId,quantity:1,recipient:{type:'club',id:'athlete1',name:'TEST CLUB'}}));
+  assert.equal(result.people.length,0);
+  assert.equal(result.movements[1].recipient.id,'athlete1');
+  assert.throws(()=>act(state,cmd({type:'in',itemId:'missing',quantity:1})),/articol/);
+});
+test('equipment persistence is isolated and transaction revalidates latest stock',()=>{
+  const store=fs.readFileSync(path.join(__dirname,'../src/equipment-store.js'),'utf8');
+  assert.match(store,/runTransaction/); assert.match(store,/"equipment", "state"/);
+  assert.doesNotMatch(store,/"app", "state"/);
+  assert.match(store,/model.applyCommand\(current/);
+  const rules=fs.readFileSync(path.join(__dirname,'../firestore.rules'),'utf8');
+  assert.match(rules,/match \/equipment\/state/);
+});
+test('backup includes separate equipment and legacy restore preserves current stock',()=>{
+  const backup=fs.readFileSync(path.join(__dirname,'../src/backup-export.js'),'utf8');
+  const restore=fs.readFileSync(path.join(__dirname,'../src/restore-backup.js'),'utf8');
+  assert.match(backup,/state.equipment =/);
+  assert.match(restore,/if \(equipment\) batch.set\(doc\(db, "equipment", "state"\), equipment\)/);
+  assert.match(restore,/await downloadCurrentSafetyCopy\(\)/);
+  assert.match(restore,/const \{ equipment, ...clubState \} = state/);
+});

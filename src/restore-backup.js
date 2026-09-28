@@ -1,4 +1,4 @@
-import { db, doc, setDoc, auth } from "./firebase.js";
+import { db, doc, getDoc, writeBatch, auth } from "./firebase.js?v=20260821e";
 
 const STORAGE_KEY = "cs-heart-admin-v1";
 const BUTTON_ID = "cs-heart-restore-button";
@@ -23,6 +23,7 @@ function normalizeState(value) {
   }
 
   return {
+    ...(value.equipment ? { equipment: window.CSHeartEquipment.validateState(value.equipment) } : {}),
     athletes: value.athletes,
     trainings: value.trainings,
     fees: value.fees,
@@ -33,11 +34,13 @@ function normalizeState(value) {
   };
 }
 
-function downloadCurrentSafetyCopy() {
+async function downloadCurrentSafetyCopy() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return;
+  if (!saved) throw Error("Nu există o copie locală pentru salvarea de siguranță.");
 
   const current = normalizeState(JSON.parse(saved));
+  const equipment = await getDoc(doc(db, "equipment", "state"));
+  current.equipment = equipment.exists() ? window.CSHeartEquipment.validateState(equipment.data()) : window.CSHeartEquipment.empty();
   const backup = {
     app: "CS HEART",
     exportedAt: new Date().toISOString(),
@@ -80,6 +83,7 @@ async function restoreFromFile(file) {
       state.otherPayments.length + " alte incasari\n\n" +
       state.taxPayments.length + " plati din taxe\n\n" +
       state.otherActions.length + " actiuni din alte incasari\n\n" +
+      (state.equipment ? `${state.equipment.items.length} articole / ${state.equipment.movements.length} mișcări de echipamente (vor înlocui stocul actual)\n\n` : "Backup fără echipamente: stocul actual va rămâne neschimbat.\n\n") +
       "Continui?"
   );
 
@@ -93,9 +97,13 @@ async function restoreFromFile(file) {
   if (!finalConfirm) return;
 
   try {
-    downloadCurrentSafetyCopy();
-    await setDoc(doc(db, "app", "state"), state);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    await downloadCurrentSafetyCopy();
+    const { equipment, ...clubState } = state;
+    const batch = writeBatch(db);
+    batch.set(doc(db, "app", "state"), clubState);
+    if (equipment) batch.set(doc(db, "equipment", "state"), equipment);
+    await batch.commit();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clubState));
     alert("Restaurarea s-a terminat cu succes. Aplicatia se va reincarca acum.");
     window.location.reload();
   } catch (error) {

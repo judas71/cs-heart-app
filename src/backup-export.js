@@ -1,3 +1,4 @@
+import { db, doc, getDoc } from "./firebase.js?v=20260821e";
 (function () {
   const STORAGE_KEY = "cs-heart-admin-v1";
   const BUTTON_ID = "cs-heart-backup-button";
@@ -33,13 +34,17 @@
     };
   }
 
-  function downloadBackup() {
+  async function downloadBackup() {
     let state;
 
     try {
       state = loadCurrentState();
+      if (state) {
+        const equipment = await getDoc(doc(db, "equipment", "state"));
+        state.equipment = equipment.exists() ? window.CSHeartEquipment.validateState(equipment.data()) : window.CSHeartEquipment.empty();
+      }
     } catch (error) {
-      alert("Nu am putut citi datele pentru backup. Da refresh si incearca din nou.");
+      alert("Nu am putut citi toate datele pentru backup, inclusiv stocul. Verifică internetul și încearcă din nou; nu am creat o copie incompletă.");
       return;
     }
 

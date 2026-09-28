@@ -1,3 +1,4 @@
+  import { EquipmentApp } from "./equipment-store.js?v=20260928c";
   const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
@@ -64,6 +65,7 @@
     const [state, setState] = React.useState(loadState);
     const [activeView, setActiveView] = React.useState("sportivi");
     const [attendanceDirty, setAttendanceDirty] = React.useState(false);
+    const [equipmentDirty, setEquipmentDirty] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [authReady, setAuthReady] = React.useState(false);
     const [registrationRequests, setRegistrationRequests] = React.useState([]);
@@ -515,6 +517,7 @@ React.useEffect(() => {
     }
 
     function confirmLeaveAttendance() {
+      if (activeView === "echipamente" && equipmentDirty) return confirm("Ai un formular de echipamente nesalvat. Pleci fără să îl salvezi?");
       if (activeView !== "prezenta" || !attendanceDirty) return true;
       return confirm("Ai modificari nesalvate la prezenta. Sigur vrei sa pleci fara sa le salvezi?");
     }
@@ -523,6 +526,7 @@ React.useEffect(() => {
       if (nextView === activeView) return;
       if (!confirmLeaveAttendance()) return;
       setAttendanceDirty(false);
+      setEquipmentDirty(false);
       setActiveView(nextView);
     }
 
@@ -550,6 +554,7 @@ React.useEffect(() => {
       ["prezenta", "PrezenÈ›Äƒ"],
       ["taxe", "Taxe"],
       ["alteIncasari", "Alte incasari"],
+      ["echipamente", "Echipamente"],
       ["rapoarte", "Rapoarte"]
     ];
 
@@ -572,7 +577,8 @@ React.useEffect(() => {
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining, onDirtyChange: setAttendanceDirty }),
       activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], operatorEmail: user?.email || "", onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment, onSaveAction: saveOtherAction, onDeleteAction: deleteOtherAction }),
-      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], taxPayments: state.taxPayments || [] })
+      activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], taxPayments: state.taxPayments || [] }),
+      activeView === "echipamente" && h(EquipmentApp, { athletes:state.athletes, user, onDirtyChange:setEquipmentDirty })
     );
   }
 

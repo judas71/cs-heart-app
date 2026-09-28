@@ -65,6 +65,17 @@ service cloud.firestore {
       allow read, write: if isClubAdmin();
     }
 
+    // Independent equipment ledger; the same two club admins only.
+    match /equipment/state {
+      allow read: if isClubAdmin();
+      allow create, update: if isClubAdmin()
+        && request.resource.data.keys().hasOnly(['schemaVersion', 'items', 'people', 'movements'])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.items is list
+        && request.resource.data.people is list
+        && request.resource.data.movements is list;
+    }
+
     match /registrationRequests/{requestId} {
       allow create: if validPublicRegistration();
       allow read: if isClubAdmin();

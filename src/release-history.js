@@ -2,8 +2,9 @@
   const releases = [
     {
       version: "28-9-26", date: "28 septembrie 2026", current: true,
-      changes: [{ title: "Încasări lunare pe operator", description: "În Rapoarte se văd taxele și alte încasări pe persoană, separat cash/transfer și lei/euro, după data efectivă a încasării. Autorul încasărilor noi se păstrează la modificări. Încasările vechi fără autor inițial confirmat apar separat, fără atribuiri presupuse și fără modificarea sumelor." }],
-      bestArad: "De preluat: raportul pe operator și păstrarea autorului inițial al încasărilor."
+      changes: [{ title: "Încasări lunare pe operator", description: "În Rapoarte se văd taxele și alte încasări pe persoană, separat cash/transfer și lei/euro, după data efectivă a încasării. Autorul încasărilor noi se păstrează la modificări. Încasările vechi fără autor inițial confirmat apar separat, fără atribuiri presupuse și fără modificarea sumelor." },
+        { title: "Echipamente și materiale", description: "Stoc pe articole și mărimi, predări gratuite sau împrumuturi pentru sportivii clubului și externi, returnări parțiale și istoric de corectări. Nu se generează taxe. Stocul este salvat separat și inclus în backup; restaurarea unui backup vechi fără stoc nu îl șterge." }],
+      bestArad: "De preluat: raportul pe operator și evidența echipamentelor, inclusiv regulile de acces Firebase și backup-ul."
     },
     {
       version: "24-9-26", date: "24 septembrie 2026", current: false,
