@@ -76,6 +76,15 @@ service cloud.firestore {
         && request.resource.data.movements is list;
     }
 
+    match /equipmentPhotos/{photoId} {
+      allow read: if isClubAdmin();
+      allow create, update: if isClubAdmin()
+        && request.resource.data.keys().hasOnly(['data'])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 100000
+        && request.resource.data.data.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+');
+    }
+
     match /registrationRequests/{requestId} {
       allow create: if validPublicRegistration();
       allow read: if isClubAdmin();

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const context = {window:{},React:{createElement(){}}};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/equipment-media.js'),'utf8'),context);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/equipment.js'),'utf8'),context);
 const {empty,applyCommand:apply,available,outstanding,validateState} = context.window.CSHeartEquipment;
 let sequence=0;
@@ -11,6 +12,36 @@ const cmd = data => ({id:`command-${++sequence}`,date:'2026-09-01',...data});
 const act = (state, command) => apply(state,command,'operator@example.test','2026-09-28T12:00:00Z');
 const add = (quantity=10, item={name:'Trening',size:'M'}) => act(empty(),cmd({type:'in',quantity,item}));
 const external = {type:'external',name:'TEST EXTERN',club:'Club Test'};
+const photo = 'data:image/jpeg;base64,/9j/2Q==';
+test('color variants retain distinct stock and normalize case',()=>{
+ let state=add(3,{name:'Tricou',size:'M',color:'Roșu'});
+ state=act(state,cmd({type:'in',quantity:2,item:{name:'Tricou',size:'M',color:' ROȘU '}}));
+ assert.equal(state.items.length,1); assert.equal(available(state,state.items[0].id),5);
+ state=act(state,cmd({type:'in',quantity:4,item:{name:'Tricou',size:'M',color:'Alb'}}));
+ assert.equal(state.items.length,2);assert.equal(available(state,state.items[1].id),4);
+ assert.throws(()=>act(state,cmd({type:'edit-item',itemId:state.items[1].id,color:'Roșu'})),/deja/);
+});
+test('photo and color editing preserve stock, loans and original state',()=>{
+ let state=add();const itemId=state.items[0].id;
+ state=act(state,cmd({type:'loan',itemId,quantity:2,recipient:external}));
+ const original=JSON.stringify(state);
+ const edit=cmd({type:'edit-item',itemId,color:'Alb',photoData:photo});
+ const next=act(state,edit);
+ assert.equal(JSON.stringify(state),original);assert.equal(available(next,itemId),8);
+ assert.equal(outstanding(next,next.movements[1]),2);
+ assert.equal(next.items[0].photoId,'photo-'+edit.id);
+ assert.equal(next.items[0].photoData,undefined);
+ assert.equal(act(next,cmd({type:'edit-item',itemId,color:'Alb',removePhoto:true})).items[0].photoId,undefined);
+ assert.throws(()=>act(state,cmd({type:'edit-item',itemId,color:'Alb',photoData:'https://bad.test'})),/invalidă/);
+ assert.throws(()=>act(state,cmd({type:'edit-item',itemId,photoData:photo+'A'.repeat(100000)})),/invalidă/);
+});
+test('new article photograph is referenced, duplicate upload never silently discarded',()=>{
+ const command=cmd({type:'in',quantity:1,item:{name:'Tricou'},photoData:photo});
+ const state=act(empty(),command);
+ assert.equal(state.items[0].photoId,'photo-'+command.id);
+ assert.throws(()=>act(state,cmd({type:'in',quantity:1,item:{name:'Tricou'},photoData:photo})),/există deja/);
+ assert.equal(available(state,state.items[0].id),1);
+});
 
 test('empty inventory does not require migration or touch athletes or money',()=>{
   assert.equal(empty().items.length,0);
@@ -124,7 +155,7 @@ test('backup includes separate equipment and legacy restore preserves current st
   const backup=fs.readFileSync(path.join(__dirname,'../src/backup-export.js'),'utf8');
   const restore=fs.readFileSync(path.join(__dirname,'../src/restore-backup.js'),'utf8');
   assert.match(backup,/state.equipment =/);
-  assert.match(restore,/if \(equipment\) batch.set\(doc\(db, "equipment", "state"\), equipment\)/);
+  assert.match(restore,/if \(equipment\) batch.set\(doc\(db, "equipment", "state"\), restoredEquipment\)/);
   assert.match(restore,/await downloadCurrentSafetyCopy\(\)/);
   assert.match(restore,/const \{ equipment, ...clubState \} = state/);
 });

@@ -1,4 +1,4 @@
-  import { EquipmentApp } from "./equipment-store.js?v=20260928c";
+  import { EquipmentApp } from "./equipment-store.js?v=20260928e";
   const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;

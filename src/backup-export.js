@@ -1,4 +1,5 @@
 import { db, doc, getDoc } from "./firebase.js?v=20260821e";
+import { withEquipmentPhotos } from "./equipment-photos-store.js?v=20260928e";
 (function () {
   const STORAGE_KEY = "cs-heart-admin-v1";
   const BUTTON_ID = "cs-heart-backup-button";
@@ -42,6 +43,7 @@ import { db, doc, getDoc } from "./firebase.js?v=20260821e";
       if (state) {
         const equipment = await getDoc(doc(db, "equipment", "state"));
         state.equipment = equipment.exists() ? window.CSHeartEquipment.validateState(equipment.data()) : window.CSHeartEquipment.empty();
+        state.equipment = await withEquipmentPhotos(state.equipment);
       }
     } catch (error) {
       alert("Nu am putut citi toate datele pentru backup, inclusiv stocul. Verifică internetul și încearcă din nou; nu am creat o copie incompletă.");

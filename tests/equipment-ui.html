@@ -1,10 +1,12 @@
 <!doctype html><html lang="ro"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test local echipamente — fără date reale</title><link rel="stylesheet" href="../styles.css"><link rel="stylesheet" href="../styles-equipment.css"><div id="root" class="app-shell"></div>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="../src/equipment.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script><script src="../src/equipment-media.js"></script><script src="../src/equipment.js"></script>
 <script>
+const photos=new Map();
+const loadPhoto=async id=>photos.get(id);
 function Harness() {
  const model=window.CSHeartEquipment;
  const [data,setData]=React.useState(model.empty);
- return React.createElement(model.View,{data,athletes:[{id:'test',lastName:'SPORTIV',firstName:'TEST',active:true}],onCommand:async command=>{const next=model.applyCommand(data,command,'TEST LOCAL',new Date().toISOString());setData(next);}});
+ return React.createElement(model.View,{data,loadPhoto,athletes:[{id:'test',lastName:'SPORTIV',firstName:'TEST',active:true}],onCommand:async command=>{const next=model.applyCommand(data,command,'TEST LOCAL',new Date().toISOString());if(command.photoData)photos.set(`photo-${command.id}`,command.photoData);setData(next);}});
 }
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Harness));
 </script></html>

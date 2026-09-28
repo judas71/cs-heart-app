@@ -1,4 +1,5 @@
 import { db, doc, getDoc, writeBatch, auth } from "./firebase.js?v=20260821e";
+import { withEquipmentPhotos, prepareEquipmentRestore } from "./equipment-photos-store.js?v=20260928e";
 
 const STORAGE_KEY = "cs-heart-admin-v1";
 const BUTTON_ID = "cs-heart-restore-button";
@@ -41,6 +42,7 @@ async function downloadCurrentSafetyCopy() {
   const current = normalizeState(JSON.parse(saved));
   const equipment = await getDoc(doc(db, "equipment", "state"));
   current.equipment = equipment.exists() ? window.CSHeartEquipment.validateState(equipment.data()) : window.CSHeartEquipment.empty();
+  current.equipment = await withEquipmentPhotos(current.equipment);
   const backup = {
     app: "CS HEART",
     exportedAt: new Date().toISOString(),
@@ -99,9 +101,10 @@ async function restoreFromFile(file) {
   try {
     await downloadCurrentSafetyCopy();
     const { equipment, ...clubState } = state;
+    const restoredEquipment = equipment ? await prepareEquipmentRestore(equipment) : null;
     const batch = writeBatch(db);
     batch.set(doc(db, "app", "state"), clubState);
-    if (equipment) batch.set(doc(db, "equipment", "state"), equipment);
+    if (equipment) batch.set(doc(db, "equipment", "state"), restoredEquipment);
     await batch.commit();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(clubState));
     alert("Restaurarea s-a terminat cu succes. Aplicatia se va reincarca acum.");
