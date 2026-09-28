@@ -1,4 +1,19 @@
 (function () {
+  const operatorNames = {
+    "tatucualina@yahoo.com": "Alina",
+    "liviu.vera@gmail.com": "Liviu"
+  };
+  function operatorLabel(email) {
+    const value = String(email || "").trim();
+    return operatorNames[value.toLowerCase()] || value || "Operator neidentificat";
+  }
+  function operatorOptions(rows) {
+    const emails = new Set(Object.keys(operatorNames));
+    rows.forEach(row => { if (row.operator) emails.add(row.operator.trim().toLowerCase()); });
+    return [["toate", "Toate persoanele"],
+      ...[...emails].map(email => [email, operatorLabel(email)]).sort((a, b) => a[1].localeCompare(b[1], "ro")),
+      ["neidentificat", "Operator neidentificat"]];
+  }
   function identity(record) {
     const email = String(record?.recordedByEmail || "").trim();
     return email && email !== "necunoscut" ? email : "";
@@ -98,7 +113,7 @@
     const [operator, setOperator] = React.useState("toate");
     const all = buildRows(props);
     const monthly = all.filter(row => row.date && row.date.slice(0, 7) === month);
-    const options = groupRows(monthly);
+    const options = operatorOptions(all);
     const rows = monthly.filter(row => (source === "toate" || row.source === source)
       && (method === "toate" || row.method === method)
       && (operator === "toate" || (row.operator.toLowerCase() || "neidentificat") === operator));
@@ -124,7 +139,7 @@
         h("label", { className: "field" }, h("span", null, "Luna încasării"), h("input", { type: "month", value: month, onChange: e => { setMonth(e.target.value); setOperator("toate"); } })),
         select("Încasări", source, setSource, [["toate", "Taxe și alte încasări"], ["taxe", "Doar taxe"], ["alte", "Doar alte încasări"]]),
         select("Modalitate", method, setMethod, [["toate", "Cash și transfer"], ["cash", "Cash"], ["transfer", "Transfer"], ["necunoscut", "Metodă neprecizată"]]),
-        select("Operator", operator, setOperator, [["toate", "Toate persoanele"], ...options.map(g => [g.key || "neidentificat", g.operator || "Operator neidentificat"])])
+        select("Operator", operator, setOperator, options)
       ),
       cards(totals),
       h("p", null, `${rows.length} ${rows.length === 1 ? "încasare" : "încasări"} în selecția curentă. Taxele și celelalte încasări sunt incluse o singură dată; plățile și retururile nu sunt încasări.`),
@@ -134,19 +149,19 @@
       ),
       !groups.length && h("p", { className: "empty-state" }, "Nu există încasări în selecția aleasă."),
       groups.map(group => h("article", { className: "panel stack", key: group.key || "unknown" },
-        h("h3", null, group.operator || "Operator neidentificat"),
+        h("h3", null, operatorLabel(group.operator)),
         cards(group.totals),
         h("p", null, `Taxe: ${group.rows.filter(r => r.source === "taxe").length} / Alte încasări: ${group.rows.filter(r => r.source === "alte").length}`),
         h("details", null, h("summary", { style: { cursor: "pointer", fontWeight: 700 } }, group.rows.length === 1 ? "Vezi încasarea" : `Vezi cele ${group.rows.length} încasări`),
           h("ul", { className: "clean-list" }, group.rows.map(row => h("li", { key: row.id },
             h("div", null, h("strong", null, row.payer),
               h("p", null, `${row.date.split("-").reverse().join(".")} · ${methodLabel(row.method)} · ${row.description}`),
-              !row.operator && row.lastEditor && h("small", null, `Ultimul editor al evidenței: ${row.lastEditor} (autor inițial neconfirmat)`)),
+              !row.operator && row.lastEditor && h("small", null, `Ultimul editor al evidenței: ${operatorLabel(row.lastEditor)} (autor inițial neconfirmat)`)),
             h("strong", null, `${money(row.cents)} ${row.currency}`)
           )))
         )
       ))
     );
   }
-  window.CSHeartOperatorReceipts = { stampReceipt, stampFee, buildRows, summarize, groupRows, Report };
+  window.CSHeartOperatorReceipts = { stampReceipt, stampFee, buildRows, summarize, groupRows, operatorLabel, operatorOptions, Report };
 })();

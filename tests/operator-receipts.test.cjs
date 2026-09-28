@@ -10,6 +10,19 @@ const alina = { email: 'alina@example.test', uid: 'a' };
 const liviu = { email: 'liviu@example.test', uid: 'l' };
 const now = '2026-09-28T12:00:00Z';
 
+test('operator names map exact accounts; both people remain selectable in empty months', () => {
+  const { operatorLabel, operatorOptions } = context.window.CSHeartOperatorReceipts;
+  assert.equal(operatorLabel(' LIVIU.VERA@gmail.com '), 'Liviu');
+  assert.equal(operatorLabel('tatucualina@yahoo.com'), 'Alina');
+  assert.equal(operatorLabel('other@example.test'), 'other@example.test');
+  assert.equal(operatorLabel(''), 'Operator neidentificat');
+  const options = operatorOptions([]);
+  assert.ok(options.some(([key, label]) => key === 'liviu.vera@gmail.com' && label === 'Liviu'));
+  assert.ok(options.some(([key, label]) => key === 'tatucualina@yahoo.com' && label === 'Alina'));
+  assert.ok(options.some(([key]) => key === 'neidentificat'));
+  assert.equal(operatorOptions([{operator:'LIVIU.VERA@gmail.com'}]).length, options.length);
+});
+
 test('new cash receipt retains initial operator through editing by another user', () => {
   const initial = stampReceipt({ id: 'p', amount: 200 }, null, alina, now);
   const edited = stampReceipt({ ...initial, amount: 250, recordedByEmail: liviu.email }, initial, liviu, now);
