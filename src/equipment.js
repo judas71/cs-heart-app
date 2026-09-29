@@ -228,7 +228,7 @@
     const stock = items.filter(i=>matching(`${itemLabel(i)} ${i.category}`));
     return h("section",{className:"stack equipment"},
       h("div",{className:"panel"},h("p",{className:"eyebrow"},"GESTIUNE CLUB"),h("h2",null,"Echipamente și materiale"),h("p",null,"Ce ai la club, ce ai predat și cui. Fără taxe sau datorii generate automat."),
-        buttons([h("button",{key:"in",className:"primary",onClick:()=>start("in"),disabled:busy},"Adaugă în stoc"),h("button",{key:"out",onClick:()=>start("gift"),disabled:busy || !items.length},"Predă echipament")])
+        buttons([h("button",{key:"in",className:"primary",onClick:()=>start("in"),disabled:busy},"Adaugă în stoc")])
       ),
       notice && h("p",{role:"status",className:"panel"},notice),
       error && !form && h("p",{role:"alert",className:"panel auth-error"},error),
