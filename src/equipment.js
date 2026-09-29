@@ -20,6 +20,16 @@
   const available = (data, itemId) => active(data).filter(m => m.itemId === itemId).reduce((n,m) => n + delta(m), 0);
   const outstanding = (data, loan) => loan.canceledAt ? 0 : loan.quantity - active(data).filter(m => m.type === "return" && m.loanId === loan.id).reduce((n,m) => n + m.quantity, 0);
   const itemLabel = item => [item?.name || "Articol necunoscut", item?.color, item?.size && `mărime ${item.size}`, item?.personalization].filter(Boolean).join(" · ");
+  const modelKey = item => JSON.stringify(["name","color","category","unit"].map(field=>key(item[field])));
+  function groupStock(items) {
+    const groups=new Map();
+    for(const item of items.filter(i=>!i.deletedAt)){
+      const id=modelKey(item);
+      if(!groups.has(id))groups.set(id,{id,model:item,items:[]});
+      groups.get(id).items.push(item);
+    }
+    return [...groups.values()].map(g=>({...g,photo:g.items.find(i=>i.photoId),items:[...g.items].sort((a,b)=>(a.size||"").localeCompare(b.size||"","ro",{numeric:true})||(a.personalization||"").localeCompare(b.personalization||"","ro",{numeric:true}))}));
+  }
   function positive(value) { const n = Number(value); if (!Number.isSafeInteger(n) || n <= 0 || n > 1000000) throw Error("Cantitatea trebuie să fie un număr întreg pozitiv."); return n; }
   function date(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "") || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0,10) !== value || value > localDate()) throw Error("Alege o dată validă, cel târziu astăzi.");
@@ -93,10 +103,12 @@
       const candidate = { id: `item-${command.id}`, name: clean(fields.name), category: clean(fields.category) || "Echipament", size: clean(fields.size), color: clean(fields.color), personalization: clean(fields.personalization), unit: clean(fields.unit) || "buc." };
       const duplicate = data.items.find(i => !i.deletedAt && ["name","category","size","color","personalization","unit"].every(field => key(i[field]) === key(candidate[field])));
       if (duplicate) {
-        if (command.photoData) throw Error("Articolul există deja. Adaugă cantitatea la articolul existent, apoi fotografia din «Poză și culoare».");
+        if (command.photoData) throw Error("Articolul există deja. Pentru fotografia lui folosește «Mai multe → Poză și culoare» din stoc.");
         movement.itemId = duplicate.id;
       }
       else {
+        const source=data.items.find(i=>i.id===command.sourceItemId&&!i.deletedAt);
+        if(source?.photoId && modelKey(source)===modelKey(candidate)) candidate.photoId=source.photoId;
         if (command.photoData) {
           if (!window.CSHeartEquipmentMedia.validPhoto(command.photoData)) throw Error("Fotografie invalidă.");
           candidate.photoId = `photo-${command.id}`;
@@ -256,10 +268,36 @@
       ),
       h("nav",{className:"equipment-actions","aria-label":"Evidență echipamente"},[["stock","Stoc"],["assigned","Predări"],["history","Istoric"]].map(([value,title])=>h("button",{key:value,"aria-pressed":tab===value,className:tab===value?"primary":"",onClick:()=>{setTab(value);setSearch("");setHistoryLimit(50);}},title))),
       field("Caută articol sau sportiv",h("input",{type:"search",value:search,onChange:e=>setSearch(e.target.value),placeholder:"Trening, minge, numele sportivului…"})),
-      tab === "stock" && h("div",{className:"stack"},!stock.length && h("div",{className:"panel"},items.length?"Niciun articol găsit.":"Stocul este gol. Începe cu «Adaugă în stoc» și introdu ce ai fizic acum la club."),stock.map(i=>h("article",{key:i.id,className:"panel"},h(window.CSHeartEquipmentMedia.Thumbnail,{item:i,loadPhoto}),h("h3",null,itemLabel(i)),h("button",{disabled:busy || photoBusy,onClick:()=>start("edit-item",{itemId:i.id,color:i.color||""})},"Poză și culoare"),h("p",null,i.category),h("div",{className:"equipment-totals"},h("strong",null,`Disponibil: ${available(data,i.id)} ${i.unit}`),h("span",null,`Împrumutat: ${loans.filter(m=>m.itemId===i.id).reduce((n,m)=>n+outstanding(data,m),0)} ${i.unit}`),h("span",null,`Oferit definitiv: ${gifts.filter(m=>m.itemId===i.id).reduce((n,m)=>n+m.quantity,0)} ${i.unit}`)),buttons([h("button",{key:"add",disabled:busy,onClick:()=>start("in",{itemId:i.id})},"Adaugă cantitate"),h("button",{key:"give",disabled:busy||available(data,i.id)<=0,onClick:()=>start("gift",{itemId:i.id})},"Predă"),h("button",{key:"count",disabled:busy,onClick:()=>start("adjust",{itemId:i.id,count:String(available(data,i.id))})},"Corectează stocul")])))),
+      tab === "stock" && h("div",{className:"stack"},
+        !stock.length && h("div",{className:"panel"},items.length?"Niciun articol găsit.":"Stocul este gol. Începe cu «Adaugă în stoc»."),
+        groupStock(stock).map(g=>h("article",{key:g.id,className:"panel equipment-model"},
+          g.photo&&h(window.CSHeartEquipmentMedia.Thumbnail,{item:g.photo,loadPhoto}),
+          h("h3",null,[g.model.name,g.model.color].filter(Boolean).join(" · ")),
+          h("p",null,g.model.category),
+          h("p",null,"Disponibil"+(search?" în selecție":"")+": "+g.items.reduce((n,i)=>n+available(data,i.id),0)+" "+g.model.unit),
+          h("div",{className:"equipment-stock-table"},h("table",null,
+            h("thead",null,h("tr",null,["Mărime","Număr / personalizare","Disponibil","Împrumutat","Oferit definitiv","Acțiuni"].map(t=>h("th",{key:t,scope:"col"},t)))),
+            h("tbody",null,g.items.map(i=>h("tr",{key:i.id},
+              h("td",{"data-label":"Mărime"},i.size||"—"),
+              h("td",{"data-label":"Număr / personalizare"},i.personalization||"—"),
+              h("td",{"data-label":"Disponibil"},available(data,i.id)+" "+i.unit),
+              h("td",{"data-label":"Împrumutat"},loans.filter(m=>m.itemId===i.id).reduce((n,m)=>n+outstanding(data,m),0)),
+              h("td",{"data-label":"Oferit definitiv"},gifts.filter(m=>m.itemId===i.id).reduce((n,m)=>n+m.quantity,0)),
+              h("td",{"data-label":"Acțiuni"},buttons([
+                h("button",{key:"give",disabled:busy||available(data,i.id)<=0,onClick:()=>start("gift",{itemId:i.id})},"Predă"),
+                h("details",{key:"more"},h("summary",null,"Mai multe"),buttons([
+                  h("button",{key:"photo",disabled:busy||photoBusy,onClick:()=>start("edit-item",{itemId:i.id,color:i.color||""})},"Poză și culoare"),
+                  h("button",{key:"count",disabled:busy,onClick:()=>start("adjust",{itemId:i.id,count:String(available(data,i.id))})},"Corectează stocul")
+                ]))
+              ]))
+            )))
+          )),
+          h("button",{disabled:busy||photoBusy,onClick:()=>start("in",{sourceItemId:g.model.id,item:{name:g.model.name,category:g.model.category,color:g.model.color||"",unit:g.model.unit,size:"",personalization:""}})},"Adaugă mărime / număr")
+        ))
+      ),
       tab === "assigned" && h("div",{className:"stack"},field("Arată predările",h("select",{value:filter,onChange:e=>setFilter(e.target.value)},[["all","Toate"],["out","De returnat"],["gift","Oferite definitiv"],["returned","Returnate complet"]].map(([value,title])=>h("option",{key:value,value},title)))),!assignments.length&&h("p",{className:"panel"},"Nu există predări în selecția aleasă."),groupAssignments(assignments).map(g=>h("details",{key:g.id,className:"panel"},h("summary",null,person({recipient:g.recipient})+" — "+g.movements.length+" predări"),h("button",{disabled:busy,onClick:()=>start("gift",{recipientType:g.recipient.type,recipientId:g.recipient.id})},"Predă alte echipamente"),g.movements.map(m=>h("article",{key:m.id,className:"panel"},h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(m.itemId),loadPhoto}),h("p",null,`${itemLabel(lookup(m.itemId))} — ${m.quantity} ${lookup(m.itemId)?.unit}`),h("p",null,`${m.date.split("-").reverse().join(".")} · ${m.type === "gift"?"Oferit definitiv — gratuit":outstanding(data,m)?`La sportiv: ${outstanding(data,m)} · Returnat: ${m.quantity-outstanding(data,m)}`:"Returnat complet"}`),m.note&&h("p",null,m.note),m.type === "loan"&&outstanding(data,m)>0&&h("button",{disabled:busy,onClick:()=>start("return",{itemId:m.itemId,loanId:m.id,quantity:String(outstanding(data,m))})},"Marchează returnat")))))),
       tab === "history" && h("div",{className:"stack"},h("p",null,"Istoric în ordinea înregistrării. Corectările nu șterg operațiunile inițiale."),!history.length&&h("p",{className:"panel"},"Nu există mișcări în istoric."),history.slice(0,historyLimit).map(m=>h("article",{key:m.id,className:"panel"},h("h3",null,`${types[m.type]}${m.canceledAt?" — ANULATĂ":""}`),h("p",null,`${itemLabel(lookup(m.itemId))} · ${m.quantity} ${lookup(m.itemId)?.unit} · ${m.date.split("-").reverse().join(".")}`),m.recipient&&h("p",null,person(m)),h("small",null,`Operat de: ${window.CSHeartOperatorReceipts?.operatorLabel(m.recordedBy)||m.recordedBy||"Necunoscut"}`),m.note&&h("p",null,m.note),m.canceledAt?h("p",null,`Motiv: ${m.cancellationReason} · ${m.canceledAt.slice(0,10)} · ${window.CSHeartOperatorReceipts?.operatorLabel(m.canceledBy)||m.canceledBy}`):h("div",null,h("button",{disabled:busy,onClick:()=>start("cancel",{movementId:m.id,reason:""})},"Anulează operațiunea")))),history.length>historyLimit&&h("button",{onClick:()=>setHistoryLimit(n=>n+50)},"Arată încă 50"))
     );
   }
-  window.CSHeartEquipment = { empty, validateState, applyCommand, available, outstanding, itemLabel, groupAssignments, View };
+  window.CSHeartEquipment = { empty, validateState, applyCommand, available, outstanding, itemLabel, groupAssignments, groupStock, View };
 })();

@@ -3,10 +3,19 @@
 <script>
 const photos=new Map();
 const loadPhoto=async id=>photos.get(id);
+const demo=new URLSearchParams(location.search).has('grouped');
+function initialData(){
+ const model=window.CSHeartEquipment;
+ let data=model.empty();
+ if(demo)for(const [index,size,color,personalization] of [[0,'L','Turcoaz','15'],[1,'S','Turcoaz','71'],[2,'S','Negru/mov','71']]){
+   data=model.applyCommand(data,{id:'demo-'+index,type:'in',date:'2026-09-29',quantity:1,item:{name:'Echipament personalizat',size,color,personalization}},'DEMO','2026-09-29T12:00:00Z');
+ }
+ return data;
+}
 function Harness() {
  const model=window.CSHeartEquipment;
- const [data,setData]=React.useState(model.empty);
+ const [data,setData]=React.useState(initialData);
  return React.createElement(model.View,{data,loadPhoto,athletes:[{id:'test',lastName:'SPORTIV',firstName:'TEST',active:true}],onCommand:async command=>{const next=model.applyCommand(data,command,'TEST LOCAL',new Date().toISOString());if(command.photoData)photos.set(`photo-${command.id}`,command.photoData);setData(next);}});
 }
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Harness));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(React.Fragment,null,demo&&React.createElement('p',{className:'panel'},'PREVIZUALIZARE — date fictive. Nu se salvează în aplicația clubului.'),React.createElement(Harness)));
 </script></html>

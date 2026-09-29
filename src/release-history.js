@@ -3,7 +3,7 @@
     {
       version: "29-9-26", date: "29 septembrie 2026", current: true,
       changes: [{title: "O singură fișă de echipamente pe sportiv", description: "În Predări, fiecare sportiv apare o singură dată, cu toate echipamentele, fotografiile și returnările sale. Poți preda mai multe articole din același formular. Salvarea este integrală: dacă stocul nu ajunge, nu se salvează parțial. Înregistrările existente sunt păstrate."}],
-      bestArad: "De preluat: fișa de echipamente pe sportiv și predarea mai multor articole."
+      bestArad: "De preluat: fișa de echipamente pe sportiv, predarea mai multor articole și stocul compact pe model și culoare."
     },
     {
       version: "28-9-26", date: "28 septembrie 2026", current: false,

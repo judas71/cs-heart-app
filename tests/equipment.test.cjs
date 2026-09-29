@@ -37,6 +37,26 @@ test('grouping uses identity, not name; batch loans retain individual returns',(
  assert.equal(context.window.CSHeartEquipment.groupAssignments(state.movements.filter(m=>['loan','gift'].includes(m.type))).length,2);
 });
 const photo = 'data:image/jpeg;base64,/9j/2Q==';
+test('stock groups sizes by normalized model and color without changing records',()=>{
+ const rows=[
+ {id:'a',name:'Echip.Personalizat',color:'Turcoaz',category:'Echipament',unit:'buc.',size:'L',personalization:'15'},
+ {id:'b',name:'echip.personalizat',color:' turcoaz ',category:'Echipament',unit:'buc.',size:'S',personalization:'71'},
+ {id:'c',name:'Echip.Personalizat',color:'Negru/mov',category:'Echipament',unit:'buc.',size:'S',personalization:'71'},
+ {id:'d',name:'Echip.Personalizat',color:'Turcoaz',category:'Echipament',unit:'buc.',deletedAt:'2026-09-29'}
+ ];
+ const before=JSON.stringify(rows);
+ const groups=context.window.CSHeartEquipment.groupStock(rows);
+ assert.equal(groups.length,2);assert.equal(groups[0].items.length,2);
+ assert.equal(JSON.stringify(rows),before);
+});
+test('new size inherits only matching model photo and leaves source stock unchanged',()=>{
+ let state=act(empty(),cmd({type:'in',quantity:2,item:{name:'Tricou',color:'Alb',size:'L'},photoData:photo}));
+ const source=state.items[0];
+ state=act(state,cmd({type:'in',quantity:3,sourceItemId:source.id,item:{name:'Tricou',color:'Alb',size:'S'}}));
+ assert.equal(state.items[1].photoId,source.photoId);assert.equal(available(state,source.id),2);
+ state=act(state,cmd({type:'in',quantity:1,sourceItemId:source.id,item:{name:'Tricou',color:'Roșu',size:'S'}}));
+ assert.equal(state.items[2].photoId,undefined);
+});
 test('color variants retain distinct stock and normalize case',()=>{
  let state=add(3,{name:'Tricou',size:'M',color:'Roșu'});
  state=act(state,cmd({type:'in',quantity:2,item:{name:'Tricou',size:'M',color:' ROȘU '}}));
