@@ -12,6 +12,30 @@ const cmd = data => ({id:`command-${++sequence}`,date:'2026-09-01',...data});
 const act = (state, command) => apply(state,command,'operator@example.test','2026-09-28T12:00:00Z');
 const add = (quantity=10, item={name:'Trening',size:'M'}) => act(empty(),cmd({type:'in',quantity,item}));
 const external = {type:'external',name:'TEST EXTERN',club:'Club Test'};
+test('multiple equipment handover is atomic, retry-safe and uses one external person',()=>{
+ let state=add(3);const first=state.items[0].id;
+ state=act(state,cmd({type:'in',quantity:2,item:{name:'Tricou'}}));const second=state.items[1].id;
+ const original=JSON.stringify(state);
+ const command=cmd({type:'handover',mode:'gift',lines:[{itemId:first,quantity:1},{itemId:second,quantity:2}],recipient:external});
+ const next=act(state,command);
+ assert.equal(next.people.length,1);assert.equal(available(next,first),2);assert.equal(available(next,second),0);
+ assert.equal(act(next,command),next);
+ assert.equal(JSON.stringify(state),original);
+ assert.throws(()=>act(state,cmd({...command,id:'fail',lines:[{itemId:first,quantity:1},{itemId:second,quantity:3}]})),/suficiente/);
+ assert.equal(JSON.stringify(state),original);
+ assert.throws(()=>act(state,cmd({...command,id:'repeated',lines:[{itemId:first,quantity:2},{itemId:first,quantity:2}]})),/suficiente/);
+ const groups=context.window.CSHeartEquipment.groupAssignments(next.movements.filter(m=>m.recipient));
+ assert.equal(groups.length,1);assert.equal(groups[0].movements.length,2);
+});
+test('grouping uses identity, not name; batch loans retain individual returns',()=>{
+ let state=add(5);const itemId=state.items[0].id;
+ state=act(state,cmd({type:'handover',mode:'loan',lines:[{itemId,quantity:1},{itemId,quantity:2}],recipient:{type:'club',id:'a',name:'TEST'}}));
+ state=act(state,cmd({type:'gift',itemId,quantity:1,recipient:{type:'club',id:'b',name:'TEST'}}));
+ const loan=state.movements[1];
+ state=act(state,cmd({type:'return',itemId,quantity:1,loanId:loan.id}));
+ assert.equal(outstanding(state,loan),0);assert.equal(outstanding(state,state.movements[2]),2);
+ assert.equal(context.window.CSHeartEquipment.groupAssignments(state.movements.filter(m=>['loan','gift'].includes(m.type))).length,2);
+});
 const photo = 'data:image/jpeg;base64,/9j/2Q==';
 test('color variants retain distinct stock and normalize case',()=>{
  let state=add(3,{name:'Tricou',size:'M',color:'Roșu'});

@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "28-9-26", date: "28 septembrie 2026", current: true,
+      version: "29-9-26", date: "29 septembrie 2026", current: true,
+      changes: [{title: "O singură fișă de echipamente pe sportiv", description: "În Predări, fiecare sportiv apare o singură dată, cu toate echipamentele, fotografiile și returnările sale. Poți preda mai multe articole din același formular. Salvarea este integrală: dacă stocul nu ajunge, nu se salvează parțial. Înregistrările existente sunt păstrate."}],
+      bestArad: "De preluat: fișa de echipamente pe sportiv și predarea mai multor articole."
+    },
+    {
+      version: "28-9-26", date: "28 septembrie 2026", current: false,
       changes: [{ title: "Încasări lunare pe operator", description: "În Rapoarte se văd taxele și alte încasări pe persoană, separat cash/transfer și lei/euro, după data efectivă a încasării. Autorul încasărilor noi se păstrează la modificări. Încasările vechi fără autor inițial confirmat apar separat, fără atribuiri presupuse și fără modificarea sumelor." },
         { title: "Echipamente și materiale", description: "Fotografii opționale în miniatură (se măresc la apăsare), stoc separat pe culori și mărimi. Completarea pozei și culorii articolelor existente fără modificarea cantităților; ștergere reversibilă a articolelor introduse greșit. predări gratuite sau împrumuturi pentru sportivii clubului și externi, returnări parțiale și istoric de corectări. Nu se generează taxe. Stocul este salvat separat și inclus în backup; restaurarea unui backup vechi fără stoc nu îl șterge." }],
       bestArad: "De preluat: raportul pe operator și evidența echipamentelor, inclusiv fotografiile, culorile, regulile de acces Firebase și backup-ul."

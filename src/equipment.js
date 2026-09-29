@@ -28,6 +28,17 @@
   function applyCommand(current, command, actor, now) {
     validateState(current);
     if (!clean(command.id)) throw Error("Operațiunea nu are identificator.");
+    if (command.type === "handover") {
+      if (!Array.isArray(command.lines) || !command.lines.length || command.lines.length > 50) throw Error("Adaugă între 1 și 50 de echipamente.");
+      if (!["gift","loan"].includes(command.mode)) throw Error("Alege tipul predării.");
+      if (current.movements.some(m=>m.batchId===command.id)) return current;
+      let next=current;
+      for (const [index,line] of command.lines.entries()) {
+        next=applyCommand(next,{id:command.id+"-line-"+index,type:command.mode,itemId:line.itemId,quantity:line.quantity,date:command.date,note:command.note,recipient:command.recipient},actor,now);
+        next.movements[next.movements.length-1].batchId=command.id;
+      }
+      return next;
+    }
     if (current.movements.some(m => m.id === command.id || m.cancellationId === command.id)) return current;
     const data = JSON.parse(JSON.stringify(current));
     if (command.type === "delete-item" || command.type === "restore-item") {
@@ -130,6 +141,15 @@
     return data;
   }
 
+  function groupAssignments(movements) {
+    const groups=new Map();
+    for (const m of movements) {
+      const id=m.recipient.type+":"+m.recipient.id;
+      if (!groups.has(id)) groups.set(id,{id,recipient:m.recipient,movements:[]});
+      groups.get(id).movements.push(m);
+    }
+    return [...groups.values()].sort((a,b)=>a.recipient.name.localeCompare(b.recipient.name,"ro"));
+  }
   function View({ data, athletes = [], onCommand, onDirtyChange = () => {}, loadPhoto }) {
     const [tab, setTab] = React.useState("stock");
     const [search, setSearch] = React.useState("");
@@ -175,6 +195,8 @@
       setBusy(true); setError("");
       const command = { ...form };
       if (["gift","loan"].includes(form.type)) {
+        command.type="handover"; command.mode=form.type;
+        command.lines=[{itemId:form.itemId,quantity:form.quantity},...(form.extraLines||[])];
         const athlete = athletes.find(a => a.id === form.recipientId);
         command.recipient = form.recipientType === "club"
           ? { type:"club", id:athlete?.id || "", name:athlete ? `${athlete.lastName} ${athlete.firstName}` : "" }
@@ -213,6 +235,16 @@
           ["gift","loan"].includes(form.type) && form.recipientType === "external" && !form.recipientId && [input("Nume sportiv extern","name",{required:true}),input("Club de origine (opțional)","club"),input("Telefon de contact (opțional)","phone",{type:"tel"})],
           !["cancel","edit-item"].includes(form.type) && input(form.type === "adjust" ? "Motivul corecției" : "Observații (opțional)", "note", {required:form.type === "adjust"})
         )),
+        ["gift","loan"].includes(form.type) && h("div",{className:"stack"},h("p",null,"Alege articolele din stoc; pozele, culorile și mărimile lor se păstrează automat."),
+          lookup(form.itemId)&&h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(form.itemId),loadPhoto}),
+          (form.extraLines||[]).map((line,index)=>h("div",{key:index,className:"panel compact-grid"},
+            field("Echipament "+(index+2),h("select",{"aria-label":"Echipament "+(index+2),required:true,disabled:busy,value:line.itemId,onChange:e=>update("extraLines",form.extraLines.map((l,n)=>n===index?{...l,itemId:e.target.value}:l))},h("option",{value:""},"Alege articolul"),items.map(i=>h("option",{key:i.id,value:i.id},itemLabel(i)+" — disponibil "+available(data,i.id)+" "+i.unit)))),
+            field("Cantitate "+(index+2),h("input",{"aria-label":"Cantitate "+(index+2),type:"number",min:1,step:1,required:true,disabled:busy,value:line.quantity,onChange:e=>update("extraLines",form.extraLines.map((l,n)=>n===index?{...l,quantity:e.target.value}:l))})),
+            lookup(line.itemId)&&h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(line.itemId),loadPhoto}),
+            h("button",{type:"button",disabled:busy,onClick:()=>update("extraLines",form.extraLines.filter((_,n)=>n!==index))},"Elimină din predare")
+          )),
+          h("button",{type:"button",disabled:busy||(form.extraLines||[]).length>=49,onClick:()=>update("extraLines",[...(form.extraLines||[]),{itemId:"",quantity:"1"}])},"Adaugă încă un echipament")
+        ),
         ((form.type === "in" && !form.itemId) || form.type === "edit-item") && h(window.CSHeartEquipmentMedia.Picker,{key:form.id,disabled:busy,value:form.photoData,onChange:photoData=>setForm(old=>old?.id===form.id?({...old,photoData,removePhoto:false}):old),onBusy:setPhotoBusy,onError:setError}),
         form.type === "edit-item" && h("p",null,"Completarea culorii se aplică acestui articol și predărilor lui existente. Cantitățile nu se schimbă. Pentru o altă culoare fizică, adaugă un articol separat."),
         form.type === "edit-item" && lookup(form.itemId)?.photoId && h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(form.itemId),loadPhoto}),
@@ -225,9 +257,9 @@
       h("nav",{className:"equipment-actions","aria-label":"Evidență echipamente"},[["stock","Stoc"],["assigned","Predări"],["history","Istoric"]].map(([value,title])=>h("button",{key:value,"aria-pressed":tab===value,className:tab===value?"primary":"",onClick:()=>{setTab(value);setSearch("");setHistoryLimit(50);}},title))),
       field("Caută articol sau sportiv",h("input",{type:"search",value:search,onChange:e=>setSearch(e.target.value),placeholder:"Trening, minge, numele sportivului…"})),
       tab === "stock" && h("div",{className:"stack"},!stock.length && h("div",{className:"panel"},items.length?"Niciun articol găsit.":"Stocul este gol. Începe cu «Adaugă în stoc» și introdu ce ai fizic acum la club."),stock.map(i=>h("article",{key:i.id,className:"panel"},h(window.CSHeartEquipmentMedia.Thumbnail,{item:i,loadPhoto}),h("h3",null,itemLabel(i)),h("button",{disabled:busy || photoBusy,onClick:()=>start("edit-item",{itemId:i.id,color:i.color||""})},"Poză și culoare"),h("p",null,i.category),h("div",{className:"equipment-totals"},h("strong",null,`Disponibil: ${available(data,i.id)} ${i.unit}`),h("span",null,`Împrumutat: ${loans.filter(m=>m.itemId===i.id).reduce((n,m)=>n+outstanding(data,m),0)} ${i.unit}`),h("span",null,`Oferit definitiv: ${gifts.filter(m=>m.itemId===i.id).reduce((n,m)=>n+m.quantity,0)} ${i.unit}`)),buttons([h("button",{key:"add",disabled:busy,onClick:()=>start("in",{itemId:i.id})},"Adaugă cantitate"),h("button",{key:"give",disabled:busy||available(data,i.id)<=0,onClick:()=>start("gift",{itemId:i.id})},"Predă"),h("button",{key:"count",disabled:busy,onClick:()=>start("adjust",{itemId:i.id,count:String(available(data,i.id))})},"Corectează stocul")])))),
-      tab === "assigned" && h("div",{className:"stack"},field("Arată predările",h("select",{value:filter,onChange:e=>setFilter(e.target.value)},[["all","Toate"],["out","De returnat"],["gift","Oferite definitiv"],["returned","Returnate complet"]].map(([value,title])=>h("option",{key:value,value},title)))),!assignments.length&&h("p",{className:"panel"},"Nu există predări în selecția aleasă."),assignments.map(m=>h("article",{key:m.id,className:"panel"},h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(m.itemId),loadPhoto}),h("h3",null,person(m)),h("p",null,`${itemLabel(lookup(m.itemId))} — ${m.quantity} ${lookup(m.itemId)?.unit}`),h("p",null,`${m.date.split("-").reverse().join(".")} · ${m.type === "gift"?"Oferit definitiv — gratuit":outstanding(data,m)?`La sportiv: ${outstanding(data,m)} · Returnat: ${m.quantity-outstanding(data,m)}`:"Returnat complet"}`),m.note&&h("p",null,m.note),m.type === "loan"&&outstanding(data,m)>0&&h("button",{disabled:busy,onClick:()=>start("return",{itemId:m.itemId,loanId:m.id,quantity:String(outstanding(data,m))})},"Marchează returnat")))),
+      tab === "assigned" && h("div",{className:"stack"},field("Arată predările",h("select",{value:filter,onChange:e=>setFilter(e.target.value)},[["all","Toate"],["out","De returnat"],["gift","Oferite definitiv"],["returned","Returnate complet"]].map(([value,title])=>h("option",{key:value,value},title)))),!assignments.length&&h("p",{className:"panel"},"Nu există predări în selecția aleasă."),groupAssignments(assignments).map(g=>h("details",{key:g.id,className:"panel"},h("summary",null,person({recipient:g.recipient})+" — "+g.movements.length+" predări"),h("button",{disabled:busy,onClick:()=>start("gift",{recipientType:g.recipient.type,recipientId:g.recipient.id})},"Predă alte echipamente"),g.movements.map(m=>h("article",{key:m.id,className:"panel"},h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(m.itemId),loadPhoto}),h("p",null,`${itemLabel(lookup(m.itemId))} — ${m.quantity} ${lookup(m.itemId)?.unit}`),h("p",null,`${m.date.split("-").reverse().join(".")} · ${m.type === "gift"?"Oferit definitiv — gratuit":outstanding(data,m)?`La sportiv: ${outstanding(data,m)} · Returnat: ${m.quantity-outstanding(data,m)}`:"Returnat complet"}`),m.note&&h("p",null,m.note),m.type === "loan"&&outstanding(data,m)>0&&h("button",{disabled:busy,onClick:()=>start("return",{itemId:m.itemId,loanId:m.id,quantity:String(outstanding(data,m))})},"Marchează returnat")))))),
       tab === "history" && h("div",{className:"stack"},h("p",null,"Istoric în ordinea înregistrării. Corectările nu șterg operațiunile inițiale."),!history.length&&h("p",{className:"panel"},"Nu există mișcări în istoric."),history.slice(0,historyLimit).map(m=>h("article",{key:m.id,className:"panel"},h("h3",null,`${types[m.type]}${m.canceledAt?" — ANULATĂ":""}`),h("p",null,`${itemLabel(lookup(m.itemId))} · ${m.quantity} ${lookup(m.itemId)?.unit} · ${m.date.split("-").reverse().join(".")}`),m.recipient&&h("p",null,person(m)),h("small",null,`Operat de: ${window.CSHeartOperatorReceipts?.operatorLabel(m.recordedBy)||m.recordedBy||"Necunoscut"}`),m.note&&h("p",null,m.note),m.canceledAt?h("p",null,`Motiv: ${m.cancellationReason} · ${m.canceledAt.slice(0,10)} · ${window.CSHeartOperatorReceipts?.operatorLabel(m.canceledBy)||m.canceledBy}`):h("div",null,h("button",{disabled:busy,onClick:()=>start("cancel",{movementId:m.id,reason:""})},"Anulează operațiunea")))),history.length>historyLimit&&h("button",{onClick:()=>setHistoryLimit(n=>n+50)},"Arată încă 50"))
     );
   }
-  window.CSHeartEquipment = { empty, validateState, applyCommand, available, outstanding, itemLabel, View };
+  window.CSHeartEquipment = { empty, validateState, applyCommand, available, outstanding, itemLabel, groupAssignments, View };
 })();
