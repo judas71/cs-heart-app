@@ -74,9 +74,15 @@
       const item = data.items.find(i => i.id === command.itemId && !i.deletedAt);
       if (!item) throw Error("Articolul nu mai este disponibil.");
       const color = clean(command.color);
-      const candidate = {...item, color};
+      const fields=command.item;
+      const candidate = fields ? {...item,...Object.fromEntries(["name","category","size","color","personalization","unit"].map(field=>[field,clean(fields[field])]))} : {...item,color};
+      candidate.size=clean(candidate.size).toLocaleUpperCase("ro");
+      if(!candidate.name || !candidate.unit) throw Error("Completează denumirea și unitatea articolului.");
       if (data.items.some(i => !i.deletedAt && i.id !== item.id && ["name","category","size","color","personalization","unit"].every(field => key(i[field]) === key(candidate[field])))) throw Error("Există deja această variantă. Culorile nu se comasează automat.");
-      item.color = color;
+      const before=Object.fromEntries(["name","category","size","color","personalization","unit"].map(field=>[field,item[field]||""]));
+      Object.assign(item,candidate);
+      const after=Object.fromEntries(Object.keys(before).map(field=>[field,item[field]||""]));
+      if(JSON.stringify(before)!==JSON.stringify(after)) item.edits=[...(item.edits||[]),{at:now,by:actor,before,after}];
       if (command.photoData) {
         if (!window.CSHeartEquipmentMedia.validPhoto(command.photoData)) throw Error("Fotografie invalidă.");
         item.photoId = `photo-${command.id}`;
@@ -101,9 +107,10 @@
       const fields = command.item || {};
       if (!clean(fields.name)) throw Error("Completează denumirea articolului.");
       const candidate = { id: `item-${command.id}`, name: clean(fields.name), category: clean(fields.category) || "Echipament", size: clean(fields.size), color: clean(fields.color), personalization: clean(fields.personalization), unit: clean(fields.unit) || "buc." };
+      candidate.size=candidate.size.toLocaleUpperCase("ro");
       const duplicate = data.items.find(i => !i.deletedAt && ["name","category","size","color","personalization","unit"].every(field => key(i[field]) === key(candidate[field])));
       if (duplicate) {
-        if (command.photoData) throw Error("Articolul există deja. Pentru fotografia lui folosește «Mai multe → Poză și culoare» din stoc.");
+        if (command.photoData) throw Error("Articolul există deja. Pentru fotografia lui folosește «Modifică» din stoc.");
         movement.itemId = duplicate.id;
       }
       else {
@@ -235,11 +242,11 @@
       tab === "stock" && items.length > 0 && h("details",{className:"panel"},h("summary",null,"Șterge un articol introdus greșit"),h("p",null,"Articolele cu predări active sunt protejate. Ștergerea poate fi anulată din Istoric."),items.filter(i=>matching(itemLabel(i))).map(i=>h("div",{key:i.id,className:"equipment-actions"},h("span",null,itemLabel(i)),h("button",{disabled:busy,onClick:()=>removeItem(i)},"Șterge articolul")))),
       tab === "history" && data.items.some(i=>i.deletedAt) && h("details",{className:"panel"},h("summary",null,"Articole șterse"),data.items.filter(i=>i.deletedAt).map(i=>h("div",{key:i.id,className:"equipment-actions"},h("span",null,`${itemLabel(i)} — șters ${i.deletedAt.slice(0,10)}`),h("button",{disabled:busy,onClick:()=>removeItem(i,true)},"Restabilește articolul")))),
       form && h("form",{id:"equipment-form",className:"panel stack",onSubmit:submit},
-        h("h3",null, form.type === "edit-item" ? "Poză și culoare" : form.type === "cancel" ? "Anulează operațiunea cu motiv" : types[form.type]),
+        h("h3",null, form.type === "edit-item" ? "Modifică articolul" : form.type === "cancel" ? "Anulează operațiunea cu motiv" : types[form.type]),
         h("fieldset",{disabled:busy,className:"equipment-fieldset"},h("div",{className:"compact-grid"},
           !["cancel","edit-item"].includes(form.type) && select("Articol", "itemId", [...(form.type === "in" ? [["","Articol nou"]] : [["","Alege articolul"]]), ...items.map(i=>[i.id,`${itemLabel(i)} — disponibil ${available(data,i.id)} ${i.unit}`])]),
-          form.type === "in" && !form.itemId && ["name","category","size","color","personalization","unit"].map((name,index)=>field(["Denumire articol","Categorie","Mărime (opțional)","Culoare (opțional)","Număr / personalizare (opțional)","Unitate (buc., set etc.)"][index],h("input",{key:name,value:form.item[name],required:name === "name" || name === "unit",onChange:e=>update("item",{...form.item,[name]:e.target.value})}))),
-          form.type === "edit-item" ? input("Culoare (opțional)", "color") : form.type === "cancel" ? input("Motivul anulării", "reason", {required:true}) : form.type === "adjust" ? input("Cantitate fizică disponibilă la club", "count", {type:"number",min:0,step:1,required:true}) : input("Cantitate", "quantity", {type:"number",min:1,step:1,required:true}),
+          ((form.type === "in" && !form.itemId) || form.type === "edit-item") && ["name","category","size","color","personalization","unit"].map((name,index)=>field(["Denumire articol","Categorie","Mărime (opțional)","Culoare (opțional)","Număr / personalizare (opțional)","Unitate (buc., set etc.)"][index],h("input",{key:name,value:form.item[name],required:name === "name" || name === "unit",onChange:e=>update("item",{...form.item,[name]:e.target.value})}))),
+          form.type === "edit-item" ? null : form.type === "cancel" ? input("Motivul anulării", "reason", {required:true}) : form.type === "adjust" ? input("Cantitate fizică disponibilă la club", "count", {type:"number",min:0,step:1,required:true}) : input("Cantitate", "quantity", {type:"number",min:1,step:1,required:true}),
           !["cancel","edit-item"].includes(form.type) && input("Data", "date", {type:"date",max:localDate(),required:true}),
           ["gift","loan"].includes(form.type) && select("Tip predare", "type", [["gift","Oferit definitiv — gratuit"],["loan","Împrumutat — de returnat"]]),
           ["gift","loan"].includes(form.type) && field("Destinatar",h("select",{"aria-label":"Destinatar",value:form.recipientType,onChange:e=>setForm(old=>({...old,recipientType:e.target.value,recipientId:""}))},h("option",{value:"external"},"Sportiv extern"),h("option",{value:"club"},"Sportiv CS HEART"))),
@@ -258,7 +265,7 @@
           h("button",{type:"button",disabled:busy||(form.extraLines||[]).length>=49,onClick:()=>update("extraLines",[...(form.extraLines||[]),{itemId:"",quantity:"1"}])},"Adaugă încă un echipament")
         ),
         ((form.type === "in" && !form.itemId) || form.type === "edit-item") && h(window.CSHeartEquipmentMedia.Picker,{key:form.id,disabled:busy,value:form.photoData,onChange:photoData=>setForm(old=>old?.id===form.id?({...old,photoData,removePhoto:false}):old),onBusy:setPhotoBusy,onError:setError}),
-        form.type === "edit-item" && h("p",null,"Completarea culorii se aplică acestui articol și predărilor lui existente. Cantitățile nu se schimbă. Pentru o altă culoare fizică, adaugă un articol separat."),
+        form.type === "edit-item" && h("p",null,"Corectezi numai această variantă. Identitatea articolului, cantitățile și predările se păstrează; denumirea corectată apare și la predările existente. Mărimea se salvează cu litere mari. Pentru un echipament diferit, adaugă o variantă nouă."),
         form.type === "edit-item" && lookup(form.itemId)?.photoId && h(window.CSHeartEquipmentMedia.Thumbnail,{item:lookup(form.itemId),loadPhoto}),
         form.type === "edit-item" && lookup(form.itemId)?.photoId && h("label",null,h("input",{type:"checkbox",checked:!!form.removePhoto,onChange:e=>setForm(old=>({...old,removePhoto:e.target.checked,photoData:""}))})," Elimină fotografia existentă"),
         form.type === "return" && h("p",null,"Poți returna și o parte din cantitate. Articolele reintră în stocul disponibil."),
@@ -288,8 +295,8 @@
               h("td",{"data-label":"Oferit definitiv"},gifts.filter(m=>m.itemId===i.id).reduce((n,m)=>n+m.quantity,0)),
               h("td",{"data-label":"Acțiuni"},buttons([
                 h("button",{key:"give",disabled:busy||available(data,i.id)<=0,onClick:()=>start("gift",{itemId:i.id})},"Predă"),
+                h("button",{key:"edit",disabled:busy||photoBusy,onClick:()=>start("edit-item",{itemId:i.id,item:{name:i.name,category:i.category||"",size:i.size||"",color:i.color||"",personalization:i.personalization||"",unit:i.unit||"buc."}})},"Modifică"),
                 h("details",{key:"more"},h("summary",null,"Mai multe"),buttons([
-                  h("button",{key:"photo",disabled:busy||photoBusy,onClick:()=>start("edit-item",{itemId:i.id,color:i.color||""})},"Poză și culoare"),
                   h("button",{key:"count",disabled:busy,onClick:()=>start("adjust",{itemId:i.id,count:String(available(data,i.id))})},"Corectează stocul")
                 ]))
               ]))

@@ -37,6 +37,30 @@ test('grouping uses identity, not name; batch loans retain individual returns',(
  assert.equal(context.window.CSHeartEquipment.groupAssignments(state.movements.filter(m=>['loan','gift'].includes(m.type))).length,2);
 });
 const photo = 'data:image/jpeg;base64,/9j/2Q==';
+test('edit corrects model and size in place while retaining movements and photo',()=>{
+ let state=act(empty(),cmd({type:'in',quantity:2,item:{name:'echip',size:'xl',color:'Alb'},photoData:photo}));
+ const itemId=state.items[0].id;
+ state=act(state,cmd({type:'loan',quantity:1,itemId,recipient:external}));
+ const before=JSON.stringify(state);
+ const fields={...state.items[0],name:'Echip',size:'xl',personalization:'71'};
+ const next=act(state,cmd({type:'edit-item',itemId,item:fields}));
+ assert.equal(next.items[0].name,'Echip');assert.equal(next.items[0].size,'XL');
+ assert.equal(next.items[0].id,itemId);assert.equal(next.items[0].photoId,state.items[0].photoId);
+ assert.equal(JSON.stringify(next.movements),JSON.stringify(state.movements));
+ assert.equal(available(next,itemId),1);assert.equal(outstanding(next,next.movements[1]),1);
+ assert.equal(next.items[0].edits[0].before.name,'echip');
+ assert.equal(next.items[0].edits[0].after.name,'Echip');
+ assert.equal(JSON.stringify(state),before);
+ assert.throws(()=>act(state,cmd({type:'edit-item',itemId,item:{...fields,name:' '}})),/denumirea/);
+});
+test('edit refuses a conflicting variant and form exposes editable metadata',()=>{
+ let state=add(1,{name:'Echip',size:'S'});
+ state=act(state,cmd({type:'in',quantity:1,item:{name:'Echip',size:'L'}}));
+ assert.throws(()=>act(state,cmd({type:'edit-item',itemId:state.items[1].id,item:{...state.items[1],size:'S'}})),/deja/);
+ const source=fs.readFileSync(path.join(__dirname,'../src/equipment.js'),'utf8');
+ assert.match(source,/"Modifică articolul"/);
+ assert.match(source,/form.type === "edit-item"\) && \["name","category","size","color","personalization","unit"\]/);
+});
 test('stock groups sizes by normalized model and color without changing records',()=>{
  const rows=[
  {id:'a',name:'Echip.Personalizat',color:'Turcoaz',category:'Echipament',unit:'buc.',size:'L',personalization:'15'},
