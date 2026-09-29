@@ -10,6 +10,8 @@
 .equipment .panel { min-width:0; overflow-wrap:anywhere; }
 .equipment .panel p { margin:8px 0; }
 .equipment-stock-table { clear:both; overflow-x:auto; margin:16px 0; }
+.equipment-model > .equipment-model-summary { cursor:pointer; padding:4px 0; line-height:1.6; }
+.equipment-model[open] > .equipment-model-summary { margin-bottom:12px; }
 .equipment-stock-table table { width:100%; min-width:760px; border-collapse:collapse; }
 .equipment-stock-table th { overflow-wrap:normal; word-break:normal; }
 .equipment-stock-table th,.equipment-stock-table td { padding:10px; text-align:left; border-bottom:1px solid #e0e4ea; }
