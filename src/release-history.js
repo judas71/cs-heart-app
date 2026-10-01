@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "29-9-26", date: "29 septembrie 2026", current: true,
+      version: "1-10-26", date: "1 octombrie 2026", current: true,
+      changes: [{ title: "Împărțirea încasărilor după data plății", description: "În Taxe, baza împărțirii 60% / 40% și raportul încasărilor lunare includ banii primiți în luna selectată, chiar dacă sting datorii vechi sau sportivul este inactiv. Repartizarea pe datorii rămâne neschimbată. Datele și sumele încasărilor nu sunt modificate." }],
+      bestArad: "De preluat: calculul încasărilor lunare și al împărțirii 60% / 40% după data plății."
+    },
+    {
+      version: "29-9-26", date: "29 septembrie 2026", current: false,
       changes: [{title: "O singură fișă de echipamente pe sportiv", description: "În Predări, fiecare sportiv apare o singură dată, cu toate echipamentele, fotografiile și returnările sale. Poți preda mai multe articole din același formular. Salvarea este integrală: dacă stocul nu ajunge, nu se salvează parțial. Înregistrările existente sunt păstrate."}],
       bestArad: "De preluat: fișa de echipamente pe sportiv, predarea mai multor articole și stocul compact pe model și culoare."
     },

@@ -2211,10 +2211,9 @@
 
       return athlete.joinMonth <= month;
     });
-    const listedAthleteIds = listedAthletes.map((athlete) => athlete.id);
-    const monthlyFeeRows = fees.filter((fee) => fee.month === month && listedAthleteIds.includes(fee.athleteId));
-    const monthlyFeePayments = monthlyFeeRows.flatMap((fee) => getFeePayments(fee));
-    const monthlyCollected = monthlyFeeRows.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const receiptSummary = window.CSHeartMonthlyFeeReceipts.collect({ athletes, fees, month, group });
+    const monthlyFeePayments = receiptSummary.rows.map(row => row.payment);
+    const monthlyCollected = receiptSummary.total;
     const monthlyCashCollected = monthlyFeePayments
       .filter((payment) => payment.method === "cash")
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
@@ -2611,6 +2610,12 @@
       h(
         "aside",
         { className: "cs-monthly-fee-notice" },
+        h("p", null, "Încasările și împărțirea 60% / 40% se calculează după data plății, inclusiv restanțele achitate și plățile sportivilor inactivi. Selectează grupa pentru care calculezi împărțirea."),
+        receiptSummary.undated.length > 0 && h("p", null, `${receiptSummary.undated.length} încasări fără dată nu pot fi repartizate într-o lună; verifică istoricul lor.`),
+        h("details", null,
+          h("summary", null, "Vezi încasările incluse în calcul"),
+          h(FeePaymentRows, { title: "Încasări", rows: receiptSummary.rows, athletes, emptyText: "Nu există încasări în luna selectată." })
+        ),
         h("strong", null, "Taxa lunii se modifică numai pentru luna aleasă"),
         h("p", null, `Pentru un sportiv nou poți trece succesiv 1 antrenament (50 lei), 2 antrenamente (100 lei), apoi Continuă luna. Încasările deja făcute se păstrează și se scad automat din taxa normală. Orice alegere este valabilă doar pentru ${formatMonthLabel(month)}, iar luna următoare aplicația revine automat la taxa normală din fișa sportivului.`)
       ),
@@ -2623,7 +2628,7 @@
         h(
           "div",
           null,
-          h("span", null, "Impartire incasari"),
+          h("span", null, "Împărțire încasări după data plății"),
           h("strong", null, "60% = " + formatMoney(monthlyCollected * 0.6)),
           h("strong", null, "40% = " + formatMoney(monthlyCollected * 0.4))
         ),
@@ -4620,16 +4625,11 @@
     });
     const debtorRows = feeRows.filter((row) => row.outstanding > 0);
     const creditRows = feeRows.filter((row) => row.credit > 0);
-    const collectedFees = fees.filter(
-      (fee) =>
-        fee.month === month &&
-        Number(fee.amountPaid || 0) > 0 &&
-        athletesInFilter.some((athlete) => athlete.id === fee.athleteId)
-    );
-    const collectedFeePayments = collectedFees.flatMap((fee) => getFeePayments(fee).map((payment) => ({ fee, payment })));
+    const receiptSummary = window.CSHeartMonthlyFeeReceipts.collect({ athletes, fees, month, group });
+    const collectedFeePayments = receiptSummary.rows;
     const cashRows = collectedFeePayments.filter((row) => row.payment.method === "cash");
     const transferRows = collectedFeePayments.filter((row) => row.payment.method === "transfer");
-    const totalCollected = collectedFees.reduce((sum, fee) => sum + Number(fee.amountPaid || 0), 0);
+    const totalCollected = receiptSummary.total;
     const totalCash = cashRows.reduce((sum, row) => sum + Number(row.payment.amount || 0), 0);
     const totalTransfer = transferRows.reduce((sum, row) => sum + Number(row.payment.amount || 0), 0);
     const observationRows = athletesInFilter.filter((athlete) => athlete.notes && athlete.notes.trim()).sort(compareAthletesByName);
@@ -4774,8 +4774,8 @@
         reportType === "toate" &&
           h(
             DetailSection,
-            { title: "Incasari pe luna", meta: `${collectedFees.length} plati / ${formatMoney(totalCollected)}`, open: false },
-            collectedFees.length
+            { title: "Încasări după data plății", meta: `${collectedFeePayments.length} plati / ${formatMoney(totalCollected)}`, open: false },
+            collectedFeePayments.length
               ? h("div", { style: { display: "grid", gap: "12px" } }, h(FeePaymentRows, { title: "Cash", rows: cashRows, athletes, emptyText: "Nu exista incasari cash." }), h(FeePaymentRows, { title: "Transfer", rows: transferRows, athletes, emptyText: "Nu exista incasari prin transfer." }))
               : h(EmptyReportLine, { text: "Nu exista incasari." })
           )
