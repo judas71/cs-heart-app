@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "1-10-26", date: "1 octombrie 2026", current: true,
+      version: "2-10-26", date: "2 octombrie 2026", current: true,
+      changes: [{ title: "Valabilitate împuternicire", description: "Fișa sportivului afișează data expirării împuternicirii. Câmpul este opțional și poate fi completat, modificat sau golit din editarea sportivului. Datele existente rămân neschimbate." }],
+      bestArad: "De preluat: câmpul Valabilitate împuternicire din fișa sportivului."
+    },
+    {
+      version: "1-10-26", date: "1 octombrie 2026", current: false,
       changes: [{ title: "Împărțirea încasărilor după data plății", description: "În Taxe, baza împărțirii 60% / 40% și raportul încasărilor lunare includ banii primiți în luna selectată, chiar dacă sting datorii vechi sau sportivul este inactiv. Repartizarea pe datorii rămâne neschimbată. Datele și sumele încasărilor nu sunt modificate." }],
       bestArad: "De preluat: calculul încasărilor lunare și al împărțirii 60% / 40% după data plății."
     },
