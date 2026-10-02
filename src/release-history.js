@@ -2,7 +2,7 @@
   const releases = [
     {
       version: "2-10-26", date: "2 octombrie 2026", current: true,
-      changes: [{ title: "Valabilitate împuternicire", description: "Fișa sportivului afișează data expirării împuternicirii. Câmpul este opțional și poate fi completat, modificat sau golit din editarea sportivului. Datele existente rămân neschimbate." }],
+      changes: [{ title: "Valabilitate împuternicire", description: "Fișa sportivului afișează data expirării împuternicirii. Câmpul este opțional și poate fi completat, modificat sau golit din editarea sportivului. Viza medicală și împuternicirea se completează și se afișează în format românesc zi.lună.an. Datele existente rămân neschimbate." }],
       bestArad: "De preluat: câmpul Valabilitate împuternicire din fișa sportivului."
     },
     {

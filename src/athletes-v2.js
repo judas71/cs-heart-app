@@ -260,6 +260,26 @@
     return h("label", { className: "field" }, h("span", null, label), children);
   }
 
+  function RomanianDateInput({ value, onChange }) {
+    const [text, setText] = React.useState(() => value ? formatDate(value) : "");
+    function change(event) {
+      const raw = event.target.value;
+      setText(raw);
+      const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(raw.trim());
+      let iso = "";
+      let valid = !raw.trim();
+      if (match) {
+        iso = match[3] + "-" + match[2] + "-" + match[1];
+        const date = new Date(iso + "T12:00:00Z");
+        valid = !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === iso;
+      }
+      event.target.setCustomValidity(valid ? "" : "Scrie o dată validă în format zi.lună.an, de exemplu 02.10.2026.");
+      if (valid) onChange(iso);
+    }
+    return h("input", { type: "text", value: text, onChange: change, placeholder: "zz.ll.aaaa",
+      maxLength: 10, title: "Zi.lună.an — exemplu: 02.10.2026" });
+  }
+
   function AthleteFormV2({ initialValue, onSave, onCancel, formRef }) {
     const [form, setForm] = React.useState(() => {
       const base = initialValue || {
@@ -323,9 +343,9 @@
       h(Field, { label: "Telefon părinte" }, h("input", { value: form.parentPhone || "", onChange: (e) => update("parentPhone", e.target.value), inputMode: "tel" })),
       h(Field, { label: "Taxă normală lunară" }, h("input", { type: "number", min: "0", step: "1", value: form.feeDue ?? 200, onChange: (e) => update("feeDue", e.target.value), inputMode: "numeric" })),
       h(Field, { label: "Luna înscrierii" }, h("input", { type: "month", value: form.joinMonth || "", onChange: (e) => update("joinMonth", e.target.value) })),
-      h(Field, { label: "Viză medicală de la" }, h("input", { type: "date", value: form.medicalVisaFrom || "", onChange: (e) => update("medicalVisaFrom", e.target.value) })),
-      h(Field, { label: "Viză medicală până la" }, h("input", { type: "date", value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (e) => update("medicalVisaTo", e.target.value) })),
-      h(Field, { label: "Valabilitate împuternicire" }, h("input", { type: "date", value: form.authorizationValidUntil || "", onChange: (e) => update("authorizationValidUntil", e.target.value) })),
+      h(Field, { label: "Viză medicală de la (zi.lună.an)" }, h(RomanianDateInput, { value: form.medicalVisaFrom || "", onChange: (value) => update("medicalVisaFrom", value) })),
+      h(Field, { label: "Viză medicală până la (zi.lună.an)" }, h(RomanianDateInput, { value: form.medicalVisaTo || getMedicalExpiry(form), onChange: (value) => update("medicalVisaTo", value) })),
+      h(Field, { label: "Valabilitate împuternicire (zi.lună.an)" }, h(RomanianDateInput, { value: form.authorizationValidUntil || "", onChange: (value) => update("authorizationValidUntil", value) })),
       h(Field, { label: "Anul nașterii" }, h("input", { type: "number", min: "1900", max: String(new Date().getFullYear()), step: "1", value: form.birthYear || "", onChange: (e) => update("birthYear", e.target.value), placeholder: "ex. 2012", inputMode: "numeric" })),
       h(Field, { label: "Status" }, h("select", { value: form.active ? "active" : "inactive", onChange: (e) => updateStatus(e.target.value) }, h("option", { value: "active" }, "Activ"), h("option", { value: "inactive" }, "Inactiv"))),
       !form.active && h(Field, { label: "Inactiv începând cu luna" }, h("input", { type: "month", value: form.inactiveMonth || new Date().toISOString().slice(0, 7), min: form.joinMonth || undefined, onChange: (e) => update("inactiveMonth", e.target.value), required: true })),
@@ -741,7 +761,7 @@
           "button",
           { className: "athlete-v2-profile-action", type: "button", onClick: onEdit },
           h("span", null, "Viză medicală"),
-          h("strong", null, expiry || "Neînregistrată"),
+          h("strong", null, expiry ? formatDate(expiry) : "Neînregistrată"),
           h("small", null, "Actualizează viza →")
         ),
         h(
