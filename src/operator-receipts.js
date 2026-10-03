@@ -19,6 +19,29 @@
     return email && email !== "necunoscut" ? email : "";
   }
 
+  function receiptAudit(receipt, parent = {}) {
+    return {
+      operator: operatorLabel(identity(receipt)),
+      lastEditor: operatorLabel(receipt?.updatedByEmail || parent.updatedByEmail || parent.updatedBy),
+      recordedAt: receipt?.recordedAt || "",
+      updatedAt: receipt?.updatedAt || parent.updatedAt || "",
+      known: Boolean(identity(receipt))
+    };
+  }
+  function ReceiptDetails({ receipt, parent }) {
+    const h = React.createElement;
+    const audit = receiptAudit(receipt, parent);
+    const time = value => value ? new Date(value).toLocaleString("ro-RO", { timeZone: "Europe/Bucharest" }) : "Dată nepăstrată";
+    return h("details", null,
+      h("summary", { style: { cursor: "pointer" } }, "Cine a operat? — " + audit.operator),
+      h("p", null, "Operator inițial: " + audit.operator),
+      audit.known && h("p", null, "Înregistrat la: " + time(audit.recordedAt)),
+      !audit.known && h("p", null, "Autorul inițial nu a fost păstrat pentru această încasare veche. Nu poate fi dedus din grupa sportivului sau din ultima modificare."),
+      h("p", null, "Ultima modificare a evidenței: " + audit.lastEditor + " · " + time(audit.updatedAt)),
+      h("small", null, "Ultimul editor poate fi persoana care a corectat taxa sau a generat confirmarea, nu neapărat cea care a înregistrat încasarea.")
+    );
+  }
+
   // Initial operator is immutable. Last editor is not evidence of original receipt ownership.
   function stampReceipt(receipt, previous, user, now, historical = false) {
     const result = { ...receipt };
@@ -163,5 +186,5 @@
       ))
     );
   }
-  window.CSHeartOperatorReceipts = { stampReceipt, stampFee, buildRows, summarize, groupRows, operatorLabel, operatorOptions, Report };
+  window.CSHeartOperatorReceipts = { stampReceipt, stampFee, buildRows, summarize, groupRows, operatorLabel, operatorOptions, receiptAudit, ReceiptDetails, Report };
 })();

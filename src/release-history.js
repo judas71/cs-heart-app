@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "2-10-26", date: "2 octombrie 2026", current: true,
+      version: "3-10-26", date: "3 octombrie 2026", current: true,
+      changes: [{ title: "Operatorul direct lângă încasare", description: "În Taxe, apăsarea pe Cash sau Transfer arată încasările lunii și cine le-a operat. Istoricul plăților și Alte încasări separă operatorul inițial de ultimul editor. Confirmările nu mai prezintă ultimul editor drept autor al încasării. Pentru încasările vechi fără autor păstrat se afișează Operator neidentificat, fără atribuiri presupuse." }],
+      bestArad: "De preluat: detaliile operatorului lângă încasări și etichetele corectate."
+    },
+    {
+      version: "2-10-26", date: "2 octombrie 2026", current: false,
       changes: [{ title: "Valabilitate împuternicire", description: "Fișa sportivului afișează data expirării împuternicirii. Câmpul este opțional și poate fi completat, modificat sau golit din editarea sportivului. Viza medicală și împuternicirea se completează și se afișează în format românesc zi.lună.an. Datele existente rămân neschimbate." }],
       bestArad: "De preluat: câmpul Valabilitate împuternicire din fișa sportivului."
     },

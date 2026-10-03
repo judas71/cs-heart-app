@@ -1028,6 +1028,7 @@
       method: payment.method || fee.method || "cash",
       notes: payment.notes || "",
       receiptAmount: Number(payment.amount || 0),
+      recordedByEmail: payment.recordedByEmail || "",
       confirmationCount: Number(payment.confirmationCount || 0),
       confirmationGeneratedAt: payment.confirmationGeneratedAt || ""
     };
@@ -1201,7 +1202,7 @@
       ["Suma incasata", formatMoney(receiptAmount)],
       ["Rest ramas", creditAfterMonth > 0 ? "Avans " + formatMoney(creditAfterMonth) : formatMoney(outstanding)],
       ["Metoda", fee.method || "-"],
-      ["Operat de", operatorLabel(fee.updatedByEmail || fee.updatedBy)],
+      ["Operator inițial", window.CSHeartOperatorReceipts.receiptAudit(fee).operator],
       ["Observatii", fee.notes || "-"]
     ];
   }
@@ -1222,7 +1223,7 @@
       "Suma achitata: " + formatMoney(fee.receiptAmount ?? fee.amountPaid),
       "Metoda: " + (fee.method || "-"),
       "Rest ramas: " + remainingText,
-      "Operat de: " + operatorLabel(fee.updatedByEmail || fee.updatedBy),
+      "Operator inițial: " + window.CSHeartOperatorReceipts.receiptAudit(fee).operator,
       "Confirmare generata din aplicatia CS HEART."
     ].join("\n");
   }
@@ -2623,7 +2624,11 @@
         "div",
         { className: "metrics" },
         h("div", null, h("span", null, "Total incasari luna"), h("strong", null, formatMoney(monthlyCollected))),
-        h("div", null, h("span", null, "Cash / Transfer"), h("strong", null, "Cash: " + formatMoney(monthlyCashCollected)), h("small", null, "Transfer: " + formatMoney(monthlyTransferCollected))),
+        h("div", null, h("span", null, "Cash / Transfer"),
+          ["cash", "transfer"].map(method => h("details", { key: method },
+            h("summary", { style: { cursor: "pointer", fontWeight: 700 } }, (method === "cash" ? "Cash: " : "Transfer: ") + formatMoney(method === "cash" ? monthlyCashCollected : monthlyTransferCollected)),
+            h(FeePaymentRows, { title: method === "cash" ? "Cash" : "Transfer", rows: receiptSummary.rows.filter(row => row.payment.method === method), athletes, emptyText: "Nu există încasări." })
+          ))),
         h("div", null, h("span", null, "De incasat total"), h("strong", null, formatMoney(monthlyOutstanding))),
         h(
           "div",
@@ -2708,6 +2713,7 @@
                   h(
                     "article",
                     { key: payment.id },
+                    h(window.CSHeartOperatorReceipts.ReceiptDetails, { receipt: payment, parent: feePanelFee }),
                     h("div", null, h("strong", null, formatMoney(payment.amount)), h("span", null, formatDate(payment.date) + " / " + (payment.method || "-")), h("small", null, "Acoperă: " + allocationLabel(settlementFor(feePanelAthlete), month, payment.id)), payment.notes && h("small", null, payment.notes)),
                     h(
                       "div",
@@ -4090,7 +4096,7 @@
                           h("td", { "data-label": "Metoda" }, payment.method || "-"),
                           h("td", { "data-label": "Moneda" }, paymentCurrency(payment)),
                           h("td", { "data-label": "Observatii" }, payment.notes || "-"),
-                          h("td", { "data-label": "Operat de" }, operatorLabel(payment.updatedByEmail))
+                          h("td", { "data-label": "Operat de" }, h(window.CSHeartOperatorReceipts.ReceiptDetails, { receipt: payment }))
                         )
                       )
                     )
@@ -4416,7 +4422,8 @@
                 key: payment.id || `${fee.athleteId}-${fee.month}-${payment.method}-${payment.amount}`,
                 title: athlete ? athleteName(athlete) : "Sportiv necunoscut",
                 subtitle: payment.date ? "Data platii: " + formatDate(payment.date) : "Fara data de plata",
-                amount: formatMoney(payment.amount)
+                amount: formatMoney(payment.amount),
+                children: h(window.CSHeartOperatorReceipts.ReceiptDetails, { receipt: payment, parent: fee })
               });
             })
           )

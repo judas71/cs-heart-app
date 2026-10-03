@@ -10,6 +10,31 @@ const alina = { email: 'alina@example.test', uid: 'a' };
 const liviu = { email: 'liviu@example.test', uid: 'l' };
 const now = '2026-09-28T12:00:00Z';
 
+test('receipt details never infer initial operator from later fee edits', () => {
+  const { receiptAudit } = context.window.CSHeartOperatorReceipts;
+  const payment = { id: 'old', amount: 200, date: '2026-09-15', method: 'cash' };
+  const parent = { updatedByEmail: 'liviu.vera@gmail.com', updatedAt: '2026-09-15T20:25:23Z' };
+  const before = JSON.stringify({ payment, parent });
+  const audit = receiptAudit(payment, parent);
+  assert.equal(audit.operator, 'Operator neidentificat');
+  assert.equal(audit.known, false);
+  assert.equal(audit.lastEditor, 'Liviu');
+  assert.equal(JSON.stringify({ payment, parent }), before);
+  const known = receiptAudit({ ...payment, recordedByEmail: 'tatucualina@yahoo.com', recordedAt: now }, parent);
+  assert.equal(known.operator, 'Alina');
+  assert.equal(known.lastEditor, 'Liviu');
+  assert.equal(known.recordedAt, now);
+});
+
+test('receipt provenance is accessible in monthly receipts and payment histories', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/extra-payments.js'), 'utf8');
+  assert.ok(source.includes('h(window.CSHeartOperatorReceipts.ReceiptDetails, { receipt: payment, parent: feePanelFee })'));
+  assert.ok(source.includes('h(window.CSHeartOperatorReceipts.ReceiptDetails, { receipt: payment, parent: fee })'));
+  assert.ok(source.includes('receiptSummary.rows.filter(row => row.payment.method === method)'));
+  assert.ok(source.includes('recordedByEmail: payment.recordedByEmail || ""'));
+  assert.ok(!source.includes('["Operat de", operatorLabel(fee.updatedByEmail || fee.updatedBy)]'));
+});
+
 test('operator names map exact accounts; both people remain selectable in empty months', () => {
   const { operatorLabel, operatorOptions } = context.window.CSHeartOperatorReceipts;
   assert.equal(operatorLabel(' LIVIU.VERA@gmail.com '), 'Liviu');
