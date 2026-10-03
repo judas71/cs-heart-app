@@ -18,12 +18,30 @@ test('receipt details never infer initial operator from later fee edits', () => 
   const audit = receiptAudit(payment, parent);
   assert.equal(audit.operator, 'Operator neidentificat');
   assert.equal(audit.known, false);
-  assert.equal(audit.lastEditor, 'Liviu');
+  assert.equal(audit.lastEditor, 'Operator neidentificat');
+  assert.equal(audit.updatedAt, '');
   assert.equal(JSON.stringify({ payment, parent }), before);
   const known = receiptAudit({ ...payment, recordedByEmail: 'tatucualina@yahoo.com', recordedAt: now }, parent);
   assert.equal(known.operator, 'Alina');
-  assert.equal(known.lastEditor, 'Liviu');
+  assert.equal(known.lastEditor, 'Operator neidentificat');
   assert.equal(known.recordedAt, now);
+});
+
+test('separate cash and transfer keep their own creation times, never monthly edit time', () => {
+  const { receiptAudit, ReceiptDetails } = context.window.CSHeartOperatorReceipts;
+  context.React = { createElement: (type, props, ...children) => ({ type, props, children }) };
+  const parent = { updatedByEmail: 'tatucualina@yahoo.com', updatedAt: '2026-09-17T16:40:05.413Z' };
+  const transfer = { id: 'transfer', createdAt: '2026-09-13T17:29:54.149Z', amount: 200 };
+  const cash = { id: 'cash', createdAt: '2026-09-17T16:40:05.413Z', amount: 200 };
+  assert.equal(receiptAudit(transfer, parent).recordedAt, transfer.createdAt);
+  assert.equal(receiptAudit(cash, parent).recordedAt, cash.createdAt);
+  for (const receipt of [transfer, cash]) {
+    const output = JSON.stringify(ReceiptDetails({ receipt, parent }));
+    assert.ok(!output.includes('Alina'));
+    assert.ok(!output.includes('Ultima modificare'));
+    assert.ok(output.includes('Operator neidentificat'));
+  }
+  assert.equal(receiptAudit({ id: 'legacy-fee', createdAt: parent.updatedAt }, parent).recordedAt, '');
 });
 
 test('receipt provenance is accessible in monthly receipts and payment histories', () => {

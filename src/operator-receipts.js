@@ -19,12 +19,12 @@
     return email && email !== "necunoscut" ? email : "";
   }
 
-  function receiptAudit(receipt, parent = {}) {
+  function receiptAudit(receipt) {
     return {
       operator: operatorLabel(identity(receipt)),
-      lastEditor: operatorLabel(receipt?.updatedByEmail || parent.updatedByEmail || parent.updatedBy),
-      recordedAt: receipt?.recordedAt || "",
-      updatedAt: receipt?.updatedAt || parent.updatedAt || "",
+      lastEditor: operatorLabel(receipt?.updatedByEmail),
+      recordedAt: receipt?.recordedAt || (String(receipt?.id || "").startsWith("legacy") ? "" : receipt?.createdAt) || "",
+      updatedAt: receipt?.updatedAt || "",
       known: Boolean(identity(receipt))
     };
   }
@@ -35,10 +35,9 @@
     return h("details", null,
       h("summary", { style: { cursor: "pointer" } }, "Cine a operat? — " + audit.operator),
       h("p", null, "Operator inițial: " + audit.operator),
-      audit.known && h("p", null, "Înregistrat la: " + time(audit.recordedAt)),
-      !audit.known && h("p", null, "Autorul inițial nu a fost păstrat pentru această încasare veche. Nu poate fi dedus din grupa sportivului sau din ultima modificare."),
-      h("p", null, "Ultima modificare a evidenței: " + audit.lastEditor + " · " + time(audit.updatedAt)),
-      h("small", null, "Ultimul editor poate fi persoana care a corectat taxa sau a generat confirmarea, nu neapărat cea care a înregistrat încasarea.")
+      h("p", null, "Înregistrarea acestei plăți: " + time(audit.recordedAt)),
+      !audit.known && h("p", null, "Operatorul acestei încasări vechi nu a fost păstrat."),
+      audit.updatedAt && h("p", null, "Ultima modificare a acestei plăți: " + audit.lastEditor + " · " + time(audit.updatedAt))
     );
   }
 
@@ -179,7 +178,7 @@
           h("ul", { className: "clean-list" }, group.rows.map(row => h("li", { key: row.id },
             h("div", null, h("strong", null, row.payer),
               h("p", null, `${row.date.split("-").reverse().join(".")} · ${methodLabel(row.method)} · ${row.description}`),
-              !row.operator && row.lastEditor && h("small", null, `Ultimul editor al evidenței: ${operatorLabel(row.lastEditor)} (autor inițial neconfirmat)`)),
+              !row.operator && h("small", null, "Operatorul inițial al acestei încasări nu a fost păstrat.")),
             h("strong", null, `${money(row.cents)} ${row.currency}`)
           )))
         )
