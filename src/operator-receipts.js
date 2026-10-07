@@ -23,7 +23,7 @@
     return {
       operator: operatorLabel(identity(receipt)),
       lastEditor: operatorLabel(receipt?.updatedByEmail),
-      recordedAt: receipt?.recordedAt || (String(receipt?.id || "").startsWith("legacy") ? "" : receipt?.createdAt) || "",
+      recordedAt: receipt?.recordedAt || (receipt?.recoveredAt || String(receipt?.id || "").startsWith("legacy") ? "" : receipt?.createdAt) || "",
       updatedAt: receipt?.updatedAt || "",
       known: Boolean(identity(receipt))
     };
@@ -35,6 +35,7 @@
     return h("details", null,
       h("summary", { style: { cursor: "pointer" } }, "Cine a operat? — " + audit.operator),
       h("p", null, "Operator inițial: " + audit.operator),
+      receipt?.recoveredAt && h("p", null, "Încasare reconstituită pe baza confirmării administratorului. Refăcută de " + operatorLabel(receipt.recoveredByEmail) + " la " + time(receipt.recoveredAt)),
       h("p", null, "Înregistrarea acestei plăți: " + time(audit.recordedAt)),
       !audit.known && h("p", null, "Operatorul acestei încasări vechi nu a fost păstrat."),
       audit.updatedAt && h("p", null, "Ultima modificare a acestei plăți: " + audit.lastEditor + " · " + time(audit.updatedAt))
@@ -48,11 +49,22 @@
       result.recordedByEmail = previous?.recordedByEmail || "";
       result.recordedById = previous?.recordedById || "";
       result.recordedAt = previous?.recordedAt || "";
+      if (previous?.recoveredAt) {
+        result.recoveredAt = previous.recoveredAt;
+        result.recoveredByEmail = previous.recoveredByEmail;
+      }
+    } else if (operatorNames[receipt.recoveryOperatorEmail] && String(receipt.notes || '').trim()) {
+      result.recordedByEmail = receipt.recoveryOperatorEmail;
+      result.recordedById = "";
+      result.recordedAt = "";
+      result.recoveredAt = now;
+      result.recoveredByEmail = user?.email || "";
     } else {
       result.recordedByEmail = user?.email || "";
       result.recordedById = user?.uid || "";
       result.recordedAt = now;
     }
+    delete result.recoveryOperatorEmail;
     return result;
   }
 

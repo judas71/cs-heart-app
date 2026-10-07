@@ -2360,6 +2360,12 @@
       const paymentDate = normalizeDateInput(feePaymentForm.date);
       if (amount <= 0 || !paymentDate) return;
 
+      if (feePaymentForm.recoveryOperatorEmail) {
+        if (!String(feePaymentForm.notes || '').trim()) { alert('Completează motivul reconstituirii la Observații.'); return; }
+        const duplicate = fees.filter(item => item.athleteId === feePaymentForm.athleteId).some(item => getFeePayments(item).some(payment => payment.date === paymentDate && Number(payment.amount) === amount && payment.method === (feePaymentForm.method || 'cash')));
+        if (duplicate) { alert('Există deja o încasare cu aceeași dată, sumă și metodă. Verifică istoricul; nu am adăugat o copie.'); return; }
+      }
+
       const fee = getFee(feePaymentForm.athleteId);
       const payment = normalizeFeePayment({
         id: `feepay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -2367,6 +2373,7 @@
         date: paymentDate,
         method: feePaymentForm.method || "cash",
         notes: String(feePaymentForm.notes || "").trim(),
+        ...(feePaymentForm.recoveryOperatorEmail ? { recoveryOperatorEmail: feePaymentForm.recoveryOperatorEmail } : {}),
         createdAt: new Date().toISOString()
       });
 
@@ -2694,6 +2701,13 @@
                 )
               ),
               h(Field, { label: "Observatii" }, h("input", { value: feePaymentForm.notes, onChange: (event) => setFeePaymentForm((current) => ({ ...current, notes: event.target.value })), placeholder: "Optional" })),
+              h('details', null,
+                h('summary', null, 'Reconstituire încasare lipsă (numai după verificare)'),
+                h('p', null, 'Folosește numai pentru o plată reală confirmată, absentă din istoric. Completează explicația la Observații. Nu generează o a doua plată pentru o încasare existentă.'),
+                h(Field, { label: 'Operator inițial confirmat' }, h('select', { value: feePaymentForm.recoveryOperatorEmail || '', onChange: event => setFeePaymentForm(current => ({ ...current, recoveryOperatorEmail: event.target.value })) },
+                  h('option', { value: '' }, 'Încasare obișnuită — utilizatorul conectat'),
+                  h('option', { value: 'tatucualina@yahoo.com' }, 'Alina — încasare reconstituită'),
+                  h('option', { value: 'liviu.vera@gmail.com' }, 'Liviu — încasare reconstituită')))),
               h(
                 "div",
                 { className: "form-actions" },

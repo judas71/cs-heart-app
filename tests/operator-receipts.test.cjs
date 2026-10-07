@@ -9,6 +9,14 @@ const { stampReceipt, stampFee, buildRows, groupRows, summarize } = context.wind
 const alina = { email: 'alina@example.test', uid: 'a' };
 const liviu = { email: 'liviu@example.test', uid: 'l' };
 const now = '2026-09-28T12:00:00Z';
+test('explicit recovery records confirmed original operator separately from reconstruction author', () => {
+ const restored=stampReceipt({ id:'restored',amount:250,notes:'Administrator confirmation',recoveryOperatorEmail:'tatucualina@yahoo.com'},null,liviu,now);
+ assert.equal(restored.recordedByEmail,'tatucualina@yahoo.com');
+ assert.equal(restored.recoveredByEmail,liviu.email);
+ assert.equal(restored.recordedAt,'');
+ assert.equal(context.window.CSHeartOperatorReceipts.receiptAudit(restored).recordedAt,'');
+ assert.equal(stampReceipt(restored,restored,alina,'later').recoveredAt,now);
+});
 
 test('receipt details never infer initial operator from later fee edits', () => {
   const { receiptAudit } = context.window.CSHeartOperatorReceipts;
