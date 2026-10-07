@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "3-10-26", date: "3 octombrie 2026", current: true,
+      version: "7-10-26", date: "7 octombrie 2026", current: true,
+      changes: [{ title: "Salvare verificată pe server", description: "Încasările pot fi confirmate după salvarea pe server. Erorile sunt afișate și blochează operarea până la rezolvare. O copie veche a registrului nu mai poate suprascrie modificările altui dispozitiv; la conflict se păstrează datele serverului și se poate descărca modificarea nesalvată. Memoria locală plină nu mai împiedică salvarea pe server." }],
+      bestArad: "De preluat împreună: salvarea protejată și regulile de versiune din Firebase. Toate dispozitivele trebuie să reîncarce aplicația."
+    },
+    {
+      version: "3-10-26", date: "3 octombrie 2026", current: false,
       changes: [{ title: "Operatorul direct lângă încasare", description: "În Taxe, apăsarea pe Cash sau Transfer arată încasările lunii și cine le-a operat. Istoricul plăților și Alte încasări separă operatorul inițial de ultimul editor. Confirmările nu mai prezintă ultimul editor drept autor al încasării. Pentru încasările vechi fără autor păstrat se afișează Operator neidentificat, fără atribuiri presupuse." }],
       bestArad: "De preluat: detaliile operatorului lângă încasări și etichetele corectate. Ora afișată aparține fiecărei plăți; ultima modificare a lunii nu mai apare sub încasări."
     },

@@ -6,10 +6,9 @@
   }
 
   function loadState() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return clone(window.CSHeartDemoData);
-
     try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return clone(window.CSHeartDemoData);
       const parsed = JSON.parse(saved);
       return {
         athletes: Array.isArray(parsed.athletes) ? parsed.athletes : [],

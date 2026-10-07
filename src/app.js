@@ -1,4 +1,6 @@
   import { EquipmentApp } from "./equipment-store.js?v=20260928e";
+  import "./safe-state.js?v=20261007a";
+  const safeState = window.CSHeartSafeState;
   const h = React.createElement;
   const { AttendanceView, FeesView, ReportsView, OtherPaymentsView } = window.CSHeartComponents;
   const { loadState, saveState, resetState, createId } = window.CSHeartStorage;
@@ -9,6 +11,8 @@
     db,
     doc,
     getDoc,
+    getDocFromServer,
+    runTransaction,
     setDoc,
     collection,
     query,
@@ -21,7 +25,7 @@
     onAuthStateChanged,
     signInWithEmailAndPassword,
     signOut
-  } from "./firebase.js?v=20260821e";
+  } from "./firebase.js?v=20261007a";
   function Field({ label, children }) {
     return h("label", { className: "field" }, h("span", null, label), children);
   }
@@ -73,6 +77,48 @@
     const [registrationsError, setRegistrationsError] = React.useState("");
 
    const loadedRef = React.useRef(false);
+   const serverRef = React.useRef(null);
+   const savingRef = React.useRef(false);
+   const [saveStatus, setSaveStatus] = React.useState('loading');
+   const [saveError, setSaveError] = React.useState('');
+   const [retry, setRetry] = React.useState(0);
+   const dirty = loadedRef.current && !safeState.equal(safeState.payload(state), safeState.payload(serverRef.current));
+   const blocked = !loadedRef.current || dirty || saveStatus === 'saving' || saveStatus === 'error';
+
+   async function commitState(nextState) {
+     if (!loadedRef.current || savingRef.current) throw new Error('Așteaptă încărcarea/salvarea datelor.');
+     savingRef.current = true;
+     setState(nextState);
+     setSaveStatus('saving');
+     setSaveError('');
+     const base = serverRef.current;
+     const slowNotice = setTimeout(() => setSaveError('Salvarea durează mai mult decât de obicei. Nu închide pagina și nu reintroduce plata; așteptăm răspunsul serverului.'), 12000);
+     safeState.cache(saveState, nextState);
+     try {
+       const saved = await runTransaction(db, async transaction => {
+         const ref = doc(db, 'app', 'state');
+         const snapshot = await transaction.get(ref);
+         const updated = safeState.prepare(base, nextState, snapshot.exists() ? snapshot.data() : null);
+         transaction.set(ref, updated);
+         return updated;
+       });
+       serverRef.current = saved;
+       safeState.cache(saveState, saved);
+       setSaveStatus('saved');
+       setSaveError('');
+       return saved;
+     } catch (error) {
+       setSaveError(error.code === 'state-conflict' ? error.message : 'Nu s-a salvat pe server. Nu trimite confirmarea și nu reintroduce plata. Verifică internetul, apoi apasă Reîncearcă salvarea. (' + (error.code || 'eroare') + ')');
+       setSaveStatus('error');
+       throw error;
+     } finally { clearTimeout(slowNotice); savingRef.current = false; }
+   }
+
+   React.useEffect(() => {
+     const warn = event => { if (blocked && loadedRef.current) { event.preventDefault(); event.returnValue = ''; } };
+     window.addEventListener('beforeunload', warn);
+     return () => window.removeEventListener('beforeunload', warn);
+   }, [blocked]);
 
   React.useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -92,7 +138,7 @@
   async function loadFromFirestore() {
     try {
       const appRef = doc(db, "app", "state");
-      const snapshot = await getDoc(appRef);
+      const snapshot = await getDocFromServer(appRef);
 
       if (snapshot.exists()) {
         const data = snapshot.data();
@@ -109,21 +155,21 @@
         const identityMigration = migrateAthleteIdentities(feeMigration.state);
         const migratedState = identityMigration.state;
 
-        if (feeMigration.changed || identityMigration.changed) {
-          await setDoc(appRef, migratedState);
-          if (feeMigration.changed) console.info(`Au fost corectate perioadele de taxare pentru ${feeMigration.changes.length} sportivi inactivi.`);
-          if (identityMigration.changed) console.info(`Au fost uniformizate numele și grupele pentru ${identityMigration.changes.length} sportivi.`);
-        }
-
+        serverRef.current = data;
+        loadedRef.current = true;
         setState(migratedState);
+        setSaveStatus('saved');
+        safeState.cache(saveState, migratedState);
       } else {
-        await setDoc(appRef, state);
+        throw new Error('Registrul clubului nu a fost găsit. Nu am încărcat și nu am salvat date demonstrative.');
       }
 
       loadedRef.current = true;
     } catch (error) {
       console.error("Eroare la citirea din Firebase:", error);
-      loadedRef.current = true;
+      loadedRef.current = false;
+      setSaveStatus('error');
+      setSaveError('Nu pot încărca datele actuale de pe server. Reîncarcă pagina când conexiunea funcționează.');
     }
   }
 
@@ -154,15 +200,9 @@
   }, [authReady, user?.uid]);
 
 React.useEffect(() => {
-  if (!authReady || !user || !loadedRef.current) return;
-
-  saveState(state);
-
-  const appRef = doc(db, "app", "state");
-  setDoc(appRef, state).catch((error) => {
-    console.error("Eroare la salvarea Ã®n Firebase:", error);
-  });
-}, [state, authReady, user?.uid]);
+  if (!authReady || !user || !loadedRef.current || savingRef.current || !dirty) return;
+  commitState(state).catch(error => console.error('Salvarea a fost oprită:', error));
+}, [state, authReady, user?.uid, retry]);
 
     async function addAthlete(athlete) {
   try {
@@ -195,9 +235,8 @@ React.useEffect(() => {
     }
 
     async function persistStateImmediately(nextState) {
+      await commitState(nextState);
       setState(nextState);
-      saveState(nextState);
-      await setDoc(doc(db, "app", "state"), nextState);
     }
 
     async function finishRegistration(request, linkedAthleteId, adminDecision) {
@@ -223,13 +262,13 @@ React.useEffect(() => {
       const nextState = stateChanged ? { ...state, athletes: nextAthletes } : state;
       const batch = writeBatch(db);
 
-      if (stateChanged) batch.set(doc(db, "app", "state"), nextState);
+      if (stateChanged) await persistStateImmediately(nextState);
       batch.delete(doc(db, "registrationRequests", request.id));
       await batch.commit();
 
       if (stateChanged) {
         setState(nextState);
-        saveState(nextState);
+        safeState.cache(saveState, nextState);
       }
     }
 
@@ -561,6 +600,15 @@ React.useEffect(() => {
     return h(
       "main",
       { className: "app-shell" },
+      h('div', { role: saveStatus === 'error' ? 'alert' : 'status', style: { padding: '12px', background: saveStatus === 'error' ? '#fff0f0' : '#eef6fa', marginBottom: '12px' } },
+        saveError || (blocked ? 'Se salvează / se verifică datele pe server. Așteaptă înainte de confirmare.' : 'Salvat pe server'),
+        saveStatus === 'error' && loadedRef.current && h('button', { onClick: () => setRetry(value => value + 1) }, 'Reîncearcă salvarea'),
+        saveStatus === 'error' && loadedRef.current && h('button', { onClick: () => {
+          const url = URL.createObjectURL(new Blob([JSON.stringify({ app: 'CS HEART', reason: 'Modificări nesalvate — de verificat, nu restaura automat', data: state }, null, 2)], { type: 'application/json' }));
+          const link = document.createElement('a'); link.href = url; link.download = 'cs-heart-modificari-nesalvate.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } }, 'Păstrează copia modificării')
+      ),
+      h('fieldset', { disabled: blocked, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } },
       h(
         "header",
         { className: "topbar" },
@@ -579,6 +627,7 @@ React.useEffect(() => {
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment, onSaveAction: saveOtherAction, onDeleteAction: deleteOtherAction }),
       activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], taxPayments: state.taxPayments || [] }),
       activeView === "echipamente" && h(EquipmentApp, { athletes:state.athletes, user, onDirtyChange:setEquipmentDirty })
+      )
     );
   }
 

@@ -62,7 +62,12 @@ service cloud.firestore {
     }
 
     match /app/state {
-      allow read, write: if isClubAdmin();
+      allow read: if isClubAdmin();
+      // Old tabs cannot overwrite a registry written by the protected client.
+      // A transaction must read the current revision before every update.
+      allow update: if isClubAdmin()
+        && request.resource.data.syncRevision is int
+        && request.resource.data.syncRevision == resource.data.get('syncRevision', 0) + 1;
     }
 
     // Independent equipment ledger; the same two club admins only.

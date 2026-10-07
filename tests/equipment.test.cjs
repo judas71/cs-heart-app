@@ -223,7 +223,7 @@ test('backup includes separate equipment and legacy restore preserves current st
   const backup=fs.readFileSync(path.join(__dirname,'../src/backup-export.js'),'utf8');
   const restore=fs.readFileSync(path.join(__dirname,'../src/restore-backup.js'),'utf8');
   assert.match(backup,/state.equipment =/);
-  assert.match(restore,/if \(equipment\) batch.set\(doc\(db, "equipment", "state"\), restoredEquipment\)/);
+  assert.match(restore,/if \(equipment\) transaction.set\(doc\(db, 'equipment', 'state'\), restoredEquipment\)/);
   assert.match(restore,/await downloadCurrentSafetyCopy\(\)/);
   assert.match(restore,/const \{ equipment, ...clubState \} = state/);
 });

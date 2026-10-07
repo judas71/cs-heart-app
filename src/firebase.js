@@ -3,6 +3,8 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocFromServer,
+  runTransaction,
   setDoc,
   collection,
   addDoc,
@@ -31,6 +33,8 @@ export const auth = getAuth(app);
 export {
   doc,
   getDoc,
+  getDocFromServer,
+  runTransaction,
   setDoc,
   collection,
   addDoc,

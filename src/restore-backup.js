@@ -1,4 +1,4 @@
-import { db, doc, getDoc, writeBatch, auth } from "./firebase.js?v=20260821e";
+import { db, doc, getDoc, runTransaction, auth } from "./firebase.js?v=20261007a";
 import { withEquipmentPhotos, prepareEquipmentRestore } from "./equipment-photos-store.js?v=20260928e";
 
 const STORAGE_KEY = "cs-heart-admin-v1";
@@ -102,10 +102,13 @@ async function restoreFromFile(file) {
     await downloadCurrentSafetyCopy();
     const { equipment, ...clubState } = state;
     const restoredEquipment = equipment ? await prepareEquipmentRestore(equipment) : null;
-    const batch = writeBatch(db);
-    batch.set(doc(db, "app", "state"), clubState);
-    if (equipment) batch.set(doc(db, "equipment", "state"), restoredEquipment);
-    await batch.commit();
+    await runTransaction(db, async transaction => {
+      const ref = doc(db, 'app', 'state');
+      const current = await transaction.get(ref);
+      if (!current.exists()) throw new Error('Registrul curent nu a fost găsit.');
+      transaction.set(ref, { ...clubState, syncRevision: Number(current.data().syncRevision || 0) + 1 });
+      if (equipment) transaction.set(doc(db, 'equipment', 'state'), restoredEquipment);
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(clubState));
     alert("Restaurarea s-a terminat cu succes. Aplicatia se va reincarca acum.");
     window.location.reload();
