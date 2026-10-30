@@ -56,3 +56,13 @@ test('all action definitions remain selectable even without receipts', () => {
   select.props.onChange({ target: { value: 'trip' } }); ui.render();
   assert.match(ui.text(ui.nodes().find(n => n.type === 'button' && ui.text(n).startsWith('Restanțieri'))), /1 sportivi \/ 200 lei/);
 });
+
+test('manage action contains settings only, without a second financial view', () => {
+  const ui = harness();
+  ui.click('Echipament'); ui.click('Gestionează acțiunea');
+  assert.equal(ui.nodes().filter(n => n.type === 'table').length, 0);
+  assert.doesNotMatch(ui.text(), /Actiune urmarita|Sold actiune|Arata doar cei cu rest|TOTAL/);
+  assert.ok(ui.nodes().some(n => n.props.label === 'Suma de achitat / sportiv'));
+  ui.click('Înapoi la încasări');
+  assert.match(ui.text(), /Restanțieri/);
+});

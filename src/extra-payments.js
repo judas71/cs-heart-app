@@ -3873,88 +3873,10 @@
           "div",
           { className: "form-actions" },
           h("button", { className: "primary", type: "submit", disabled: !onSaveAction }, actionForm.id ? "Actualizeaza actiunea" : "Adauga actiunea"),
-          actionForm.id && h("button", { type: "button", onClick: () => setActionForm(emptyActionForm()) }, "Renunta")
+          h("button", { type: "button", onClick: () => { setActionForm(emptyActionForm()); setWorkMode("lista"); } }, "Înapoi la încasări"),
+          actionForm.id && onDeleteAction && h("button", { className: "danger", type: "button", onClick: () => onDeleteAction(actionForm.id) }, "Sterge actiunea")
         )
       ),
-      workMode === "actiuni" &&
-        uniqueActions.length > 0 &&
-        h(
-          "div",
-          { className: "panel compact-grid" },
-          h(
-            Field,
-            { label: "Actiune urmarita" },
-            h(
-              "select",
-              { value: selectedAction?.id || "", onChange: (event) => setSelectedActionId(event.target.value) },
-              uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, actionLabel(action)))
-            )
-          ),
-          h(
-            "label",
-            { style: { display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, alignSelf: "end", minHeight: "40px" } },
-            h("input", { type: "checkbox", checked: showOnlyDebtors, onChange: (event) => setShowOnlyDebtors(event.target.checked), style: { width: "auto", minHeight: "auto" } }),
-            "Arata doar cei cu rest"
-          ),
-          h(
-            "div",
-            { className: "row-actions align-end" },
-            selectedAction && h("button", { type: "button", onClick: () => editAction(selectedAction) }, "Editeaza actiunea"),
-            selectedAction && onDeleteAction && h("button", { className: "danger", type: "button", onClick: () => onDeleteAction(selectedAction.id) }, "Sterge actiunea")
-          )
-        ),
-      workMode === "actiuni" && selectedAction && renderActionSituation(),
-      workMode === "actiuni" &&
-        selectedAction &&
-        h(
-          "div",
-          { className: "panel compact-grid" },
-          h("div", null, h("span", { className: "pill" }, "TOTAL"), h("strong", { style: { display: "block", marginTop: "8px" } }, selectedAction.name)),
-          h(
-            "div",
-            null,
-            h("span", null, "De achitat"),
-            h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalDue, selectedActionCurrency)),
-            h("span", { style: { display: "block", marginTop: "4px", color: "#526173", fontSize: "0.95rem" } }, visibleActionRows.length + " sportivi")
-          ),
-          h(
-            "div",
-            null,
-            h("span", null, "Incasat"),
-            h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(visibleActionTotalReceived, selectedActionCurrency)),
-            h("span", { style: { display: "block", marginTop: "4px", color: "#526173", fontSize: "0.95rem" } }, "Sportivi " + formatMoney(visibleActionAthleteReceived, selectedActionCurrency) + " / parteneri " + formatMoney(visibleActionPartnerReceived, selectedActionCurrency))
-          ),
-          h(
-            "div",
-            null,
-            h("span", null, "Sold actiune"),
-            h("strong", { className: actionBalance < 0 ? "arrears" : "", style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(actionBalance, selectedActionCurrency)),
-            h("small", null, "Incasat " + formatMoney(actionGrossReceived, selectedActionCurrency) + " / Platit " + formatMoney(actionPaidOut, selectedActionCurrency))
-          ),
-          h(
-            "div",
-            null,
-            h("span", null, "Plati actiune"),
-            h("strong", { style: { display: "block", marginTop: "4px", fontSize: "1.25rem" } }, formatMoney(actionPaidOut, selectedActionCurrency)),
-            actionOutgoingPreview.length
-              ? actionOutgoingPreview.map((payment) =>
-                  h(
-                    "small",
-                    { key: payment.id || payment.date + payment.amount + payment.category, style: { display: "block", marginTop: "3px" } },
-                    formatDate(payment.date) + " - " + payerLabel(athletes, payment) + " - " + (payment.category || "plata") + " - " + formatPaymentAmount(payment)
-                  )
-                )
-              : h("small", null, "Nu exista plati pe actiune"),
-            actionOutgoingPayments.length > actionOutgoingPreview.length &&
-              h("small", { style: { display: "block", marginTop: "3px" } }, "+" + (actionOutgoingPayments.length - actionOutgoingPreview.length) + " plati in lista")
-          ),
-          h("div", null, h("span", null, "Incasari cash/transfer"), h("strong", { style: { display: "block", marginTop: "4px" } }, "Cash: " + formatMoney(visibleActionCash, selectedActionCurrency)), h("small", null, "Transfer: " + formatMoney(visibleActionTransfer, selectedActionCurrency)))
-        ),
-      workMode === "actiuni" &&
-        selectedAction &&
-        !visibleActionRows.length &&
-        !visibleActionExternalRows.length &&
-        h(EmptyState, { title: "Nu exista inregistrari in filtrul actiunii.", text: showOnlyDebtors ? "Debifeaza filtrul cu rest sau verifica participantii." : "Adauga participanti sau incasari la actiune." }),
       workMode === "lista" &&
         h(
           "details",
