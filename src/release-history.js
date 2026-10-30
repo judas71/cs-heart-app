@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "7-10-26", date: "7 octombrie 2026", current: true,
+      version: "30-10-26", date: "30 octombrie 2026", current: true,
+      changes: [{ title: "Alte încasări într-o singură pagină", description: "Căutarea, operațiunile și restanțierii acțiunii sunt accesibile împreună. Cardul Restanțieri de lângă Transfer include participanții fără plăți și calculează restul din întregul istoric al acțiunii, independent de filtrele încasărilor. Participanții și sumele se administrează prin Gestionează acțiunea. Încasările, confirmările și istoricul existent nu sunt modificate." }],
+      bestArad: "De preluat: pagina unificată Alte încasări și cardul Restanțieri; nu necesită modificarea bazei de date."
+    },
+    {
+      version: "7-10-26", date: "7 octombrie 2026", current: false,
       changes: [{ title: "Salvare verificată pe server", description: "Încasările pot fi confirmate după salvarea pe server. Erorile sunt afișate și blochează operarea până la rezolvare. O copie veche a registrului nu mai poate suprascrie modificările altui dispozitiv; la conflict se păstrează datele serverului și se poate descărca modificarea nesalvată. Memoria locală plină nu mai împiedică salvarea pe server." }],
       bestArad: "De preluat împreună: salvarea protejată și regulile de versiune din Firebase. Toate dispozitivele trebuie să reîncarce aplicația."
     },

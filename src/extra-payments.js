@@ -3083,7 +3083,9 @@
     const selectedPaymentAction = findActionById(uniqueActions, form.actionId) || findActionByWrittenName(uniqueActions, form.actionName, form.category);
     const hasLegacyPaymentAction = !selectedPaymentAction && !isBlankMarker(form.actionName);
     const paymentActionSelectValue = selectedPaymentAction?.id || (hasLegacyPaymentAction ? "__legacy__" : "");
-    const selectedAction = uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
+    const selectedAction = workMode === "lista"
+      ? findActionForSearch(uniqueActions, selectedQuickAction || query)
+      : uniqueActions.find((action) => action.id === selectedActionId) || uniqueActions[0] || null;
     const selectedActionRows = getActionRows(athletes, otherPayments, selectedAction, uniqueActions);
     const selectedActionExternalRows = getActionExternalRows(athletes, otherPayments, selectedAction, uniqueActions);
     const visibleActionRows = showOnlyDebtors ? selectedActionRows.filter((row) => row.outstanding > 0) : selectedActionRows;
@@ -3294,6 +3296,7 @@
     }
 
     function resetInformationSearch() {
+      setShowOnlyDebtors(false);
       setQuery("");
       setSelectedQuickAction("");
       setGroup("toate");
@@ -3304,6 +3307,7 @@
     }
 
     function searchAction(actionName) {
+      setShowOnlyDebtors(false);
       setQuery(actionName);
       setSelectedQuickAction(actionName);
       setGroup("toate");
@@ -3407,9 +3411,12 @@
       onSaveAction(action);
       setActionForm(emptyActionForm());
       setActionGroup("toate");
+      searchAction(actionLabel(action));
+      setWorkMode("lista");
     }
 
     function editAction(action) {
+      setShowOnlyDebtors(false);
       setWorkMode("actiuni");
       setActionForm({
         id: action.id || "",
@@ -3451,6 +3458,70 @@
         notes: String(form.notes || "").trim()
       });
       setForm(emptyForm());
+    }
+
+    function renderActionSituation() {
+      return h(
+          "div",
+          { className: "table-wrap wide" },
+          h(
+            "table",
+            null,
+            h("thead", null, h("tr", null, ["Sportiv / sursa", "De achitat", "Incasat", "Rest", "Detalii"].map((head) => h("th", { key: head }, head)))),
+            h(
+              "tbody",
+              null,
+              visibleActionRows.map((row) =>
+                h(
+                  "tr",
+                  { key: row.athlete.id, className: row.outstanding > 0 ? "row-unpaid" : "" },
+                  h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(row.athlete)), h("small", null, row.athlete.group || "-")),
+                  h("td", { "data-label": "De achitat" }, formatMoney(row.amountDue, selectedActionCurrency)),
+                  h(
+                    "td",
+                    { "data-label": "Incasat" },
+                    h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)),
+                    row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency)),
+                    row.waived > 0 && h("small", null, "Anulat: " + formatMoney(row.waived, selectedActionCurrency))
+                  ),
+                  h(
+                    "td",
+                    { "data-label": "Rest" },
+                    h("strong", { className: row.outstanding > 0 ? "arrears" : "" }, formatMoney(row.outstanding, selectedActionCurrency)),
+                    row.extra > 0 && h("small", null, "Avans: " + formatMoney(row.extra, selectedActionCurrency))
+                  ),
+                  h(
+                    "td",
+                    { "data-label": "Detalii" },
+                    row.payments.length ? row.payments.map((payment) => h("div", { key: payment.id || payment.date + payment.amount },
+                      h("small", null, formatDate(payment.date) + " - " + formatPaymentAmount(payment)),
+                      h("button", { type: "button", onClick: () => edit(payment) }, "Editeaza"),
+                      ["incasare", "avans"].includes(paymentType(payment)) && h("button", { type: "button", onClick: () => printPreview(payment) }, payment.sharedAt || payment.printedAt || payment.shareCount || payment.printCount ? "Retrimite" : "Confirmare")
+                    )) : h("small", null, "Fara incasari gasite"),
+                    row.outstanding > 0 && onSavePayment && h("button", { type: "button", onClick: () => cancelActionOutstanding(row) }, "Anuleaza rest")
+                  )
+                )
+              ),
+              visibleActionExternalRows.map((row) =>
+                h(
+                  "tr",
+                  { key: "external-" + row.id },
+                  h("td", { "data-label": "Sportiv / sursa" }, h("strong", null, row.label), h("small", null, row.kind === "partener" ? "partener" : "alta sursa")),
+                  h("td", { "data-label": "De achitat" }, "-"),
+                  h(
+                    "td",
+                    { "data-label": "Incasat" },
+                    h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)),
+                    row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency)),
+                    row.waived > 0 && h("small", null, "Anulat: " + formatMoney(row.waived, selectedActionCurrency))
+                  ),
+                  h("td", { "data-label": "Rest" }, "-"),
+                  h("td", { "data-label": "Detalii" }, row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))))
+                )
+              )
+            )
+          )
+        );
     }
 
     function cancelActionOutstanding(row) {
@@ -3571,8 +3642,8 @@
         h(
           "div",
           { className: "segmented extra-income-v2-modes", style: { gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" } },
-          h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Registru si cautare"),
-          h("button", { type: "button", className: workMode === "actiuni" ? "selected" : "", onClick: () => setWorkMode("actiuni") }, "Situatie pe actiuni"),
+          h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Încasări și situație"),
+          h("button", { type: "button", onClick: () => { setActionForm(emptyActionForm()); setWorkMode("actiuni"); } }, "+ Adaugă acțiune"),
           h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica operatiunea" : "+ Adauga incasare / plata")
         )
       ),
@@ -3596,6 +3667,7 @@
               onChange: (event) => {
                 setQuery(event.target.value);
                 setSelectedQuickAction("");
+                setShowOnlyDebtors(false);
               },
               placeholder: "Ex: Costinesti, Kasta, transport, numele unui sportiv",
               "aria-label": "Ce vrei sa afli"
@@ -3609,6 +3681,12 @@
             h("button", { type: "button", className: periodPreset === "luna" ? "selected" : "", onClick: () => applyPeriodPreset("luna") }, "Luna aceasta"),
             h("button", { type: "button", className: periodPreset === "an" ? "selected" : "", onClick: () => applyPeriodPreset("an") }, "Anul acesta"),
             h("button", { type: "button", className: periodPreset === "toate" ? "selected" : "", onClick: () => applyPeriodPreset("toate") }, "Tot istoricul")
+          ),
+          h("div", { className: "form-actions" },
+            h("select", { "aria-label": "Alege acțiunea", value: selectedAction?.id || "", onChange: (event) => { const action = uniqueActions.find(item => item.id === event.target.value); if (action) searchAction(actionLabel(action)); else resetInformationSearch(); } },
+              h("option", { value: "" }, "Toate operațiunile / alege acțiunea"),
+              uniqueActions.map(action => h("option", { key: action.id, value: action.id }, actionLabel(action)))),
+            selectedAction && h("button", { type: "button", onClick: () => editAction(selectedAction) }, "Gestionează acțiunea")
           ),
           quickActionNames.length > 0 &&
             h(
@@ -3729,7 +3807,7 @@
         h(
           "div",
           { style: { gridColumn: "1 / -1", display: "grid", gap: "4px" } },
-          h("h2", { style: { marginBottom: 0 } }, "Situatie actiuni"),
+          h("h2", { style: { marginBottom: 0 } }, "Gestionează acțiunea"),
           h("p", { style: { margin: 0, color: "#66727a" } }, "Pentru turnee, cantonamente sau echipamente: setezi suma de achitat si vezi rapid cine mai are rest.")
         ),
         h(Field, { label: "Nume actiune" }, h("input", { value: actionForm.name, onChange: (event) => updateAction("name", event.target.value), placeholder: "Ex: Costinesti 2026", required: true })),
@@ -3825,65 +3903,7 @@
             selectedAction && onDeleteAction && h("button", { className: "danger", type: "button", onClick: () => onDeleteAction(selectedAction.id) }, "Sterge actiunea")
           )
         ),
-      workMode === "actiuni" &&
-        selectedAction &&
-        h(
-          "div",
-          { className: "table-wrap wide" },
-          h(
-            "table",
-            null,
-            h("thead", null, h("tr", null, ["Sportiv / sursa", "De achitat", "Incasat", "Rest", "Detalii"].map((head) => h("th", { key: head }, head)))),
-            h(
-              "tbody",
-              null,
-              visibleActionRows.map((row) =>
-                h(
-                  "tr",
-                  { key: row.athlete.id, className: row.outstanding > 0 ? "row-unpaid" : "" },
-                  h("td", { "data-label": "Sportiv" }, h("strong", null, athleteName(row.athlete)), h("small", null, row.athlete.group || "-")),
-                  h("td", { "data-label": "De achitat" }, formatMoney(row.amountDue, selectedActionCurrency)),
-                  h(
-                    "td",
-                    { "data-label": "Incasat" },
-                    h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)),
-                    row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency)),
-                    row.waived > 0 && h("small", null, "Anulat: " + formatMoney(row.waived, selectedActionCurrency))
-                  ),
-                  h(
-                    "td",
-                    { "data-label": "Rest" },
-                    h("strong", { className: row.outstanding > 0 ? "arrears" : "" }, formatMoney(row.outstanding, selectedActionCurrency)),
-                    row.extra > 0 && h("small", null, "Avans: " + formatMoney(row.extra, selectedActionCurrency))
-                  ),
-                  h(
-                    "td",
-                    { "data-label": "Detalii" },
-                    row.payments.length ? row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))) : h("small", null, "Fara incasari gasite"),
-                    row.outstanding > 0 && onSavePayment && h("button", { type: "button", onClick: () => cancelActionOutstanding(row) }, "Anuleaza rest")
-                  )
-                )
-              ),
-              visibleActionExternalRows.map((row) =>
-                h(
-                  "tr",
-                  { key: "external-" + row.id },
-                  h("td", { "data-label": "Sportiv / sursa" }, h("strong", null, row.label), h("small", null, row.kind === "partener" ? "partener" : "alta sursa")),
-                  h("td", { "data-label": "De achitat" }, "-"),
-                  h(
-                    "td",
-                    { "data-label": "Incasat" },
-                    h("strong", null, formatMoney(row.netReceived, selectedActionCurrency)),
-                    row.returned > 0 && h("small", null, "Retur: " + formatMoney(row.returned, selectedActionCurrency)),
-                    row.waived > 0 && h("small", null, "Anulat: " + formatMoney(row.waived, selectedActionCurrency))
-                  ),
-                  h("td", { "data-label": "Rest" }, "-"),
-                  h("td", { "data-label": "Detalii" }, row.payments.map((payment) => h("small", { key: payment.id || payment.date + payment.amount }, formatDate(payment.date) + " - " + formatPaymentAmount(payment))))
-                )
-              )
-            )
-          )
-        ),
+      workMode === "actiuni" && selectedAction && renderActionSituation(),
       workMode === "actiuni" &&
         selectedAction &&
         h(
@@ -4045,10 +4065,22 @@
               h("span", null, "Transfer"),
               h("strong", null, "Incasat: " + formatMoney(receivedTransferLei, "lei") + " / " + formatMoney(receivedTransferEuro, "euro")),
               h("small", null, "Platit: " + formatMoney(paidTransferLei, "lei") + " / " + formatMoney(paidTransferEuro, "euro"))
+            ),
+            h("article", { className: "method" },
+              h("button", { type: "button", disabled: !selectedAction, "aria-pressed": showOnlyDebtors, onClick: () => setShowOnlyDebtors(value => !value), style: { width: "100%", textAlign: "left", fontWeight: 800, border: showOnlyDebtors ? "2px solid #c8102e" : "1px solid #d9e0e5", background: showOnlyDebtors ? "#fff0f2" : "white" } },
+                "Restanțieri",
+                h("strong", { style: { display: "block" } }, selectedAction ? selectedActionRows.filter(row => row.outstanding > 0).length + " sportivi / " + formatMoney(actionTotalOutstanding, selectedActionCurrency) : "Alege o acțiune")),
+              h("small", null, selectedAction ? "Întregul istoric al acțiunii" : "Participanții și suma datorată trebuie stabilite într-o acțiune.")
             )
           )
         ),
-      workMode === "lista" &&
+      workMode === "lista" && selectedAction && showOnlyDebtors && h("div", { className: "panel" },
+        h("h2", null, "Restanțieri — " + selectedAction.name),
+        h("p", null, "Soldurile folosesc întregul istoric al acțiunii, indiferent de perioada și filtrele încasărilor de mai sus."),
+        visibleActionRows.length ? renderActionSituation() : h("p", null, "Nu există restanțieri la această acțiune."),
+        h("button", { type: "button", onClick: () => setShowOnlyDebtors(false) }, "Înapoi la operațiuni")
+      ),
+      workMode === "lista" && !showOnlyDebtors &&
         paymentGroups.length > 0 &&
         h(
           "div",
@@ -4120,7 +4152,7 @@
           })
         ),
       workMode === "lista" &&
-        !filteredPayments.length &&
+        !showOnlyDebtors && !filteredPayments.length &&
         h(EmptyState, { title: "Nu exista alte incasari in filtrul curent.", text: "Adauga o incasare sau schimba intervalul, grupa ori categoria." })
     );
   }

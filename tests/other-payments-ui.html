@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Previzualizare Alte încasări — date fictive</title><link rel="stylesheet" href="../styles.css"><link rel="stylesheet" href="../styles-v2.css"></head>
+<body><main class="app-main"><p>PREVIZUALIZARE — date fictive, fără acces la baza clubului</p><div id="root"></div></main>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="../src/membership-fees.js"></script><script src="../src/monthly-fee-options.js"></script><script src="../src/fee-ledger.js"></script><script src="../src/operator-receipts.js"></script><script src="../src/extra-payments.js"></script>
+<script>
+const athletes=['ACHITAT','PARȚIAL','NEACHITAT'].map((lastName,i)=>({id:String(i),lastName,firstName:'EXEMPLU',group:'GR 2',active:true}));
+const otherActions=[{id:'kit',name:'Echip.Personalizat',category:'echipament',currency:'lei',amountDue:400,participantIds:['0','1','2']}];
+const otherPayments=[{id:'a',athleteId:'0',amount:400,method:'cash'},{id:'b',athleteId:'1',amount:100,method:'transfer'}].map(p=>({...p,date:'2026-09-15',actionId:'kit',actionName:'Echip.Personalizat',category:'echipament',currency:'lei',paymentType:'incasare'}));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.OtherPaymentsView,{athletes,otherActions,otherPayments,onSavePayment:()=>{},onSaveAction:()=>{},onDeletePayment:()=>{}}));
+</script></body></html>
