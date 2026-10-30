@@ -3636,17 +3636,6 @@
         onPrint: confirmPrint,
         onShare: sharePaymentReceipt
       }),
-      h(
-        "div",
-        { className: "panel extra-income-v2-mode-panel" },
-        h(
-          "div",
-          { className: "segmented extra-income-v2-modes", style: { gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" } },
-          h("button", { type: "button", className: workMode === "lista" ? "selected" : "", onClick: () => setWorkMode("lista") }, "Încasări și situație"),
-          h("button", { type: "button", onClick: () => { setActionForm(emptyActionForm()); setWorkMode("actiuni"); } }, "+ Adaugă acțiune"),
-          h("button", { type: "button", className: workMode === "adauga" ? "selected" : "", onClick: () => setWorkMode("adauga") }, form.id ? "Modifica operatiunea" : "+ Adauga incasare / plata")
-        )
-      ),
       workMode === "lista" &&
         h(
           "div",
@@ -3657,6 +3646,10 @@
             h("p", { className: "eyebrow" }, "Centrul de informatii"),
             h("h2", null, "Ce vrei sa afli?"),
             h("p", null, "Scrie un nume, o actiune sau o categorie. Totalurile si operatiunile se actualizeaza imediat.")
+          ),
+          h("div", { className: "row-actions", "aria-label": "Adaugă date", style: { display: "flex", flexWrap: "wrap", gap: "8px" } },
+            h("button", { type: "button", onClick: () => { setActionForm(emptyActionForm()); setWorkMode("actiuni"); } }, "+ Adaugă acțiune"),
+            h("button", { type: "button", onClick: () => { setForm(emptyForm()); setWorkMode("adauga"); } }, "+ Adaugă încasare / plată")
           ),
           h(
             "div",
@@ -3797,7 +3790,7 @@
           "div",
           { className: "form-actions" },
           h("button", { className: "primary", type: "submit" }, form.id ? isFormPayment ? "Actualizeaza plata" : "Actualizeaza incasarea" : isFormPayment ? "Adauga plata" : "Adauga incasarea"),
-          form.id && h("button", { type: "button", onClick: () => setForm(emptyForm()) }, "Renunta")
+          h("button", { type: "button", onClick: () => { setForm(emptyForm()); setWorkMode("lista"); } }, "Înapoi la încasări")
         )
       ),
       workMode === "actiuni" &&

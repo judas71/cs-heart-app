@@ -31,6 +31,8 @@ function harness() {
 test('unified view offers one overview and debt filter disabled until an action is chosen', () => {
   const ui = harness();
   assert.doesNotMatch(ui.text(), /Registru si cautare|Situatie pe actiuni/);
+  assert.doesNotMatch(ui.text(), /Încasări și situație/);
+  assert.ok(!ui.nodes().some(n => String(n.props.className || '').includes('extra-income-v2-modes')));
   assert.ok(ui.nodes().find(n => n.type === 'button' && ui.text(n).startsWith('Restanțieri')).props.disabled);
 });
 
@@ -63,6 +65,13 @@ test('manage action contains settings only, without a second financial view', ()
   assert.equal(ui.nodes().filter(n => n.type === 'table').length, 0);
   assert.doesNotMatch(ui.text(), /Actiune urmarita|Sold actiune|Arata doar cei cu rest|TOTAL/);
   assert.ok(ui.nodes().some(n => n.props.label === 'Suma de achitat / sportiv'));
+  ui.click('Înapoi la încasări');
+  assert.match(ui.text(), /Restanțieri/);
+});
+
+test('compact add receipt command has a working return to the single overview', () => {
+  const ui = harness();
+  ui.click('+ Adaugă încasare / plată');
   ui.click('Înapoi la încasări');
   assert.match(ui.text(), /Restanțieri/);
 });
