@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "30-10-26", date: "30 octombrie 2026", current: true,
+      version: "7-11-26", date: "7 noiembrie 2026", current: true,
+      changes: [{ title: "Sportivi din alte grupe la prezență", description: "La antrenamentul pe grupă sau mixt poți căuta după nume și adăuga separat un copil din altă grupă. Copilul apare nemarcat, fără schimbarea grupei sale. Participanții suplimentari sunt afișați separat și se păstrează la redeschiderea ședinței. Antrenamentele și prezențele existente nu sunt modificate." }],
+      bestArad: "De preluat: căutarea sportivilor suplimentari și păstrarea identității ședințelor pe grupă cu invitați."
+    },
+    {
+      version: "30-10-26", date: "30 octombrie 2026", current: false,
       changes: [{ title: "Alte încasări într-o singură pagină", description: "Căutarea, operațiunile și restanțierii acțiunii sunt accesibile împreună. Cardul Restanțieri de lângă Transfer include participanții fără plăți și calculează restul din întregul istoric al acțiunii, independent de filtrele încasărilor. Participanții și sumele se administrează prin Gestionează acțiunea. Încasările, confirmările și istoricul existent nu sunt modificate." }],
       bestArad: "De preluat: pagina unificată Alte încasări și cardul Restanțieri; nu necesită modificarea bazei de date."
     },

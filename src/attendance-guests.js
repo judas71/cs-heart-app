@@ -61,7 +61,6 @@
 
   function attendanceSignature(attendance, mode) {
     return Object.keys(attendance || {})
-      .filter((athleteId) => mode !== "grupa" || attendanceStatuses.includes(attendance[athleteId]))
       .sort()
       .map((athleteId) => `${athleteId}:${attendance[athleteId] || ""}`)
       .join("|");
@@ -93,6 +92,9 @@
 
   function trainingHasGuests(training, athletes) {
     if (savedTrainingType(training) !== "grupa") return false;
+    // New group sessions keep their identity when individual guests join.
+    // Legacy group-with-guests records retain their existing mixed-session routing.
+    if (Array.isArray(training.guestAthleteIds)) return false;
 
     return Object.keys(training.attendance || {}).some((athleteId) => {
       const athlete = athletes.find((item) => item.id === athleteId);
@@ -120,7 +122,7 @@
   function displayTrainingLabel(training, athletes) {
     const type = displayTrainingType(training, athletes);
 
-    if (type === "Grupa") return `Grupa ${training.group || "-"}`;
+    if (type === "Grupa") return `Grupa ${training.group || "-"}` + (training.guestAthleteIds?.length ? ` + ${training.guestAthleteIds.length} din alte grupe` : "");
     if (type === "Individual") return "Individual";
 
     const mixedGroups = trainingGroups(training, athletes);
@@ -178,6 +180,8 @@
     const [baselineAttendance, setBaselineAttendance] = React.useState({});
     const [savedNotice, setSavedNotice] = React.useState(false);
     const [noTrainingOpen, setNoTrainingOpen] = React.useState(false);
+    const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
+    const [guestQuery, setGuestQuery] = React.useState("");
     const activeAthletes = athletes.filter((athlete) => athlete.active !== false).sort(compareAthletes);
     const groupAthletes = activeAthletes.filter((athlete) => athlete.group === group);
     const selectedTraining = findTraining(trainings, date, mode, group, activeAthletes, editingTrainingId);
@@ -193,8 +197,12 @@
       ? shownAthletes.filter((athlete) => athlete.id === correctionAthleteId)
       : shownAthletes;
     const shownIds = new Set(shownAthletes.map((athlete) => athlete.id));
-    const canPickAthletes = mode !== "grupa";
+    const canPickAthletes = mode === "individual";
     const availableAthletes = activeAthletes.filter((athlete) => !shownIds.has(athlete.id));
+    const normalizeSearch = (text) => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const guestResults = guestQuery.trim()
+      ? availableAthletes.filter((athlete) => normalizeSearch(athleteName(athlete)).includes(normalizeSearch(guestQuery)))
+      : [];
     const selectedAvailableIds = selectedAthleteIds.filter((athleteId) =>
       availableAthletes.some((athlete) => athlete.id === athleteId)
     );
@@ -247,6 +255,8 @@
       setSelectedMixedGroups(nextMixedGroups);
       setBaselineMixedGroups(nextMixedGroups);
       setSelectedAthleteIds([]);
+      setGuestQuery("");
+      setGuestPickerOpen(false);
       setSavedNotice(false);
     }, [date, group, mode, editingTrainingId, selectedTraining?.id, athletes.length]);
 
@@ -353,6 +363,9 @@
 
       if (mode === "mixt") {
         nextTraining.groups = [...selectedMixedGroups];
+      }
+      if (mode === "grupa") {
+        nextTraining.guestAthleteIds = shownAthletes.filter((athlete) => athlete.group !== group).map((athlete) => athlete.id);
       }
 
       if (trainings.some((record) => record.type === "no-training" && window.CSHeartNoTraining.conflicts([nextTraining], record, athletes))) {
@@ -704,6 +717,19 @@
                   : "Nu ai selectat inca nicio grupa."
               )
             ),
+          !singleCorrection && mode !== "individual" && h("div", { className: "panel stack" },
+            h("button", { type: "button", "aria-expanded": guestPickerOpen, onClick: () => setGuestPickerOpen(value => !value) }, "+ Sportivi din alte grupe"),
+            guestPickerOpen && h("div", { className: "stack" },
+              h("p", null, "Caută copilul după nume și adaugă-l numai la această ședință. Grupa lui nu se schimbă; prezența o marchezi separat."),
+              h("input", { type: "search", "aria-label": "Caută sportiv din altă grupă", placeholder: "Numele sportivului…", value: guestQuery, onChange: event => setGuestQuery(event.target.value) }),
+              guestQuery.trim() && (guestResults.length
+                ? h("ul", { className: "clean-list", style: { maxHeight: "240px", overflow: "auto" } }, guestResults.map(athlete => h("li", { key: athlete.id },
+                    h("span", null, h("strong", null, athleteName(athlete)), h("small", null, athlete.group || "Fără grupă")),
+                    h("button", { type: "button", "aria-label": "Adaugă " + athleteName(athlete), onClick: () => { setAttendance(current => ({ ...current, [athlete.id]: "" })); setSavedNotice(false); setGuestQuery(""); } }, "Adaugă")
+                  )))
+                : h("p", null, "Niciun sportiv disponibil cu acest nume. Cei deja incluși nu mai apar în căutare."))
+            )
+          ),
           !singleCorrection && h(
             "div",
             { className: "attendance-v2-summary" },
@@ -782,13 +808,18 @@
             ? h(
                 "div",
                 { className: `attendance-v2-athletes ${singleCorrection ? "single" : ""}` },
-                displayedAthletes.map((athlete) => {
+                [...displayedAthletes].sort((a, b) => {
+                  const isGuest = athlete => mode === "grupa" ? athlete.group !== group : mode === "mixt" && !selectedMixedGroups.includes(athlete.group);
+                  return Number(isGuest(a)) - Number(isGuest(b)) || compareAthletes(a, b);
+                }).map((athlete, index, ordered) => {
                   const canRemove = !singleCorrection && (mode !== "grupa" || athlete.group !== group);
                   const currentStatus = attendance[athlete.id] || "";
+                  const isGuest = item => mode === "grupa" ? item.group !== group : mode === "mixt" && !selectedMixedGroups.includes(item.group);
 
-                  return h(
-                    "article",
-                    { key: athlete.id, className: `attendance-v2-athlete ${currentStatus ? "marked " + currentStatus : "not-marked"}` },
+                  return h(React.Fragment, { key: athlete.id },
+                    !singleCorrection && isGuest(athlete) && (index === 0 || !isGuest(ordered[index - 1])) && h("h3", { style: { gridColumn: "1 / -1" } }, "Din alte grupe"),
+                    h("article",
+                    { className: `attendance-v2-athlete ${currentStatus ? "marked " + currentStatus : "not-marked"}` },
                     h(
                       "header",
                       null,
@@ -814,7 +845,7 @@
                         )
                       )
                     )
-                  );
+                  ));
                 })
               )
             : h(EmptyState, {
