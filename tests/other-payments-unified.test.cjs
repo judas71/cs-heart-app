@@ -75,3 +75,38 @@ test('compact add receipt command has a working return to the single overview', 
   ui.click('Înapoi la încasări');
   assert.match(ui.text(), /Restanțieri/);
 });
+
+test('club payment saves independently without athlete or action and preserves existing data', () => {
+  const ui = harness(); const before = JSON.stringify(ui.props);
+  let saved;
+  ui.props.onSavePayment = payment => { saved = payment; };
+  ui.click('+ Plată club');
+  assert.ok(!ui.nodes().some(n => n.props.label === 'Sportiv'));
+  const fill = (label, value) => {
+    const field = ui.nodes().find(n => n.props.label === label);
+    assert.ok(field, label);
+    field.children[0].props.onChange({ target: { value } }); ui.render();
+  };
+  fill('Furnizor / beneficiar', 'Furnizor TEST');
+  fill('Suma', '300');
+  fill('Data platii', '07.11.2026');
+  fill('Ce ai plătit / observații', 'Maieuri departajare 20 buc.');
+  ui.nodes().find(n => n.type === 'form').props.onSubmit({ preventDefault() {} });
+  assert.equal(saved.paymentType, 'cheltuiala');
+  assert.equal(saved.payerName, 'Furnizor TEST');
+  assert.equal(saved.amount, 300);
+  assert.equal(saved.athleteId, '');
+  assert.equal(saved.actionId, '');
+  assert.equal(saved.actionName, '');
+  assert.equal(saved.notes, 'Maieuri departajare 20 buc.');
+  assert.equal(saved.date, '2026-11-07');
+  assert.equal(JSON.stringify(ui.props), before);
+});
+
+test('club payment requires a beneficiary and positive amount', () => {
+  const ui = harness(); let saves = 0;
+  ui.props.onSavePayment = () => { saves++; };
+  ui.click('+ Plată club');
+  ui.nodes().find(n => n.type === 'form').props.onSubmit({ preventDefault() {} });
+  assert.equal(saves, 0);
+});

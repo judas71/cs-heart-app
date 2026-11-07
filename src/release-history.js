@@ -2,7 +2,7 @@
   const releases = [
     {
       version: "7-11-26", date: "7 noiembrie 2026", current: true,
-      changes: [{ title: "Sportivi din alte grupe la prezență", description: "La antrenamentul pe grupă sau mixt poți căuta după nume și adăuga separat un copil din altă grupă. Copilul apare nemarcat, fără schimbarea grupei sale. Participanții suplimentari sunt afișați separat și se păstrează la redeschiderea ședinței. Antrenamentele și prezențele existente nu sunt modificate." }],
+      changes: [{ title: "Plată club fără sportivi sau acțiune", description: "În Alte încasări, butonul Plată club deschide direct o cheltuială către furnizor / beneficiar, cu Fără acțiune. Poți nota ce ai cumpărat, suma, data și metoda de plată. Înregistrarea nu modifică stocul și nu efectuează transferuri bancare. Datele existente rămân neschimbate." }, { title: "Sportivi din alte grupe la prezență", description: "La antrenamentul pe grupă sau mixt poți căuta după nume și adăuga separat un copil din altă grupă. Copilul apare nemarcat, fără schimbarea grupei sale. Participanții suplimentari sunt afișați separat și se păstrează la redeschiderea ședinței. Antrenamentele și prezențele existente nu sunt modificate." }],
       bestArad: "De preluat: căutarea sportivilor suplimentari și păstrarea identității ședințelor pe grupă cu invitați."
     },
     {

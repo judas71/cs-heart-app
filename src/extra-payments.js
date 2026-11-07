@@ -3649,7 +3649,8 @@
           ),
           h("div", { className: "row-actions", "aria-label": "Adaugă date", style: { display: "flex", flexWrap: "wrap", gap: "8px" } },
             h("button", { type: "button", onClick: () => { setActionForm(emptyActionForm()); setWorkMode("actiuni"); } }, "+ Adaugă acțiune"),
-            h("button", { type: "button", onClick: () => { setForm(emptyForm()); setWorkMode("adauga"); } }, "+ Adaugă încasare / plată")
+            h("button", { type: "button", onClick: () => { setForm(emptyForm()); setWorkMode("adauga"); } }, "+ Adaugă încasare / plată"),
+            h("button", { type: "button", onClick: () => { setForm({ ...emptyForm(), payerType: "partener", paymentType: "cheltuiala" }); setWorkMode("adauga"); } }, "+ Plată club")
           ),
           h(
             "div",
@@ -3704,6 +3705,7 @@
         h(
         "form",
         { className: "panel form-grid", ref: formRef, onSubmit: submit },
+        isFormPayment && form.payerType !== "sportiv" && h("p", { style: { gridColumn: "1 / -1", margin: 0 } }, "Plată către furnizor sau alt beneficiar. Nu trebuie să alegi un sportiv ori să creezi o acțiune. Înregistrează aici doar plata efectuată; stocul nu se modifică și nu se face un transfer bancar automat."),
         h(
           Field,
           { label: isFormPayment ? "Catre" : "De la" },
@@ -3726,7 +3728,7 @@
             )
           : h(
               Field,
-              { label: isFormPayment ? "Cui ai platit" : form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
+              { label: isFormPayment ? "Furnizor / beneficiar" : form.payerType === "partener" ? "Nume partener" : "Sursa banilor" },
               h("input", { value: form.payerName, onChange: (event) => update("payerName", event.target.value), placeholder: isFormPayment ? "Ex: furnizor, arbitraj, transport" : form.payerType === "partener" ? "Nume partener" : "Ex: donatie, sponsor, alta sursa", required: true })
             ),
         isRefund &&
@@ -3775,17 +3777,17 @@
         ),
         h(
           Field,
-          { label: "Actiune" },
+          { label: "Acțiune (opțional)" },
           h(
             "select",
             { value: paymentActionSelectValue, onChange: (event) => choosePaymentAction(event.target.value) },
-            h("option", { value: "" }, "Fara actiune"),
+            h("option", { value: "" }, "Fără acțiune — operațiune independentă"),
             h("option", { value: "__new__" }, "+ Creeaza actiune noua"),
             hasLegacyPaymentAction && h("option", { value: "__legacy__" }, "Actiune salvata: " + form.actionName),
             uniqueActions.map((action) => h("option", { key: action.id, value: action.id }, actionLabel(action)))
           )
         ),
-        h(Field, { label: "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: "Optional" })),
+        h(Field, { label: isFormPayment ? "Ce ai plătit / observații" : "Observatii" }, h("input", { value: form.notes, onChange: (event) => update("notes", event.target.value), placeholder: isFormPayment ? "Ex: Achiziție maieuri departajare, 20 buc., factura nr. ..." : "Optional" })),
         h(
           "div",
           { className: "form-actions" },
