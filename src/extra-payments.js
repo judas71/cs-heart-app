@@ -5043,13 +5043,11 @@
 
   function ReportsView(props) {
     const [section, setSection] = React.useState("balanta");
-    const initialMonth = currentMonth();
-    const [paymentDateFrom, setPaymentDateFrom] = React.useState(initialMonth + "-01");
-    const [paymentDateTo, setPaymentDateTo] = React.useState(today());
     const reportSections = [
       { value: "balanta", label: "Balanta lunii", description: "Incasari, plati si sold" },
       { value: "operatori", label: "Încasări pe operator", description: "Cine a înregistrat banii" },
       { value: "taxe", label: "Taxe", description: "Achitate si restante" },
+      { value: "registruTaxe", label: "Încasări taxe", description: "Tabel, operatori și PDF" },
       { value: "prezenta", label: "Prezenta", description: "Situatia antrenamentelor" },
       { value: "vizeMedicale", label: "Vize medicale", description: "Valabile si expirate" },
       { value: "alteIncasari", label: "Alte incasari", description: "Actiuni si categorii" },
@@ -5090,20 +5088,14 @@
           )
         )
       ),
-      section === "platiEfectuate" &&
-        h(
-          "div",
-          { className: "panel compact-grid cs-report-date-filters" },
-          h(Field, { label: "De la" }, h("input", { value: formatDate(paymentDateFrom), onChange: (event) => setPaymentDateFrom(event.target.value), placeholder: "01.07.2026" })),
-          h(Field, { label: "Pana la" }, h("input", { value: formatDate(paymentDateTo), onChange: (event) => setPaymentDateTo(event.target.value), placeholder: "31.07.2026" }))
-        ),
       (section === "balanta" || section === "tot") && h(MonthlyBalanceReport, props),
       section === "operatori" && h(window.CSHeartOperatorReceipts.Report, props),
       (section === "taxe" || section === "tot") && h(TaxReportsView, props),
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
       (section === "vizeMedicale" || section === "tot") && h(MedicalVisaReportsView, props),
       (section === "alteIncasari" || section === "tot") && h(ExtraPaymentsReport, props),
-      section === "platiEfectuate" && h(PaymentsMadeReport, { ...props, dateFrom: paymentDateFrom, dateTo: paymentDateTo }),
+      section === "platiEfectuate" && h(window.CSHeartFinancialRegister.Report, { ...props, kind: "plati", key: "plati" }),
+      section === "registruTaxe" && h(window.CSHeartFinancialRegister.Report, { ...props, kind: "taxe", key: "taxe" }),
       section === "modificari" && h(ChangeLogView)
     );
   }

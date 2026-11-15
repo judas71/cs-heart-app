@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "7-11-26", date: "7 noiembrie 2026", current: true,
+      version: "15-11-26", date: "15 noiembrie 2026", current: true,
+      changes: [{ title: "Registre filtrabile pentru taxe și plăți", description: "În Rapoarte: Încasări taxe oferă interval, operator și numerar/transfer, cu tabel și totaluri pe operator. Plăți oferă interval, categorie și beneficiar, inclusiv salariile. Tipărire / PDF pentru selecția afișată, cu monede separate. Operatorii necunoscuți nu sunt deduși din ultimul editor. Datele existente nu sunt modificate." }],
+      bestArad: "De preluat: registrele financiare și tipărirea selecției; fără migrarea datelor."
+    },
+    {
+      version: "7-11-26", date: "7 noiembrie 2026", current: false,
       changes: [{ title: "Plată club fără sportivi sau acțiune", description: "În Alte încasări, butonul Plată club deschide direct o cheltuială către furnizor / beneficiar, cu Fără acțiune. Poți nota ce ai cumpărat, suma, data și metoda de plată. Înregistrarea nu modifică stocul și nu efectuează transferuri bancare. Datele existente rămân neschimbate." }, { title: "Sportivi din alte grupe la prezență", description: "La antrenamentul pe grupă sau mixt poți căuta după nume și adăuga separat un copil din altă grupă. Copilul apare nemarcat, fără schimbarea grupei sale. Participanții suplimentari sunt afișați separat și se păstrează la redeschiderea ședinței. Antrenamentele și prezențele existente nu sunt modificate." }],
       bestArad: "De preluat: căutarea sportivilor suplimentari și păstrarea identității ședințelor pe grupă cu invitați."
     },
