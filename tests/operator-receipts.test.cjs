@@ -151,6 +151,6 @@ test('new fee author stamping is wired in live save handlers and report is reach
   assert.match(app, /CSHeartOperatorReceipts\.stampFee\(fee, existing, user/);
   assert.match(app, /CSHeartOperatorReceipts\.stampReceipt\(payment, existing, user/);
   const view = fs.readFileSync(path.join(__dirname, '../src/extra-payments.js'), 'utf8');
-  assert.match(view, /value: "operatori"/);
-  assert.match(view, /h\(window\.CSHeartOperatorReceipts.Report, props\)/);
+  assert.match(view, /value: "registruTaxe", label: "Încasări"/);
+  assert.match(view, /h\(window\.CSHeartFinancialRegister.Report, \{ ...props, kind: "taxe"/);
 });

@@ -5045,9 +5045,8 @@
     const [section, setSection] = React.useState("balanta");
     const reportSections = [
       { value: "balanta", label: "Balanta lunii", description: "Incasari, plati si sold" },
-      { value: "operatori", label: "Încasări pe operator", description: "Cine a înregistrat banii" },
+      { value: "registruTaxe", label: "Încasări", description: "Taxe și alte încasări · tabel și PDF" },
       { value: "taxe", label: "Taxe", description: "Achitate si restante" },
-      { value: "registruTaxe", label: "Încasări taxe", description: "Tabel, operatori și PDF" },
       { value: "prezenta", label: "Prezenta", description: "Situatia antrenamentelor" },
       { value: "vizeMedicale", label: "Vize medicale", description: "Valabile si expirate" },
       { value: "alteIncasari", label: "Alte incasari", description: "Actiuni si categorii" },
@@ -5089,7 +5088,6 @@
         )
       ),
       (section === "balanta" || section === "tot") && h(MonthlyBalanceReport, props),
-      section === "operatori" && h(window.CSHeartOperatorReceipts.Report, props),
       (section === "taxe" || section === "tot") && h(TaxReportsView, props),
       (section === "prezenta" || section === "tot") && h(AttendanceReportsView, props),
       (section === "vizeMedicale" || section === "tot") && h(MedicalVisaReportsView, props),

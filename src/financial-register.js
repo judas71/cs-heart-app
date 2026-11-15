@@ -15,7 +15,8 @@
     const athletes = new Map((props.athletes || []).map(a => [a.id, a]));
     if (kind === "taxe") {
       const groups = new Map((props.fees || []).map(f => [f.id || `${f.athleteId}-${f.month}`, athletes.get(f.athleteId)?.group || "—"]));
-      return window.CSHeartOperatorReceipts.buildRows({ athletes: props.athletes, fees: props.fees }).map(r => ({ ...r, date: parseDate(r.date), group: groups.get(r.parentId) || "—", category: "Taxe", estimated: false }));
+      const otherGroups = new Map((props.otherPayments || []).map(p => [p.id || "other", athletes.get(p.athleteId)?.group || "—"]));
+      return window.CSHeartOperatorReceipts.buildRows({ athletes: props.athletes, fees: props.fees, otherPayments: props.otherPayments }).map(r => ({ ...r, date: parseDate(r.date), group: (r.source === "taxe" ? groups : otherGroups).get(r.parentId) || "—", category: r.source === "taxe" ? "Taxe" : "Alte încasări", estimated: false }));
     }
     const rows = [];
     function add(p, source) {
@@ -44,6 +45,7 @@
     if (error) return { rows: [], error };
     return { error: "", rows: rows.filter(r => r.date && (!from || r.date >= from) && (!to || r.date <= to)
       && (!filters.method || r.method === filters.method)
+      && (!filters.source || r.source === filters.source)
       && (!filters.operator || (key(r.operator) || "neidentificat") === filters.operator)
       && (!filters.category || key(r.category) === filters.category)
       && (!filters.beneficiary || key(r.payer) === filters.beneficiary)) };
@@ -60,8 +62,8 @@
     });
   }
   function tableData(rows, kind) {
-    return { headers: kind === "taxe" ? ["Data încasării", "Sportiv", "Grupa actuală", "Detalii", "Modalitate", "Operator inițial", "Sumă"] : ["Data plății", "Beneficiar", "Categorie", "Explicație", "Modalitate", "Sursă", "Sumă"],
-      body: rows.map(r => [roDate(r.date) + (r.estimated ? " *" : ""), r.payer, kind === "taxe" ? r.group : r.category, r.description || "—", methodLabel(r.method), kind === "taxe" ? window.CSHeartOperatorReceipts.operatorLabel(r.operator) : r.source, `${money(r.cents)} ${r.currency}`]) };
+    return { headers: kind === "taxe" ? ["Data încasării", "Sportiv / plătitor", "Grupa actuală", "Sursă / detalii", "Modalitate", "Operator inițial", "Sumă"] : ["Data plății", "Beneficiar", "Categorie", "Explicație", "Modalitate", "Sursă", "Sumă"],
+      body: rows.map(r => [roDate(r.date) + (r.estimated ? " *" : ""), r.payer, kind === "taxe" ? r.group : r.category, (kind === "taxe" ? r.category + " / " : "") + (r.description || "—"), methodLabel(r.method), kind === "taxe" ? window.CSHeartOperatorReceipts.operatorLabel(r.operator) : r.source, `${money(r.cents)} ${r.currency}`]) };
   }
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
   const summaryHeaders = ["Operator / selecție", "Numerar", "Transfer", "Neprecizat", "Total"];
@@ -69,18 +71,18 @@
   function printHTML(rows, kind, filtersText) {
     const data = tableData(rows, kind);
     const table = (headers, body) => `<table><thead><tr>${headers.map(x => `<th>${escape(x)}</th>`).join("")}</tr></thead><tbody>${body.map(row => `<tr>${row.map(x => `<td>${escape(x)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-    return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><title>Registru ${kind === "taxe" ? "încasări taxe" : "plăți"}</title><style>body{font:12px Arial;color:#111;margin:24px}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #bbb;padding:7px;text-align:left;overflow-wrap:anywhere}th{background:#eee}tr{break-inside:avoid}thead{display:table-header-group}@page{size:A4 landscape;margin:12mm}@media print{button{display:none}body{margin:0}}small{display:block;margin:12px 0}</style></head><body><button onclick="window.print()">Tipărește / Salvează PDF</button><h1>Registru ${kind === "taxe" ? "încasări taxe" : "plăți"}</h1><p>${escape(filtersText)}</p><p>${rows.length} operațiuni · Total: ${escape(totalText(rows))}</p>${table(summaryHeaders, summaryRows(rows, kind))}${table(data.headers, data.body)}<small>${escape(note)}</small></body></html>`;
+    return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><title>Registru ${kind === "taxe" ? "încasări" : "plăți"}</title><style>body{font:12px Arial;color:#111;margin:24px}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #bbb;padding:7px;text-align:left;overflow-wrap:anywhere}th{background:#eee}tr{break-inside:avoid}thead{display:table-header-group}@page{size:A4 landscape;margin:12mm}@media print{button{display:none}body{margin:0}}small{display:block;margin:12px 0}</style></head><body><button onclick="window.print()">Tipărește / Salvează PDF</button><h1>Registru ${kind === "taxe" ? "încasări" : "plăți"}</h1><p>${escape(filtersText)}</p><p>${rows.length} operațiuni · Total: ${escape(totalText(rows))}</p>${table(summaryHeaders, summaryRows(rows, kind))}${table(data.headers, data.body)}<small>${escape(note)}</small></body></html>`;
   }
   function Report(props) {
     const h = React.createElement, kind = props.kind || "taxe";
     const now = new Date(), iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-    const [filters, setFilters] = React.useState({ from: roDate(iso.slice(0,7)+"-01"), to: roDate(iso), method: "", operator: "", category: "", beneficiary: "" });
+    const [filters, setFilters] = React.useState({ from: roDate(iso.slice(0,7)+"-01"), to: roDate(iso), source: "", method: "", operator: "", category: "", beneficiary: "" });
     const [preview, setPreview] = React.useState("");
     const all = buildRows(props, kind), result = filterRows(all, filters), rows = result.rows;
     const set = (field, value) => setFilters(f => ({ ...f, [field]: value }));
     const options = field => [...new Map(all.map(r => [key(r[field]), r[field]])).entries()].sort((a,b) => a[1].localeCompare(b[1],"ro"));
     const operators = window.CSHeartOperatorReceipts.operatorOptions(all).filter(([id]) => id !== "toate");
-    const fields = kind === "taxe" ? [["Operator", "operator", operators]] : [["Categorie", "category", options("category")], ["Beneficiar", "beneficiary", options("payer")]];
+    const fields = kind === "taxe" ? [["Încasări", "source", [["taxe", "Taxe"], ["alte", "Alte încasări"]]], ["Operator", "operator", operators]] : [["Categorie", "category", options("category")], ["Beneficiar", "beneficiary", options("payer")]];
     fields.push(["Modalitate", "method", [["cash","Numerar"],["transfer","Transfer"],["necunoscut","Metodă neprecizată"]]]);
     const filtersText = `Interval: ${filters.from || "început"} — ${filters.to || "prezent"}; ` + fields.map(([label, field, opts]) => `${label}: ${opts.find(([id]) => id === filters[field])?.[1] || "Toate"}`).join("; ");
     const data = tableData(rows, kind);
@@ -88,7 +90,7 @@
       return h("div", { style: { overflowX: "auto" } }, h("table", { style: { minWidth: "760px", width: "100%" } }, h("thead", null, h("tr", null, headers.map(t => h("th", {key:t}, t)))), h("tbody", null, body.map((r,i) => h("tr", {key:i}, r.map((v,j) => h("td", {key:j, "data-label":headers[j]}, v)))))));
     }
     return h("section", {className:"panel stack"},
-      h("h2", null, kind === "taxe" ? "Registru încasări taxe" : "Registru plăți"),
+      h("h2", null, kind === "taxe" ? "Registru încasări" : "Registru plăți"),
       h("p", null, "Filtrează operațiunile și tipărește exact selecția afișată. Nu se modifică nicio înregistrare."),
       h("div", {className:"compact-grid"}, ["from","to"].map(field => h("label", {className:"field",key:field}, h("span",null,field === "from" ? "De la" : "Până la"), h("input", {"aria-label":field === "from" ? "De la" : "Până la", placeholder:"zz.ll.aaaa",value:filters[field],onChange:e=>set(field,e.target.value)}))),
         fields.map(([label,field,opts]) => h("label", {className:"field",key:field},h("span",null,label),h("select",{"aria-label":label,value:filters[field],onChange:e=>set(field,e.target.value)},h("option",{value:""},"Toate"),opts.map(([id,title])=>h("option",{key:id,value:id},title)))))),
