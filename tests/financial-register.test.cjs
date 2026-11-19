@@ -24,6 +24,32 @@ const props = {
     {id:'bad-date',amount:1,paymentType:'retur',date:'31.02.2026'}]
 };
 const range={from:'01.11.2026',to:'15.11.2026'};
+test('fee waivers retain reason, month and author in the same registry without inflating cash totals',()=>{
+  const data=JSON.parse(JSON.stringify(props));
+  data.fees[0].feeAdjustments=[
+    {id:'cancel',type:'anulare-taxa',month:'2026-07',amount:200,reason:'Nu mai achită <motiv>',canceledAt:'2026-11-14T22:30:00Z',canceledByEmail:'liviu.vera@gmail.com'},
+    {id:'unknown',type:'anulare-taxa',amount:50,reason:'Dată lipsă'}];
+  const before=JSON.stringify(data);
+  const rows=api.filterRows(api.buildRows(data,'taxe'),{...range,athleteId:'a'}).rows;
+  const waiver=rows.find(r=>r.waiver);
+  assert.equal(waiver.date,'2026-11-15');
+  assert.equal(waiver.operator,'liviu.vera@gmail.com');
+  assert.match(waiver.description,/2026-07.*Nu mai achită/);
+  assert.equal(api.totals(rows)[0].cents,45000);
+  assert.equal(api.filterRows(rows,{method:'cash'}).rows.some(r=>r.waiver),false);
+  assert.equal(api.filterRows(rows,{method:'transfer'}).rows.some(r=>r.waiver),false);
+  const waived=api.filterRows(rows,{method:'renuntare',operator:'liviu.vera@gmail.com'}).rows;
+  assert.equal(waived.length,1);
+  assert.equal(api.totals(waived)[0].cents,0);
+  assert.equal(api.summaryRows(waived,'taxe').length,0);
+  const html=api.printHTML(rows,'taxe','Sportiv: TEST Ana');
+  assert.match(html,/Total încasat: 450,00 lei/);
+  assert.match(html,/Renunțat la încasare \(separat\): 200,00 lei/);
+  assert.match(html,/Nu mai achită &lt;motiv&gt;/);
+  assert.match(html,/Transfer bancar/);
+  assert.equal(api.tableData(rows,'taxe').body.length,4);
+  assert.equal(JSON.stringify(data),before);
+});
 test('athlete filter combines fee and other receipts by identity, not matching names',()=>{
   const data=JSON.parse(JSON.stringify(props));
   data.athletes.push({...data.athletes[0],id:'b'});

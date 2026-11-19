@@ -2,8 +2,8 @@
   const releases = [
     {
       version: "19-11-26", date: "19 noiembrie 2026", current: true,
-      changes: [{title: "Filtru Sportiv în registrul încasărilor", description: "În Rapoarte → Încasări poți selecta un sportiv, inclusiv inactiv. Filtrul se combină cu intervalul, sursa, operatorul și modalitatea de plată. Tabelul, totalurile și documentul tipărit arată aceeași selecție. Încasările sunt identificate după sportiv, nu doar după nume; datele existente rămân neschimbate."}],
-      bestArad: "De preluat: filtrul Sportiv și identificatorul sportivului în rândurile raportului."
+      changes: [{title: "Renunțări la încasare în același registru", description: "Taxele anulate cu motiv apar în Registru încasări, lângă încasări, cu data renunțării, luna taxei, suma, motivul și autorul. Nu intră în totalul încasat, numerar sau transfer bancar; totalul renunțărilor este separat. Filtrele și documentul pentru tipărire includ aceleași operațiuni. Denumirea Transfer devine Transfer bancar. Nu se schimbă solduri sau înregistrări existente."}, {title: "Filtru Sportiv în registrul încasărilor", description: "În Rapoarte → Încasări poți selecta un sportiv, inclusiv inactiv. Filtrul se combină cu intervalul, sursa, operatorul și modalitatea de plată. Tabelul, totalurile și documentul tipărit arată aceeași selecție. Încasările sunt identificate după sportiv, nu doar după nume; datele existente rămân neschimbate."}],
+      bestArad: "De preluat: filtrul Sportiv, renunțările la încasare în același registru și denumirea Transfer bancar. Fără modificări ale datelor."
     },
     {
       version: "15-11-26", date: "15 noiembrie 2026", current: false,

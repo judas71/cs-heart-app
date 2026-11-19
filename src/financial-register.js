@@ -9,14 +9,30 @@
     const date = new Date(iso + "T12:00:00Z");
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : "";
   }
-  const methodLabel = method => ({ cash: "Numerar", transfer: "Transfer" }[method] || "Metodă neprecizată");
+  const methodLabel = method => ({ cash: "Numerar", transfer: "Transfer bancar", renuntare: "Fără mișcare de bani" }[method] || "Metodă neprecizată");
   const money = cents => (cents / 100).toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function buildRows(props, kind) {
     const athletes = new Map((props.athletes || []).map(a => [a.id, a]));
     if (kind === "taxe") {
       const groups = new Map((props.fees || []).map(f => [f.id || `${f.athleteId}-${f.month}`, athletes.get(f.athleteId)?.group || "—"]));
       const otherGroups = new Map((props.otherPayments || []).map(p => [p.id || "other", athletes.get(p.athleteId)?.group || "—"]));
-      return window.CSHeartOperatorReceipts.buildRows({ athletes: props.athletes, fees: props.fees, otherPayments: props.otherPayments }).map(r => ({ ...r, date: parseDate(r.date), group: (r.source === "taxe" ? groups : otherGroups).get(r.parentId) || "—", category: r.source === "taxe" ? "Taxe" : "Alte încasări", estimated: false }));
+      const rows = window.CSHeartOperatorReceipts.buildRows({ athletes: props.athletes, fees: props.fees, otherPayments: props.otherPayments }).map(r => ({ ...r, date: parseDate(r.date), group: (r.source === "taxe" ? groups : otherGroups).get(r.parentId) || "—", category: r.source === "taxe" ? "Taxe" : "Alte încasări", estimated: false }));
+      (props.fees || []).forEach(fee => {
+        const athlete = athletes.get(fee.athleteId);
+        (Array.isArray(fee.feeAdjustments) ? fee.feeAdjustments : []).forEach((adjustment, index) => {
+          const cents = Math.round(Number(adjustment.amount) * 100);
+          if (adjustment.type !== "anulare-taxa" || !Number.isFinite(cents) || cents <= 0) return;
+          const when = new Date(adjustment.canceledAt || "");
+          const date = Number.isFinite(when.getTime()) ? new Intl.DateTimeFormat("sv-SE", {timeZone:"Europe/Bucharest",year:"numeric",month:"2-digit",day:"2-digit"}).format(when) : "";
+          const month = adjustment.month || fee.month || "nepăstrată";
+          rows.push({id:`renuntare-${fee.id || fee.athleteId + '-' + fee.month}-${adjustment.id || index}`, athleteId:fee.athleteId,
+            date, source:"taxe", category:"Renunțare la încasare", waiver:true,
+            payer:athlete ? `${athlete.lastName || ""} ${athlete.firstName || ""}`.trim() : "Sportiv neidentificat",
+            group:athlete?.group || "—", description:`Taxa lunii ${month} · Motiv: ${adjustment.reason || "nepăstrat"}`,
+            method:"renuntare", operator:adjustment.canceledByEmail || "", cents, currency:"lei", estimated:false});
+        });
+      });
+      return rows.sort((a,b) => b.date.localeCompare(a.date) || a.payer.localeCompare(b.payer,"ro"));
     }
     const rows = [];
     function add(p, source) {
@@ -52,10 +68,12 @@
       && (!filters.beneficiary || key(r.payer) === filters.beneficiary)) };
   }
   function totals(rows) {
-    return ["lei", "euro"].map(currency => ({ currency, cents: rows.filter(r => r.currency === currency).reduce((s,r) => s + r.cents, 0) }));
+    return ["lei", "euro"].map(currency => ({ currency, cents: rows.filter(r => !r.waiver && r.currency === currency).reduce((s,r) => s + r.cents, 0) }));
   }
   const totalText = rows => totals(rows).map(t => `${money(t.cents)} ${t.currency}`).join(" / ");
+  const waiverText = rows => totalText(rows.filter(r => r.waiver).map(r => ({...r, waiver:false})));
   function summaryRows(rows, kind) {
+    rows = rows.filter(r => !r.waiver);
     const groups = kind === "taxe" ? [...new Set(rows.map(r => key(r.operator)))] : [""];
     return groups.map(operator => {
       const selected = kind === "taxe" ? rows.filter(r => key(r.operator) === operator) : rows;
@@ -63,16 +81,17 @@
     });
   }
   function tableData(rows, kind) {
-    return { headers: kind === "taxe" ? ["Data încasării", "Sportiv / plătitor", "Grupa actuală", "Sursă / detalii", "Modalitate", "Operator inițial", "Sumă"] : ["Data plății", "Beneficiar", "Categorie", "Explicație", "Modalitate", "Sursă", "Sumă"],
+    return { headers: kind === "taxe" ? ["Data operațiunii", "Sportiv / plătitor", "Grupa actuală", "Sursă / detalii", "Modalitate", "Operator inițial / autor renunțare", "Sumă"] : ["Data plății", "Beneficiar", "Categorie", "Explicație", "Modalitate", "Sursă", "Sumă"],
       body: rows.map(r => [roDate(r.date) + (r.estimated ? " *" : ""), r.payer, kind === "taxe" ? r.group : r.category, (kind === "taxe" ? r.category + " / " : "") + (r.description || "—"), methodLabel(r.method), kind === "taxe" ? window.CSHeartOperatorReceipts.operatorLabel(r.operator) : r.source, `${money(r.cents)} ${r.currency}`]) };
   }
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
-  const summaryHeaders = ["Operator / selecție", "Numerar", "Transfer", "Neprecizat", "Total"];
-  const note = "Operatorul este persoana care a înregistrat încasarea, nu ultimul editor. Grupa este cea actuală. Încasările sunt selectate după data banilor primiți, indiferent de luna datoriei. * Pentru o plată veche fără dată, ultima zi a lunii este folosită ca reper, nu ca dată confirmată.";
+  const summaryHeaders = ["Operator / selecție", "Numerar", "Transfer bancar", "Neprecizat", "Total"];
+  const note = "Renunțările la încasare reprezintă taxe anulate, nu bani primiți; nu intră în totalul încasat sau în numerar/transfer bancar. Sunt selectate după data renunțării, iar luna taxei și motivul apar la detalii. Modificările simple ale taxei la zero, fără anulare înregistrată, nu sunt inventate ca renunțări. Operatorul este autorul inițial, nu ultimul editor. Grupa este cea actuală. Încasările sunt selectate după data banilor primiți, indiferent de luna datoriei. * Pentru o plată veche fără dată, ultima zi a lunii este folosită ca reper, nu ca dată confirmată.";
+  const totalsLabel = (rows, kind) => `${rows.length} operațiuni · ${kind === "taxe" ? "Total încasat" : "Total plătit"}: ${totalText(rows)}` + (kind === "taxe" && rows.some(r=>r.waiver) ? ` · Renunțat la încasare (separat): ${waiverText(rows)}` : "");
   function printHTML(rows, kind, filtersText) {
     const data = tableData(rows, kind);
     const table = (headers, body) => `<table><thead><tr>${headers.map(x => `<th>${escape(x)}</th>`).join("")}</tr></thead><tbody>${body.map(row => `<tr>${row.map(x => `<td>${escape(x)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-    return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><title>Registru ${kind === "taxe" ? "încasări" : "plăți"}</title><style>body{font:12px Arial;color:#111;margin:24px}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #bbb;padding:7px;text-align:left;overflow-wrap:anywhere}th{background:#eee}tr{break-inside:avoid}thead{display:table-header-group}@page{size:A4 landscape;margin:12mm}@media print{button{display:none}body{margin:0}}small{display:block;margin:12px 0}</style></head><body><button onclick="window.print()">Tipărește / Salvează PDF</button><h1>Registru ${kind === "taxe" ? "încasări" : "plăți"}</h1><p>${escape(filtersText)}</p><p>${rows.length} operațiuni · Total: ${escape(totalText(rows))}</p>${table(summaryHeaders, summaryRows(rows, kind))}${table(data.headers, data.body)}<small>${escape(note)}</small></body></html>`;
+    return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><title>Registru ${kind === "taxe" ? "încasări" : "plăți"}</title><style>body{font:12px Arial;color:#111;margin:24px}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #bbb;padding:7px;text-align:left;overflow-wrap:anywhere}th{background:#eee}tr{break-inside:avoid}thead{display:table-header-group}@page{size:A4 landscape;margin:12mm}@media print{button{display:none}body{margin:0}}small{display:block;margin:12px 0}</style></head><body><button onclick="window.print()">Tipărește / Salvează PDF</button><h1>Registru ${kind === "taxe" ? "încasări" : "plăți"}</h1><p>${escape(filtersText)}</p><p>${escape(totalsLabel(rows, kind))}</p>${table(summaryHeaders, summaryRows(rows, kind))}${table(data.headers, data.body)}<small>${escape(note)}</small></body></html>`;
   }
   function Report(props) {
     const h = React.createElement, kind = props.kind || "taxe";
@@ -84,7 +103,7 @@
     const options = field => [...new Map(all.map(r => [key(r[field]), r[field]])).entries()].sort((a,b) => a[1].localeCompare(b[1],"ro"));
     const operators = window.CSHeartOperatorReceipts.operatorOptions(all).filter(([id]) => id !== "toate");
     const fields = kind === "taxe" ? [["Încasări", "source", [["taxe", "Taxe"], ["alte", "Alte încasări"]]], ["Operator", "operator", operators]] : [["Categorie", "category", options("category")], ["Beneficiar", "beneficiary", options("payer")]];
-    fields.push(["Modalitate", "method", [["cash","Numerar"],["transfer","Transfer"],["necunoscut","Metodă neprecizată"]]]);
+    fields.push(["Modalitate", "method", [["cash","Numerar"],["transfer","Transfer bancar"],["necunoscut","Metodă neprecizată"], ...(kind === "taxe" ? [["renuntare","Renunțare la încasare"]] : [])]]);
     if (kind === "taxe") {
       const athletes = new Map(all.filter(r => r.athleteId).map(r => [r.athleteId, r.payer]));
       (props.athletes || []).forEach(a => athletes.set(a.id, `${a.lastName || ""} ${a.firstName || ""}`.trim() + (a.group ? ` — ${a.group}` : "") + (a.active === false ? " (inactiv)" : "")));
@@ -107,7 +126,7 @@
         h("p",null,"Apasă Tipărește / Salvează PDF în document. În fereastra de tipărire poți alege imprimanta sau Salvare ca PDF."),
         h("iframe",{title:"Raport pentru tipărire",srcDoc:preview,style:{width:"100%",flex:1,border:"1px solid #ddd",background:"white"}})),
       result.error && h("p", {role:"alert"}, result.error),
-      h("p", null, filtersText), h("strong", null, `${rows.length} operațiuni · Total: ${totalText(rows)}`),
+      h("p", null, filtersText), h("strong", null, totalsLabel(rows,kind)),
       table(summaryHeaders,summaryRows(rows,kind)),
       !rows.length ? h("p",null,"Nu există operațiuni în selecția aleasă.") : table(data.headers,data.body),
       all.some(r=>!r.date) && h("p", {role:"status"}, `${all.filter(r=>!r.date).length} operațiuni fără dată validă nu sunt incluse în tabel și totaluri.`),
