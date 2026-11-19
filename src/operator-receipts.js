@@ -105,6 +105,7 @@
       }] : [];
       payments.forEach(payment => add(payment, {
         source: "taxe", parentId: fee.id || `${fee.athleteId}-${fee.month}`,
+        athleteId: fee.athleteId || "",
         payer: names.get(fee.athleteId) || "Sportiv necunoscut",
         description: `Taxă — înregistrată în ${fee.month || "lună nespecificată"}`,
         lastEditor: fee.updatedByEmail || fee.updatedBy || ""
@@ -114,6 +115,7 @@
       if (payment.paymentType && !["incasare", "plata"].includes(payment.paymentType)) return;
       add(payment, {
         source: "alte", parentId: payment.id || "other",
+        athleteId: payment.athleteId || "",
         payer: names.get(payment.athleteId) || payment.payerName || payment.partnerName || payment.name || "Plătitor nespecificat",
         description: [payment.actionName, payment.category, payment.notes].filter(Boolean).join(" / ") || "Alte încasări"
       });

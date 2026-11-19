@@ -24,6 +24,38 @@ const props = {
     {id:'bad-date',amount:1,paymentType:'retur',date:'31.02.2026'}]
 };
 const range={from:'01.11.2026',to:'15.11.2026'};
+test('athlete filter combines fee and other receipts by identity, not matching names',()=>{
+  const data=JSON.parse(JSON.stringify(props));
+  data.athletes.push({...data.athletes[0],id:'b'});
+  data.otherPayments.push({id:'extra-a',athleteId:'a',amount:30,date:'2026-11-10',paymentType:'incasare',method:'cash',recordedByEmail:'tatucualina@yahoo.com'},
+    {id:'extra-b',athleteId:'b',amount:70,date:'2026-11-10',paymentType:'incasare',method:'cash'},
+    {id:'external',payerName:'TEST Ana',amount:90,date:'2026-11-10',paymentType:'incasare',method:'cash'});
+  const before=JSON.stringify(data),all=api.buildRows(data,'taxe');
+  const selected=api.filterRows(all,{...range,athleteId:'a'}).rows;
+  assert.equal(selected.length,4); assert.equal(api.totals(selected)[0].cents,48000);
+  assert.equal(api.filterRows(all,{...range,athleteId:'a',source:'alte'}).rows.length,1);
+  assert.equal(api.filterRows(all,{...range,athleteId:'a',method:'cash',operator:'tatucualina@yahoo.com'}).rows.length,2);
+  assert.equal(api.filterRows(all,{...range,athleteId:'missing'}).rows.length,0);
+  assert.equal(JSON.stringify(data),before);
+});
+
+test('athlete control feeds preview and reset, including inactive athletes',()=>{
+  const state=[];let cursor=0,tree;
+  context.React={createElement:(type,props,...children)=>({type,props:props||{},children:children.flat(Infinity).filter(x=>x!==false&&x!=null)}),useState:initial=>{const i=cursor++;if(!(i in state))state[i]=initial;return[state[i],v=>state[i]=typeof v==='function'?v(state[i]):v];}};
+  const render=()=>{cursor=0;tree=api.Report({...props,kind:'taxe'});};
+  const nodes=(n=tree)=>typeof n==='object'?[n,...n.children.flatMap(nodes)]:[];
+  render();
+  const field=nodes().find(n=>n.props['aria-label']==='Sportiv');
+  assert.ok(field);assert.ok(field.children.some(n=>n.props.value==='a'&&n.children.join('').includes('(inactiv)')));
+  field.props.onChange({target:{value:'a'}});render();
+  nodes().find(n=>n.type==='button'&&n.children.includes('Tipărește / PDF')).props.onClick();render();
+  const html=nodes().find(n=>n.type==='iframe').props.srcDoc;
+  assert.match(html,/Sportiv: TEST Ana — ALINA \(inactiv\)/);
+  assert.doesNotMatch(html,/999,00/);
+  nodes().find(n=>n.type==='button'&&n.children.includes('Închide previzualizarea')).props.onClick();render();
+  nodes().find(n=>n.type==='button'&&n.children.includes('Tot istoricul / șterge filtrele')).props.onClick();render();
+  assert.equal(nodes().find(n=>n.props['aria-label']==='Sportiv').props.value,'');
+});
 test('receipts use actual payment dates, include inactive athletes, avoid aggregate duplication and retain unknown author',()=>{
   const before=JSON.stringify(props), all=api.buildRows(props,'taxe');
   const rows=api.filterRows(all,{...range,source:'taxe'}).rows;

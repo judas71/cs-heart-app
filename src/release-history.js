@@ -1,7 +1,12 @@
 (function () {
   const releases = [
     {
-      version: "15-11-26", date: "15 noiembrie 2026", current: true,
+      version: "19-11-26", date: "19 noiembrie 2026", current: true,
+      changes: [{title: "Filtru Sportiv în registrul încasărilor", description: "În Rapoarte → Încasări poți selecta un sportiv, inclusiv inactiv. Filtrul se combină cu intervalul, sursa, operatorul și modalitatea de plată. Tabelul, totalurile și documentul tipărit arată aceeași selecție. Încasările sunt identificate după sportiv, nu doar după nume; datele existente rămân neschimbate."}],
+      bestArad: "De preluat: filtrul Sportiv și identificatorul sportivului în rândurile raportului."
+    },
+    {
+      version: "15-11-26", date: "15 noiembrie 2026", current: false,
       changes: [{ title: "Registre filtrabile pentru încasări și plăți", description: "În Rapoarte există un singur registru Încasări, cu filtru Taxe / Alte încasări / Toate, interval, operator și numerar/transfer. Înlocuiește rapoartele separate Încasări taxe și Încasări pe operator; fiecare operațiune este inclusă o singură dată. Plăți oferă interval, categorie și beneficiar, inclusiv salariile. Tipărire / PDF pentru selecția afișată, cu monede separate. Operatorii necunoscuți nu sunt deduși din ultimul editor. Datele existente nu sunt modificate." }],
       bestArad: "De preluat: registrele financiare și tipărirea selecției; fără migrarea datelor."
     },

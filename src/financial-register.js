@@ -46,6 +46,7 @@
     return { error: "", rows: rows.filter(r => r.date && (!from || r.date >= from) && (!to || r.date <= to)
       && (!filters.method || r.method === filters.method)
       && (!filters.source || r.source === filters.source)
+      && (!filters.athleteId || r.athleteId === filters.athleteId)
       && (!filters.operator || (key(r.operator) || "neidentificat") === filters.operator)
       && (!filters.category || key(r.category) === filters.category)
       && (!filters.beneficiary || key(r.payer) === filters.beneficiary)) };
@@ -76,7 +77,7 @@
   function Report(props) {
     const h = React.createElement, kind = props.kind || "taxe";
     const now = new Date(), iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-    const [filters, setFilters] = React.useState({ from: roDate(iso.slice(0,7)+"-01"), to: roDate(iso), source: "", method: "", operator: "", category: "", beneficiary: "" });
+    const [filters, setFilters] = React.useState({ from: roDate(iso.slice(0,7)+"-01"), to: roDate(iso), source: "", athleteId: "", method: "", operator: "", category: "", beneficiary: "" });
     const [preview, setPreview] = React.useState("");
     const all = buildRows(props, kind), result = filterRows(all, filters), rows = result.rows;
     const set = (field, value) => setFilters(f => ({ ...f, [field]: value }));
@@ -84,6 +85,11 @@
     const operators = window.CSHeartOperatorReceipts.operatorOptions(all).filter(([id]) => id !== "toate");
     const fields = kind === "taxe" ? [["Încasări", "source", [["taxe", "Taxe"], ["alte", "Alte încasări"]]], ["Operator", "operator", operators]] : [["Categorie", "category", options("category")], ["Beneficiar", "beneficiary", options("payer")]];
     fields.push(["Modalitate", "method", [["cash","Numerar"],["transfer","Transfer"],["necunoscut","Metodă neprecizată"]]]);
+    if (kind === "taxe") {
+      const athletes = new Map(all.filter(r => r.athleteId).map(r => [r.athleteId, r.payer]));
+      (props.athletes || []).forEach(a => athletes.set(a.id, `${a.lastName || ""} ${a.firstName || ""}`.trim() + (a.group ? ` — ${a.group}` : "") + (a.active === false ? " (inactiv)" : "")));
+      fields.push(["Sportiv", "athleteId", [...athletes].sort((a,b) => a[1].localeCompare(b[1], "ro"))]);
+    }
     const filtersText = `Interval: ${filters.from || "început"} — ${filters.to || "prezent"}; ` + fields.map(([label, field, opts]) => `${label}: ${opts.find(([id]) => id === filters[field])?.[1] || "Toate"}`).join("; ");
     const data = tableData(rows, kind);
     function table(headers, body) {
@@ -94,7 +100,7 @@
       h("p", null, "Filtrează operațiunile și tipărește exact selecția afișată. Nu se modifică nicio înregistrare."),
       h("div", {className:"compact-grid"}, ["from","to"].map(field => h("label", {className:"field",key:field}, h("span",null,field === "from" ? "De la" : "Până la"), h("input", {"aria-label":field === "from" ? "De la" : "Până la", placeholder:"zz.ll.aaaa",value:filters[field],onChange:e=>set(field,e.target.value)}))),
         fields.map(([label,field,opts]) => h("label", {className:"field",key:field},h("span",null,label),h("select",{"aria-label":label,value:filters[field],onChange:e=>set(field,e.target.value)},h("option",{value:""},"Toate"),opts.map(([id,title])=>h("option",{key:id,value:id},title)))))),
-      h("div", {className:"form-actions"}, h("button", {type:"button",onClick:()=>setFilters({from:"",to:"",method:"",operator:"",category:"",beneficiary:""})},"Tot istoricul / șterge filtrele"),
+      h("div", {className:"form-actions"}, h("button", {type:"button",onClick:()=>setFilters({from:"",to:"",source:"",athleteId:"",method:"",operator:"",category:"",beneficiary:""})},"Tot istoricul / șterge filtrele"),
         h("button", {type:"button",disabled:!!result.error || !rows.length,onClick:()=>setPreview(printHTML(rows,kind,filtersText))},"Tipărește / PDF")),
       preview && h("div", {role:"dialog","aria-modal":true,"aria-label":"Previzualizare raport",style:{position:"fixed",inset:0,zIndex:10000,background:"#fff",padding:"16px",display:"flex",flexDirection:"column",gap:"12px"}},
         h("div",{className:"form-actions"},h("strong",null,"Previzualizare — doar selecția filtrată"),h("button",{type:"button",onClick:()=>setPreview("")},"Închide previzualizarea")),
