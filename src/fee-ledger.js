@@ -162,6 +162,27 @@
     };
   }
 
+  function relocateWaiver(fees, athlete, adjustmentId, fromMonth, toMonth, reason, email, now = new Date().toISOString()) {
+    if (!normalizeMonth(toMonth) || toMonth === fromMonth || !String(reason || "").trim()) throw new Error("Alege luna corectă și completează motivul corecției.");
+    if (toMonth < normalizeMonth(athlete.joinMonth) || toMonth > now.slice(0,7)) throw new Error("Luna trebuie să fie între înscriere și luna curentă.");
+    const source = getFeeForMonth(fees, athlete.id, fromMonth);
+    const matches = (source?.feeAdjustments || []).filter(a => a.id === adjustmentId && a.type === "anulare-taxa");
+    if (matches.length !== 1) throw new Error("Anularea s-a modificat. Reîncarcă situația.");
+    const adjustment = matches[0], target = getFeeForMonth(fees, athlete.id, toMonth);
+    const amount = Math.round(Number(adjustment.amount) * 100);
+    const due = Math.round(getAmountDue(athlete, target, toMonth) * 100);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(due) || due < amount) throw new Error("Taxa lunii alese este mai mică decât suma anulată.");
+    const correction = {fromMonth,toMonth,reason:String(reason).trim(),correctedAt:now,correctedByEmail:email,amount:amount/100,adjustmentId};
+    const revised = {...adjustment,month:toMonth,previousAmountDue:due/100,amountDue:(due-amount)/100,
+      corrections:[...(adjustment.corrections || []),correction]};
+    const restored = {...source,amountDue:(Math.round(getAmountDue(athlete,source,fromMonth)*100)+amount)/100,
+      feeAdjustments:source.feeAdjustments.filter(a=>a.id!==adjustmentId),
+      waiverCorrections:[...(source.waiverCorrections || []),correction],updatedAt:now,updatedByEmail:email};
+    const reduced = {...(target || {id:`fee-${athlete.id}-${toMonth}`,athleteId:athlete.id,month:toMonth,amountPaid:0,payments:[]}),
+      amountDue:(due-amount)/100,feeAdjustments:[...(target?.feeAdjustments || []),revised],updatedAt:now,updatedByEmail:email};
+    return [...fees.filter(f=>f!==source && f!==target),restored,reduced];
+  }
+
   function allocationLabel(settlement, sourceMonth, paymentId) {
     const payment = settlement.payments.find((item) => item.sourceMonth === sourceMonth && item.id === paymentId);
     if (!payment) return "";
@@ -188,6 +209,7 @@
 
   window.CSHeartFeeLedger = {
     getSettlement,
+    relocateWaiver,
     allocationLabel,
     SettlementHistory,
     getPreviousBalanceBreakdown,

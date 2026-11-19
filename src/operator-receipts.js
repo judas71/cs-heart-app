@@ -105,6 +105,8 @@
       }] : [];
       payments.forEach(payment => add(payment, {
         source: "taxe", parentId: fee.id || `${fee.athleteId}-${fee.month}`,
+        sourceMonth: fee.month,
+        paymentId: Array.isArray(fee.payments) ? payment.id : `legacy-${fee.id || fee.athleteId + "-" + fee.month}`,
         athleteId: fee.athleteId || "",
         payer: names.get(fee.athleteId) || "Sportiv necunoscut",
         description: `Taxă — înregistrată în ${fee.month || "lună nespecificată"}`,

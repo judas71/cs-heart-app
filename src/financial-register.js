@@ -17,6 +17,14 @@
       const groups = new Map((props.fees || []).map(f => [f.id || `${f.athleteId}-${f.month}`, athletes.get(f.athleteId)?.group || "—"]));
       const otherGroups = new Map((props.otherPayments || []).map(p => [p.id || "other", athletes.get(p.athleteId)?.group || "—"]));
       const rows = window.CSHeartOperatorReceipts.buildRows({ athletes: props.athletes, fees: props.fees, otherPayments: props.otherPayments }).map(r => ({ ...r, date: parseDate(r.date), group: (r.source === "taxe" ? groups : otherGroups).get(r.parentId) || "—", category: r.source === "taxe" ? "Taxe" : "Alte încasări", estimated: false }));
+      const settlements = new Map();
+      if (window.CSHeartFeeLedger) rows.filter(r=>r.source==="taxe").forEach(row=>{
+        const athlete=athletes.get(row.athleteId);
+        if (!athlete) return;
+        if (!settlements.has(athlete.id)) settlements.set(athlete.id,window.CSHeartFeeLedger.getSettlement(props.fees,athlete,new Date().toISOString().slice(0,7)));
+        const label=window.CSHeartFeeLedger.allocationLabel(settlements.get(athlete.id),row.sourceMonth,row.paymentId);
+        if(label) row.description += " · Acoperă: " + label;
+      });
       (props.fees || []).forEach(fee => {
         const athlete = athletes.get(fee.athleteId);
         (Array.isArray(fee.feeAdjustments) ? fee.feeAdjustments : []).forEach((adjustment, index) => {
@@ -28,7 +36,7 @@
           rows.push({id:`renuntare-${fee.id || fee.athleteId + '-' + fee.month}-${adjustment.id || index}`, athleteId:fee.athleteId,
             date, source:"taxe", category:"Renunțare la încasare", waiver:true,
             payer:athlete ? `${athlete.lastName || ""} ${athlete.firstName || ""}`.trim() : "Sportiv neidentificat",
-            group:athlete?.group || "—", description:`Taxa lunii ${month} · Motiv: ${adjustment.reason || "nepăstrat"}`,
+            group:athlete?.group || "—", description:`Taxa lunii ${month} · Motiv: ${adjustment.reason || "nepăstrat"}` + (adjustment.corrections || []).map(c=>` · Lună corectată: ${c.fromMonth} → ${c.toMonth}; ${c.reason}`).join(""),
             method:"renuntare", operator:adjustment.canceledByEmail || "", cents, currency:"lei", estimated:false});
         });
       });

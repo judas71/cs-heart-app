@@ -409,6 +409,13 @@ React.useEffect(() => {
       });
     }
 
+    async function correctFeeWaiver(athleteId, adjustmentId, fromMonth, toMonth, reason) {
+      const athlete = state.athletes.find(a=>a.id===athleteId);
+      if (!athlete) throw new Error("Sportivul nu mai există.");
+      const fees = window.CSHeartFeeLedger.relocateWaiver(state.fees,athlete,adjustmentId,fromMonth,toMonth,reason,user?.email || "");
+      await persistStateImmediately({...state,fees});
+    }
+
     function saveFee(fee) {
       setState((current) => {
         const existing = current.fees.find((item) => item.athleteId === fee.athleteId && item.month === fee.month);
@@ -623,7 +630,7 @@ React.useEffect(() => {
       activeView === "sportivi" && h(AthletesView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], taxPayments: state.taxPayments || [], registrationRequests, onAdd: addAthlete, onUpdate: updateAthlete, onDelete: deleteAthlete, onNavigate: changeView }),
       activeView === "inscrieri" && h(window.RegistrationsAdminView, { requests: registrationRequests, athletes: state.athletes, loading: registrationsLoading, error: registrationsError, onCreate: createAthleteFromRegistration, onLink: linkRegistrationToAthlete, onReject: rejectRegistration, onDelete: deleteRegistrationRequest }),
       activeView === "prezenta" && h(AttendanceView, { athletes: state.athletes, trainings: state.trainings, onSaveTraining: saveTraining, onDeleteTraining: deleteTraining, onDirtyChange: setAttendanceDirty }),
-      activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], operatorEmail: user?.email || "", onSaveFee: saveFee, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
+      activeView === "taxe" && h(FeesView, { athletes: state.athletes, fees: state.fees, taxPayments: state.taxPayments || [], operatorEmail: user?.email || "", onSaveFee: saveFee, onCorrectFeeWaiver: correctFeeWaiver, onSaveTaxPayment: saveTaxPayment, onDeleteTaxPayment: deleteTaxPayment }),
       activeView === "alteIncasari" && h(OtherPaymentsView, { athletes: state.athletes, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], onSavePayment: saveOtherPayment, onDeletePayment: deleteOtherPayment, onSaveAction: saveOtherAction, onDeleteAction: deleteOtherAction }),
       activeView === "rapoarte" && h(ReportsView, { athletes: state.athletes, trainings: state.trainings, fees: state.fees, otherPayments: state.otherPayments || [], otherActions: state.otherActions || [], taxPayments: state.taxPayments || [] }),
       activeView === "echipamente" && h(EquipmentApp, { athletes:state.athletes, user, onDirtyChange:setEquipmentDirty })

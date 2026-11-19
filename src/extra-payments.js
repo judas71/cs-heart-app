@@ -2189,7 +2189,7 @@
     return String(payment?.recipient || "").trim();
   }
 
-  function FeesView({ athletes, fees, taxPayments = [], operatorEmail = "", onSaveFee, onSaveTaxPayment, onDeleteTaxPayment }) {
+  function FeesView({ athletes, fees, taxPayments = [], operatorEmail = "", onSaveFee, onSaveTaxPayment, onDeleteTaxPayment, onCorrectFeeWaiver }) {
     const monthNow = currentMonth();
     const [month, setMonth] = React.useState(monthNow);
     const [group, setGroup] = React.useState("toate");
@@ -2204,6 +2204,7 @@
     const [feeDueEditorAthleteId, setFeeDueEditorAthleteId] = React.useState("");
     const [balanceDetailsAthleteId, setBalanceDetailsAthleteId] = React.useState("");
     const [feeCancellationForm, setFeeCancellationForm] = React.useState(null);
+    const [waiverCorrection, setWaiverCorrection] = React.useState(null);
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!isFeeDueForMonth(athlete, month) && !fees.some((fee) => fee.athleteId === athlete.id && fee.month === month)) return false;
@@ -2774,7 +2775,22 @@
                     h("span", null, formatMonthLabel(adjustment.month) + " / " + formatDateTime(adjustment.canceledAt)),
                     h("small", null, "Motiv: " + (adjustment.reason || "necompletat"))
                   ),
-                  h("span", { className: "pill muted" }, operatorLabel(adjustment.canceledByEmail))
+                  h("span", { className: "pill muted" }, operatorLabel(adjustment.canceledByEmail)),
+                  (adjustment.corrections || []).map((c,i)=>h("small",{key:i},`Lună corectată: ${c.fromMonth} → ${c.toMonth}. ${c.reason}`)),
+                  onCorrectFeeWaiver && h("button",{type:"button",onClick:()=>setWaiverCorrection({id:adjustment.id,athleteId:feePanelAthlete.id,fromMonth:adjustment.month,toMonth:"",reason:"",busy:false,error:""})},"Corectează luna anulării"),
+                  waiverCorrection?.id === adjustment.id && h("form",{onSubmit:async e=>{
+                    e.preventDefault();
+                    if(waiverCorrection.busy) return;
+                    setWaiverCorrection(c=>({...c,busy:true,error:""}));
+                    try { await onCorrectFeeWaiver(waiverCorrection.athleteId,waiverCorrection.id,waiverCorrection.fromMonth,waiverCorrection.toMonth,waiverCorrection.reason); setWaiverCorrection(null); }
+                    catch(error) {setWaiverCorrection(c=>({...c,busy:false,error:error.message}));}
+                  }},
+                    h("p",null,`Restabilește ${formatMoney(adjustment.amount)} în ${formatMonthLabel(adjustment.month)} și mută renunțarea în luna aleasă. Plățile și datele lor se păstrează; repartizarea se recalculează. Corecția rămâne în istoric.`),
+                    h("label",null,"Luna corectă",h("input",{type:"month","aria-label":"Luna corectă a anulării",required:true,value:waiverCorrection.toMonth,disabled:waiverCorrection.busy,onChange:e=>setWaiverCorrection(c=>({...c,toMonth:e.target.value}))})),
+                    h("input",{"aria-label":"Motiv corecție anulare",placeholder:"Motivul corecției",required:true,value:waiverCorrection.reason,disabled:waiverCorrection.busy,onChange:e=>setWaiverCorrection(c=>({...c,reason:e.target.value}))}),
+                    waiverCorrection.error && h("p",{role:"alert"},waiverCorrection.error),
+                    h("button",{type:"submit",disabled:waiverCorrection.busy},"Salvează corecția"),
+                    h("button",{type:"button",disabled:waiverCorrection.busy,onClick:()=>setWaiverCorrection(null)},"Renunță"))
                 )
               )
             ),

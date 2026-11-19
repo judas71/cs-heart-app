@@ -9,6 +9,26 @@ const context = vm.createContext({ window: {}, Date, Math });
 vm.runInContext(fs.readFileSync(path.join(root, "src/membership-fees.js"), "utf8"), context);
 vm.runInContext(fs.readFileSync(path.join(root, "src/fee-ledger.js"), "utf8"), context);
 const ledger = context.window.CSHeartFeeLedger;
+test("waiver month correction preserves all receipts and audit, and reallocates without changing total debt",()=>{
+  const athlete={id:"fix",active:true,joinMonth:"2026-06",feeDue:200};
+  let fees=["06","07","08","09","10","11"].map(m=>({id:m,athleteId:"fix",month:"2026-"+m,amountDue:["10","11"].includes(m)?0:200,
+    payments:m==="06"?[]:[{id:"p"+m,date:"2026-"+m+"-13",amount:m==="08"?0:200,method:"cash",confirmationCount:2}],
+    feeAdjustments:["10","11"].includes(m)?[{id:"w"+m,type:"anulare-taxa",month:"2026-"+m,amount:200,reason:"Lipsă",canceledAt:"2026-11-19T12:00:00Z",canceledByEmail:"owner"}]:[]}));
+  const before=JSON.stringify(fees),originalPayments=fees.flatMap(f=>f.payments);
+  let result=ledger.relocateWaiver(fees,athlete,"w10","2026-10","2026-07","Corecție luni de absență","owner","2026-11-19T14:00:00Z");
+  result=ledger.relocateWaiver(result,athlete,"w11","2026-11","2026-08","Corecție luni de absență","owner","2026-11-19T14:00:00Z");
+  assert.equal(JSON.stringify(fees),before);
+  assert.equal(JSON.stringify(result.flatMap(f=>f.payments).sort((a,b)=>a.id.localeCompare(b.id))),JSON.stringify(originalPayments.sort((a,b)=>a.id.localeCompare(b.id))));
+  const settlement=ledger.getSettlement(result,athlete,"2026-11","2026-11");
+  assert.equal(settlement.outstanding,0);
+  assert.equal(settlement.months.find(m=>m.month==="2026-07").amountDue,0);
+  assert.equal(settlement.months.find(m=>m.month==="2026-10").amountPaid,200);
+  assert.equal(settlement.months.find(m=>m.month==="2026-11").amountPaid,200);
+  assert.equal(ledger.getFeeAdjustments(result,"fix").length,2);
+  assert.equal(ledger.getFeeAdjustments(result,"fix")[0].corrections[0].fromMonth,"2026-10");
+  assert.throws(()=>ledger.relocateWaiver(result,athlete,"w10","2026-10","2026-07","Repeat","owner"));
+  assert.throws(()=>ledger.relocateWaiver(fees,athlete,"w10","2026-10","2026-11","Already waived","owner"));
+});
 
 const fifoAthlete = { id: "fifo", active: true, feeDue: 200, joinMonth: "2026-06" };
 function fifoFee(month, amount, date, extra = {}) {
