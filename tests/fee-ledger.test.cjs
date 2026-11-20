@@ -9,6 +9,18 @@ const context = vm.createContext({ window: {}, Date, Math });
 vm.runInContext(fs.readFileSync(path.join(root, "src/membership-fees.js"), "utf8"), context);
 vm.runInContext(fs.readFileSync(path.join(root, "src/fee-ledger.js"), "utf8"), context);
 const ledger = context.window.CSHeartFeeLedger;
+test("recording an already applied waiver never reduces the balance or changes receipts",()=>{
+  const fee={id:"f",athleteId:"a",month:"2026-10",amountDue:0,amountPaid:200,payments:[{id:"p",amount:200,date:"2026-10-07",confirmationCount:1}]};
+  const original=JSON.stringify(fee);
+  const result=ledger.recordZeroWaiver(fee,200,"Consemnat după confirmare","owner","2026-11-20T10:00:00Z");
+  assert.equal(JSON.stringify(fee),original);
+  assert.equal(result.amountDue,0); assert.equal(result.amountPaid,200);
+  assert.equal(JSON.stringify(result.payments),JSON.stringify(fee.payments));
+  assert.equal(result.feeAdjustments[0].amount,200);
+  assert.equal(result.feeAdjustments[0].balanceAlreadyAdjusted,true);
+  assert.throws(()=>ledger.recordZeroWaiver(result,200,"Duplicate","owner"));
+  assert.throws(()=>ledger.recordZeroWaiver({...fee,amountDue:200},200,"Not already zero","owner"));
+});
 test("waiver month correction preserves all receipts and audit, and reallocates without changing total debt",()=>{
   const athlete={id:"fix",active:true,joinMonth:"2026-06",feeDue:200};
   let fees=["06","07","08","09","10","11"].map(m=>({id:m,athleteId:"fix",month:"2026-"+m,amountDue:["10","11"].includes(m)?0:200,

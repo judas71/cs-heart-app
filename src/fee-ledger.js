@@ -162,6 +162,18 @@
     };
   }
 
+  function recordZeroWaiver(fee, amount, reason, email, now = new Date().toISOString()) {
+    const cents = Math.round(Number(amount)*100);
+    if (!fee || Number(fee.amountDue)!==0 || !normalizeMonth(fee.month)) throw new Error("Consemnarea este permisă doar pentru o taxă deja zero.");
+    if (!Number.isFinite(cents) || cents<=0 || !String(reason || "").trim()) throw new Error("Completează suma și motivul.");
+    if ((fee.feeAdjustments || []).some(a=>a.type==="anulare-taxa")) throw new Error("Există deja o renunțare pentru această lună.");
+    return {...fee,feeAdjustments:[...(fee.feeAdjustments || []),{
+      id:`reconstituita-${fee.athleteId}-${fee.month}`,type:"anulare-taxa",month:fee.month,amount:cents/100,amountDue:0,
+      reason:String(reason).trim(),canceledAt:now,canceledByEmail:email,reconstructed:true,
+      originalCancellationDateUnknown:true,balanceAlreadyAdjusted:true
+    }]};
+  }
+
   function relocateWaiver(fees, athlete, adjustmentId, fromMonth, toMonth, reason, email, now = new Date().toISOString()) {
     if (!normalizeMonth(toMonth) || toMonth === fromMonth || !String(reason || "").trim()) throw new Error("Alege luna corectă și completează motivul corecției.");
     if (toMonth < normalizeMonth(athlete.joinMonth) || toMonth > now.slice(0,7)) throw new Error("Luna trebuie să fie între înscriere și luna curentă.");
@@ -210,6 +222,7 @@
   window.CSHeartFeeLedger = {
     getSettlement,
     relocateWaiver,
+    recordZeroWaiver,
     allocationLabel,
     SettlementHistory,
     getPreviousBalanceBreakdown,

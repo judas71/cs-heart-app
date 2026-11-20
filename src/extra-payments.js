@@ -2205,6 +2205,7 @@
     const [balanceDetailsAthleteId, setBalanceDetailsAthleteId] = React.useState("");
     const [feeCancellationForm, setFeeCancellationForm] = React.useState(null);
     const [waiverCorrection, setWaiverCorrection] = React.useState(null);
+    const [zeroWaiver, setZeroWaiver] = React.useState({amount:"",reason:"",error:""});
     const groups = getGroups(athletes);
     const listedAthletes = athletes.filter((athlete) => {
       if (!isFeeDueForMonth(athlete, month) && !fees.some((fee) => fee.athleteId === athlete.id && fee.month === month)) return false;
@@ -2759,6 +2760,14 @@
                 )
               )
             : h("p", { className: "cs-fee-payment-empty" }, "Nu exista inca nicio incasare in aceasta luna."),
+          Number(feePanelFee?.amountDue)===0 && !(feePanelFee?.feeAdjustments || []).some(a=>a.type==="anulare-taxa") && h("details",null,
+            h("summary",null,"Consemnează o renunțare deja aplicată"),
+            h("p",null,"Doar dacă taxa a fost pusă deja la zero: consemnează suma și motivul pentru luna afișată. Nu se mai scade nimic din sold. Data inițială a anulării rămâne necunoscută; se păstrează data consemnării."),
+            h("form",{onSubmit:e=>{e.preventDefault();try{onSaveFee(window.CSHeartFeeLedger.recordZeroWaiver(feePanelFee,zeroWaiver.amount,zeroWaiver.reason,operatorEmail));setZeroWaiver({amount:"",reason:"",error:""});}catch(error){setZeroWaiver(c=>({...c,error:error.message}));}}},
+              h("input",{type:"number",min:"0.01",step:"0.01",required:true,"aria-label":"Suma renunțării deja aplicate",value:zeroWaiver.amount,onChange:e=>setZeroWaiver(c=>({...c,amount:e.target.value}))}),
+              h("input",{required:true,"aria-label":"Motivul renunțării deja aplicate",value:zeroWaiver.reason,onChange:e=>setZeroWaiver(c=>({...c,reason:e.target.value}))}),
+              zeroWaiver.error && h("p",{role:"alert"},zeroWaiver.error),
+              h("button",{type:"submit"},"Consemnează fără schimbarea soldului"))),
           feePanelAdjustments.length > 0 && h("h4", null, "Istoric taxe anulate (" + feePanelAdjustments.length + ")"),
           feePanelAdjustments.length > 0 &&
             h(

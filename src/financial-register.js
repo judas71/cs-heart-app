@@ -11,6 +11,8 @@
   }
   const methodLabel = method => ({ cash: "Numerar", transfer: "Transfer bancar", renuntare: "Fără mișcare de bani" }[method] || "Metodă neprecizată");
   const money = cents => (cents / 100).toLocaleString("ro-RO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const monthLabel = month => /^\d{4}-(0[1-9]|1[0-2])$/.test(month || "") ? new Intl.DateTimeFormat("ro-RO",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(month+"-01T12:00:00Z")).replace(/^./,c=>c.toUpperCase()) : "Lună neconfirmată";
+  const waiverTitle = row => monthLabel(row.month) + " — Renunțare la taxă";
   function buildRows(props, kind) {
     const athletes = new Map((props.athletes || []).map(a => [a.id, a]));
     if (kind === "taxe") {
@@ -34,9 +36,9 @@
           const date = Number.isFinite(when.getTime()) ? new Intl.DateTimeFormat("sv-SE", {timeZone:"Europe/Bucharest",year:"numeric",month:"2-digit",day:"2-digit"}).format(when) : "";
           const month = adjustment.month || fee.month || "nepăstrată";
           rows.push({id:`renuntare-${fee.id || fee.athleteId + '-' + fee.month}-${adjustment.id || index}`, athleteId:fee.athleteId,
-            date, source:"taxe", category:"Renunțare la încasare", waiver:true,
+            date, month, source:"taxe", category:"Renunțare la taxă", waiver:true,
             payer:athlete ? `${athlete.lastName || ""} ${athlete.firstName || ""}`.trim() : "Sportiv neidentificat",
-            group:athlete?.group || "—", description:`Taxa lunii ${month} · Motiv: ${adjustment.reason || "nepăstrat"}` + (adjustment.corrections || []).map(c=>` · Lună corectată: ${c.fromMonth} → ${c.toMonth}; ${c.reason}`).join(""),
+            group:athlete?.group || "—", description:`Taxa lunii ${month} · Motiv: ${adjustment.reason || "nepăstrat"}` + (adjustment.reconstructed ? " · Consemnare ulterioară: data operațiunii este data consemnării; data inițială a anulării nu este cunoscută. Sold deja ajustat, neschimbat." : "") + (adjustment.corrections || []).map(c=>` · Lună corectată: ${c.fromMonth} → ${c.toMonth}; ${c.reason}`).join(""),
             method:"renuntare", operator:adjustment.canceledByEmail || "", cents, currency:"lei", estimated:false});
         });
       });
@@ -119,8 +121,8 @@
     }
     const filtersText = `Interval: ${filters.from || "început"} — ${filters.to || "prezent"}; ` + fields.map(([label, field, opts]) => `${label}: ${opts.find(([id]) => id === filters[field])?.[1] || "Toate"}`).join("; ");
     const data = tableData(rows, kind);
-    function table(headers, body) {
-      return h("div", { style: { overflowX: "auto" } }, h("table", { style: { minWidth: "760px", width: "100%" } }, h("thead", null, h("tr", null, headers.map(t => h("th", {key:t}, t)))), h("tbody", null, body.map((r,i) => h("tr", {key:i}, r.map((v,j) => h("td", {key:j, "data-label":headers[j]}, v)))))));
+    function table(headers, body, records = []) {
+      return h("div", { style: { overflowX: "auto" } }, h("table", { style: { minWidth: "760px", width: "100%" } }, h("thead", null, h("tr", null, headers.map(t => h("th", {key:t}, t)))), h("tbody", null, body.map((r,i) => h("tr", {key:i}, r.map((v,j) => h("td", {key:j, "data-label":headers[j]}, j===3 && records[i]?.waiver ? h("div",null,h("strong",null,waiverTitle(records[i])),h("details",null,h("summary",{style:{cursor:"pointer"}},"Vezi motivul"),h("p",null,records[i].description))) : v)))))));
     }
     return h("section", {className:"panel stack"},
       h("h2", null, kind === "taxe" ? "Registru încasări" : "Registru plăți"),
@@ -136,7 +138,7 @@
       result.error && h("p", {role:"alert"}, result.error),
       h("p", null, filtersText), h("strong", null, totalsLabel(rows,kind)),
       table(summaryHeaders,summaryRows(rows,kind)),
-      !rows.length ? h("p",null,"Nu există operațiuni în selecția aleasă.") : table(data.headers,data.body),
+      !rows.length ? h("p",null,"Nu există operațiuni în selecția aleasă.") : table(data.headers,data.body,rows),
       all.some(r=>!r.date) && h("p", {role:"status"}, `${all.filter(r=>!r.date).length} operațiuni fără dată validă nu sunt incluse în tabel și totaluri.`),
       h("small",null,note));
   }
